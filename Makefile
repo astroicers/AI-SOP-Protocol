@@ -174,34 +174,13 @@ agent-reset:
 agent-unlock:
 	@if [ -z "$(FILE)" ]; then echo "使用方式：make agent-unlock FILE=src/store/user.go"; exit 1; fi
 	@if [ -f .agent-lock.yaml ]; then \
-		python3 -c "
-import yaml, sys
-with open('.agent-lock.yaml','r') as f: data = yaml.safe_load(f) or {}
-data.get('locked_files', {}).pop('$(FILE)', None)
-with open('.agent-lock.yaml','w') as f: yaml.dump(data, f)
-print('🔓 已解鎖: $(FILE)')
-" 2>/dev/null || echo "⚠️  需要 pip install pyyaml"; \
+		python3 -c "import yaml; data = yaml.safe_load(open('.agent-lock.yaml')) or {}; data.get('locked_files', {}).pop('$(FILE)', None); yaml.dump(data, open('.agent-lock.yaml','w')); print('🔓 已解鎖: $(FILE)')" 2>/dev/null || echo "⚠️  需要 pip install pyyaml"; \
 	else echo "  (無鎖定記錄)"; fi
 
 agent-lock-gc:
 	@echo "🧹 清理逾時鎖定（> 2 小時）..."
 	@if [ -f .agent-lock.yaml ]; then \
-		python3 -c "
-import yaml, datetime, sys
-with open('.agent-lock.yaml','r') as f: data = yaml.safe_load(f) or {}
-locks = data.get('locked_files', {})
-now = datetime.datetime.utcnow()
-removed = []
-for file, info in list(locks.items()):
-    try:
-        expires = datetime.datetime.fromisoformat(info.get('expires','').replace('Z',''))
-        if now > expires:
-            removed.append(file)
-            del locks[file]
-    except: pass
-with open('.agent-lock.yaml','w') as f: yaml.dump(data, f)
-print(f'已清理 {len(removed)} 個逾時鎖定：{removed}' if removed else '無逾時鎖定')
-" 2>/dev/null || echo "⚠️  需要 pip install pyyaml"; \
+		python3 -c "import yaml,datetime; f=open('.agent-lock.yaml'); data=yaml.safe_load(f) or {}; f.close(); locks=data.get('locked_files',{}); now=datetime.datetime.utcnow(); removed=[k for k,v in list(locks.items()) if now>datetime.datetime.fromisoformat(v.get('expires','2000-01-01').replace('Z',''))]; [locks.pop(k) for k in removed]; yaml.dump(data,open('.agent-lock.yaml','w')); print(f'已清理 {len(removed)} 個逾時鎖定：{removed}' if removed else '無逾時鎖定')" 2>/dev/null || echo "⚠️  需要 pip install pyyaml"; \
 	else echo "  (無鎖定記錄)"; fi
 
 agent-locks:
