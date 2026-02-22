@@ -89,7 +89,18 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
     else
         cp "$PROTOCOL_DIR/CLAUDE.md" ./CLAUDE.md
     fi
+    # 清理舊版 ASP（根目錄散落的檔案）
+    for OLD_DIR in profiles templates scripts/rag advanced; do
+        if [ -d "$OLD_DIR" ] && [ ! -d ".asp" ]; then
+            echo "🔄 偵測到舊版 ASP，清理根目錄 $OLD_DIR/"
+            rm -rf "$OLD_DIR"
+        fi
+    done
+
+    # 清理舊的 .asp/ 避免 cp -r 嵌套
+    rm -rf .asp/profiles .asp/templates .asp/scripts .asp/advanced
     mkdir -p .asp
+
     # 支援新結構（.asp/）和舊結構（根目錄）
     if [ -d "$PROTOCOL_DIR/.asp/profiles" ]; then
         SRC="$PROTOCOL_DIR/.asp"
@@ -100,7 +111,14 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
     cp -r "$SRC/templates" ./.asp/templates
     cp -r "$SRC/scripts" ./.asp/scripts
     cp -r "$SRC/advanced" ./.asp/advanced
-    [ ! -f "Makefile" ] && cp "$PROTOCOL_DIR/Makefile" ./Makefile
+
+    # Makefile: 新安裝時複製，升級時更新
+    if [ ! -f "Makefile" ]; then
+        cp "$PROTOCOL_DIR/Makefile" ./Makefile
+    elif grep -q "cp templates/ADR_Template" Makefile 2>/dev/null; then
+        echo "🔄 偵測到舊版 Makefile，更新為新版"
+        cp "$PROTOCOL_DIR/Makefile" ./Makefile
+    fi
     [ ! -f ".gitignore" ] && cp "$PROTOCOL_DIR/.gitignore" ./.gitignore
     rm -rf "$PROTOCOL_DIR"
     echo "✅ 從 GitHub 安裝完成"
