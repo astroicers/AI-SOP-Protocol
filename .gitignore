@@ -1,0 +1,25 @@
+# RAG 向量索引（本地生成，不追蹤）
+.rag/index/
+
+# 護欄紀錄
+.guardrail/
+
+# Agent 狀態（本地）
+.agent-events/
+.agent-lock.yaml
+
+# Session 紀錄（本地）
+docs/session-log.md
+
+# 暫存
+tmp/
+*.out
+
+# 環境變數
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
