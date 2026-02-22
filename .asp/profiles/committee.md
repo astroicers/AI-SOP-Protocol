@@ -56,7 +56,7 @@ committee:
   Architect 角色負責整合各方觀點，提出最終建議
   若有根本分歧：明確標記 Trade-off，由人類決策者裁定
 
-輸出：ADR 草稿（自動填入 templates/ADR_Template.md）
+輸出：ADR 草稿（自動填入 .asp/templates/ADR_Template.md）
 ```
 
 ### 防止回音室效應

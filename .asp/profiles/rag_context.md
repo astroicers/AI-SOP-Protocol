@@ -61,7 +61,7 @@
 |----------|------|-----------|
 | 規格書 | `docs/specs/SPEC-*.md` | `make spec-new` 後 |
 | ADR | `docs/adr/ADR-*.md` | `make adr-new` 後 |
-| Profiles | `profiles/*.md` | `make rag-rebuild` |
+| Profiles | `.asp/profiles/*.md` | `make rag-rebuild` |
 | 架構文件 | `docs/architecture.md` | git commit 後（hook）|
 | Changelog | `CHANGELOG.md` | git commit 後（hook）|
 

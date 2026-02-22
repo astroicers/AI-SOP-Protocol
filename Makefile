@@ -110,7 +110,7 @@ adr-new:
 	NUM=$$(printf "%03d" $$((COUNT + 1))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
 	FILE="docs/adr/ADR-$$NUM-$$SLUG.md"; \
-	cp templates/ADR_Template.md $$FILE; \
+	cp .asp/templates/ADR_Template.md $$FILE; \
 	SED_I=$$([ "$$(uname)" = "Darwin" ] && echo "sed -i ''" || echo "sed -i"); \
 	$$SED_I "s/ADR-000/ADR-$$NUM/g" $$FILE; \
 	$$SED_I "s/決策標題/$(TITLE)/g" $$FILE; \
@@ -136,7 +136,7 @@ spec-new:
 	NUM=$$(printf "%03d" $$((COUNT + 1))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
 	FILE="docs/specs/SPEC-$$NUM-$$SLUG.md"; \
-	cp templates/SPEC_Template.md $$FILE; \
+	cp .asp/templates/SPEC_Template.md $$FILE; \
 	SED_I=$$([ "$$(uname)" = "Darwin" ] && echo "sed -i ''" || echo "sed -i"); \
 	$$SED_I "s/SPEC-000/SPEC-$$NUM/g" $$FILE; \
 	$$SED_I "s/功能名稱/$(TITLE)/g" $$FILE; \
@@ -207,20 +207,20 @@ session-log:
 
 rag-index:
 	@echo "🔍 Building RAG index..."
-	@python3 scripts/rag/build_index.py \
+	@python3 .asp/scripts/rag/build_index.py \
 		--source docs/ \
-		--source profiles/ \
+		--source .asp/profiles/ \
 		--output .rag/index \
 		--model all-MiniLM-L6-v2 2>/dev/null || \
 	echo "⚠️  請先執行: pip install chromadb sentence-transformers"
 
 rag-search:
 	@if [ -z "$(Q)" ]; then echo "使用方式：make rag-search Q=\"你的問題\""; exit 1; fi
-	@python3 scripts/rag/search.py --query "$(Q)" --top-k 3 2>/dev/null || \
+	@python3 .asp/scripts/rag/search.py --query "$(Q)" --top-k 3 2>/dev/null || \
 	echo "⚠️  RAG 尚未初始化，請先執行 make rag-index"
 
 rag-stats:
-	@python3 scripts/rag/stats.py 2>/dev/null || \
+	@python3 .asp/scripts/rag/stats.py 2>/dev/null || \
 	echo "⚠️  RAG 尚未初始化，請先執行 make rag-index"
 
 rag-rebuild:

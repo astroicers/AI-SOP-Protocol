@@ -41,14 +41,14 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 ## 快速安裝
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh | bash
 ```
 
 或手動複製：
 
 ```bash
 cp CLAUDE.md /your-project/
-cp -r profiles/ templates/ scripts/ /your-project/
+cp -r .asp/ /your-project/.asp/
 cp Makefile /your-project/   # 若無衝突
 cp .gitignore /your-project/ # 若無衝突
 ```
@@ -112,41 +112,38 @@ make session-checkpoint NEXT="下一步"
 ## 專案結構
 
 ```
-ai-sop-protocol/
+your-project/
 ├── CLAUDE.md                    # Claude Code 主入口（壓縮版，~500 tokens）
 ├── Makefile                     # 指令封裝
+├── .ai_profile                  # 專案設定（type/mode/workflow）
 ├── .gitignore
 │
-├── profiles/
-│   ├── global_core.md           # 全域準則（所有專案必載）
-│   ├── system_dev.md            # 系統開發（ADR/TDD/Docker）
-│   ├── content_creative.md      # 文字專案（排版/Markdown）
-│   ├── multi_agent.md           # 任務分治（實作期並行）
-│   ├── committee.md             # 角色委員會（決策期辯論）
-│   ├── vibe_coding.md           # 規格驅動工作流
-│   ├── rag_context.md           # Local RAG 整合
-│   └── guardrail.md             # 範疇限制與敏感資訊保護
-│
-├── templates/
-│   ├── ADR_Template.md
-│   ├── SPEC_Template.md
-│   ├── architecture_spec.md
-│   ├── .ai_profile.system       # 一般系統專案設定範本
-│   ├── .ai_profile.full         # 完整功能設定範本
-│   └── .ai_profile.content      # 內容專案設定範本
-│
-├── scripts/
-│   ├── install.sh               # 一鍵安裝
-│   └── rag/
-│       ├── build_index.py       # 建立向量索引
-│       ├── search.py            # 查詢知識庫
-│       └── stats.py             # 統計資訊
-│
-├── advanced/
-│   └── spectra_integration.md   # Binary Shadowing 進階整合
+├── .asp/                        # ← ASP 所有靜態檔案收在這裡
+│   ├── profiles/
+│   │   ├── global_core.md       # 全域準則（所有專案必載）
+│   │   ├── system_dev.md        # 系統開發（ADR/TDD/Docker）
+│   │   ├── content_creative.md  # 文字專案（排版/Markdown）
+│   │   ├── multi_agent.md       # 任務分治（實作期並行）
+│   │   ├── committee.md         # 角色委員會（決策期辯論）
+│   │   ├── vibe_coding.md       # 規格驅動工作流
+│   │   ├── rag_context.md       # Local RAG 整合
+│   │   └── guardrail.md         # 範疇限制與敏感資訊保護
+│   ├── templates/
+│   │   ├── ADR_Template.md
+│   │   ├── SPEC_Template.md
+│   │   └── architecture_spec.md
+│   ├── scripts/
+│   │   ├── install.sh           # 一鍵安裝
+│   │   └── rag/
+│   │       ├── build_index.py   # 建立向量索引
+│   │       ├── search.py        # 查詢知識庫
+│   │       └── stats.py         # 統計資訊
+│   └── advanced/
+│       └── spectra_integration.md
 │
 └── docs/
-    └── adr/                     # 架構決策紀錄（安裝後自動建立）
+    ├── adr/                     # 架構決策紀錄
+    └── specs/                   # 功能規格書
 ```
 
 ---

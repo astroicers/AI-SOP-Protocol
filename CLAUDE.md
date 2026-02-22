@@ -1,6 +1,6 @@
 # AI-SOP-Protocol (ASP) — 行為憲法
 
-> 讀取順序：本檔案 → `.ai_profile` → 對應 profiles（按需）
+> 讀取順序：本檔案 → `.ai_profile` → 對應 `.asp/profiles/`（按需）
 
 ---
 
@@ -25,14 +25,14 @@ name:      your-project-name
 
 | 欄位值 | 載入的 Profile |
 |--------|----------------|
-| `type: system` | `profiles/global_core.md` + `profiles/system_dev.md` |
-| `type: content` | `profiles/global_core.md` + `profiles/content_creative.md` |
-| `type: architecture` | `profiles/global_core.md` + `profiles/system_dev.md` |
-| `mode: multi-agent` | + `profiles/multi_agent.md` |
-| `mode: committee` | + `profiles/committee.md` |
-| `workflow: vibe-coding` | + `profiles/vibe_coding.md` |
-| `rag: enabled` | + `profiles/rag_context.md` |
-| `guardrail: enabled` | + `profiles/guardrail.md` |
+| `type: system` | `.asp/profiles/global_core.md` + `.asp/profiles/system_dev.md` |
+| `type: content` | `.asp/profiles/global_core.md` + `.asp/profiles/content_creative.md` |
+| `type: architecture` | `.asp/profiles/global_core.md` + `.asp/profiles/system_dev.md` |
+| `mode: multi-agent` | + `.asp/profiles/multi_agent.md` |
+| `mode: committee` | + `.asp/profiles/committee.md` |
+| `workflow: vibe-coding` | + `.asp/profiles/vibe_coding.md` |
+| `rag: enabled` | + `.asp/profiles/rag_context.md` |
+| `guardrail: enabled` | + `.asp/profiles/guardrail.md` |
 
 ---
 

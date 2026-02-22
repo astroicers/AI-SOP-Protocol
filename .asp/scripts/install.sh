@@ -67,25 +67,32 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
         else
             cp CLAUDE.md CLAUDE.md.pre-asp
             { printf '# AI-SOP-Protocol (ASP) — 行為憲法\n\n'; \
-              printf '> 本專案遵循 ASP 協議。讀取順序：本區塊 → `.ai_profile` → 對應 profiles（按需）\n'; \
-              printf '> 鐵則與 Profile 對應表請見：profiles/global_core.md\n\n---\n\n'; \
+              printf '> 本專案遵循 ASP 協議。讀取順序：本區塊 → `.ai_profile` → 對應 `.asp/profiles/`（按需）\n'; \
+              printf '> 鐵則與 Profile 對應表請見：.asp/profiles/global_core.md\n\n---\n\n'; \
               cat CLAUDE.md; } > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md
             echo "⚠️  已在現有 CLAUDE.md 頂部插入 ASP 引用（原檔備份於 CLAUDE.md.pre-asp）"
         fi
     else
         cp "$PROTOCOL_DIR/CLAUDE.md" ./CLAUDE.md
     fi
-    cp -r "$PROTOCOL_DIR/profiles" ./profiles
-    cp -r "$PROTOCOL_DIR/templates" ./templates
-    cp -r "$PROTOCOL_DIR/scripts" ./scripts
-    cp -r "$PROTOCOL_DIR/advanced" ./advanced
+    mkdir -p .asp
+    # 支援新結構（.asp/）和舊結構（根目錄）
+    if [ -d "$PROTOCOL_DIR/.asp/profiles" ]; then
+        SRC="$PROTOCOL_DIR/.asp"
+    else
+        SRC="$PROTOCOL_DIR"
+    fi
+    cp -r "$SRC/profiles" ./.asp/profiles
+    cp -r "$SRC/templates" ./.asp/templates
+    cp -r "$SRC/scripts" ./.asp/scripts
+    cp -r "$SRC/advanced" ./.asp/advanced
     [ ! -f "Makefile" ] && cp "$PROTOCOL_DIR/Makefile" ./Makefile
     [ ! -f ".gitignore" ] && cp "$PROTOCOL_DIR/.gitignore" ./.gitignore
     rm -rf "$PROTOCOL_DIR"
     echo "✅ 從 GitHub 安裝完成"
 else
     echo "⚠️  無法連接 GitHub，請手動複製以下目錄："
-    echo "   CLAUDE.md / profiles/ / templates/ / Makefile / .gitignore"
+    echo "   CLAUDE.md / .asp/ / Makefile / .gitignore"
 fi
 
 # 建立 .ai_profile
@@ -116,7 +123,7 @@ fi
 # 初始化 ADR-001（若不存在）
 if ! ls docs/adr/ADR-001-*.md &>/dev/null 2>&1; then
     ADR_FILE="docs/adr/ADR-001-initial-technology-stack.md"
-    cp templates/ADR_Template.md "$ADR_FILE"
+    cp .asp/templates/ADR_Template.md "$ADR_FILE"
     SED_INPLACE "s/ADR-000/ADR-001/g" "$ADR_FILE"
     SED_INPLACE "s/決策標題/初始技術棧選型/g" "$ADR_FILE"
     SED_INPLACE "s/YYYY-MM-DD/$(date +%Y-%m-%d)/g" "$ADR_FILE"
@@ -125,7 +132,7 @@ fi
 
 # 初始化 architecture.md（若不存在）
 if [ ! -f "docs/architecture.md" ]; then
-    cp templates/architecture_spec.md docs/architecture.md
+    cp .asp/templates/architecture_spec.md docs/architecture.md
     SED_INPLACE "s/PROJECT_NAME/${PROJECT_NAME}/g" docs/architecture.md
     echo "✅ 已建立 docs/architecture.md"
 fi
@@ -151,7 +158,7 @@ echo "下一步："
 echo "  1. 編輯 .ai_profile 確認設定"
 echo "  2. 更新 docs/adr/ADR-001-*.md 填入實際技術棧"
 echo "  3. 更新 docs/architecture.md 繪製架構圖"
-echo "  4. 修改 Makefile 中的 APP_NAME"
+echo "  4. 依專案需求調整 Makefile（build / test / deploy targets）"
 if [ "${ENABLE_RAG,,}" = "y" ]; then
     echo "  5. pip install chromadb sentence-transformers"
     echo "  6. make rag-index"
