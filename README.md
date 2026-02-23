@@ -44,13 +44,19 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh | bash
 ```
 
+安裝腳本會自動：
+- 複製 `CLAUDE.md`、`.asp/`、`Makefile`、`.gitignore`
+- 建立 `.claude/settings.json` 並註冊 Hooks（若已存在會合併）
+- 舊版 ASP（profiles 散落在根目錄）會自動遷移至 `.asp/`
+
 或手動複製：
 
 ```bash
 cp CLAUDE.md /your-project/
 cp -r .asp/ /your-project/.asp/
-cp Makefile /your-project/   # 若無衝突
-cp .gitignore /your-project/ # 若無衝突
+cp -r .claude/ /your-project/.claude/  # Hooks 設定
+cp Makefile /your-project/             # 若無衝突
+cp .gitignore /your-project/           # 若無衝突
 ```
 
 ---
@@ -76,6 +82,18 @@ guardrail: disabled   # enabled | disabled
 hitl: standard        # minimal | standard | strict
 name: your-project
 ```
+
+### HITL 等級（Human-in-the-Loop）
+
+`hitl` 控制 Hooks 攔截的粒度：
+
+| 等級 | 行為 |
+|------|------|
+| `minimal` | 僅攔截副作用（git push、deploy、rm -rf） |
+| `standard` | + 原始碼修改需確認 |
+| `strict` | + 所有檔案修改均需確認（含測試、文件） |
+
+> 無論 HITL 等級為何，auth/crypto/security 模組、共用介面（.proto/.graphql）、刪除操作**一律攔截**。
 
 ---
 
@@ -109,16 +127,54 @@ make session-checkpoint NEXT="下一步"
 
 ---
 
+## SPEC 驅動開發
+
+ASP 的 SPEC（規格書）不只是文件——它定義了**需求、邊界條件、測試驗收標準**，是一體的。
+
+```
+SPEC 定義「Done When」（驗收標準）
+  → TDD 先寫測試（基於 Done When）
+    → 實作讓測試通過
+      → 驗收
+```
+
+| 情境 | 是否需要 SPEC |
+|------|-------------|
+| 新功能開發 | **是**（預設） |
+| 非 trivial Bug 修復 | **是**（`make spec-new TITLE="BUG-..."`) |
+| trivial（單行/typo/配置） | 可跳過，需說明理由 |
+| 原型驗證 | 可延後，需標記 `tech-debt: test-pending` |
+
+SPEC 模板中的 **✅ Done When** 區塊就是測試定義：
+
+```markdown
+## ✅ Done When
+- [ ] `make test-filter FILTER=spec-000` all pass
+- [ ] `make lint` has no errors
+- [ ] Response time < ____ms
+- [ ] Updated CHANGELOG.md
+```
+
+> 測試不是另外寫的文件，而是 SPEC 的一部分。SPEC 完成 = 驗收標準已定義。
+
+---
+
 ## 專案結構
 
 ```
 your-project/
-├── CLAUDE.md                    # Claude Code 主入口（壓縮版，~500 tokens）
+├── CLAUDE.md                    # Claude Code 主入口（鐵則 + Profile 對應表）
 ├── Makefile                     # 指令封裝
-├── .ai_profile                  # 專案設定（type/mode/workflow）
+├── .ai_profile                  # 專案設定（type/mode/workflow/hitl）
 ├── .gitignore
 │
+├── .claude/
+│   └── settings.json            # Hook 註冊（install.sh 自動建立）
+│
 ├── .asp/                        # ← ASP 所有靜態檔案收在這裡
+│   ├── hooks/
+│   │   ├── enforce-side-effects.sh  # 副作用攔截（git push, deploy, rm -rf）
+│   │   └── enforce-workflow.sh      # 工作流斷點（依 HITL 等級）
 │   ├── profiles/
 │   │   ├── global_core.md       # 全域準則（所有專案必載）
 │   │   ├── system_dev.md        # 系統開發（ADR/TDD/Docker）
@@ -133,7 +189,7 @@ your-project/
 │   │   ├── SPEC_Template.md
 │   │   └── architecture_spec.md
 │   ├── scripts/
-│   │   ├── install.sh           # 一鍵安裝
+│   │   ├── install.sh           # 一鍵安裝（含 Hooks 設定）
 │   │   └── rag/
 │   │       ├── build_index.py   # 建立向量索引
 │   │       ├── search.py        # 查詢知識庫
@@ -170,11 +226,32 @@ your-project/
 
 ---
 
+## 技術強制層（Hooks）
+
+ASP 不只靠提示詞約束 AI——鐵則由 **Claude Code Hooks** 技術強制執行。
+
+```
+.claude/settings.json
+  └── PreToolUse hooks
+        ├── Bash  → enforce-side-effects.sh  （攔截危險指令）
+        └── Edit|Write → enforce-workflow.sh  （工作流斷點）
+```
+
+| Hook | 攔截對象 | 行為 |
+|------|---------|------|
+| `enforce-side-effects.sh` | git push/merge/rebase、helm/kubectl、docker push、rm -rf、deploy | 彈出確認對話框 |
+| `enforce-workflow.sh` | 原始碼修改（依 HITL 等級）、敏感模組、共用介面、刪除操作 | 彈出確認對話框 |
+
+> Hooks 使用 `permissionDecision: "ask"`——人類始終可以覆蓋。
+> 這不是限制，而是安全網。
+
+---
+
 ## 設計哲學
 
-**從「規則替代判斷」到「規則賦能判斷」。**
+**從「規則替代判斷」到「規則賦能判斷」；從「提示詞約束」到「技術強制」。**
 
-- 鐵則（不可繞過）只有 4 條，其他都是預設值
+- 鐵則（不可繞過）只有 4 條，由 Hooks 技術強制，不依賴 AI 自律
 - 預設值可跳過，但必須說明理由——這讓 Claude 學會判斷，而不只是服從
 - 護欄預設「詢問與引導」，不是「拒絕」
 - 一條有條件的規則，勝過三條無條件的規則
