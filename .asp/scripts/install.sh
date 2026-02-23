@@ -7,6 +7,13 @@ set -euo pipefail
 PROTOCOL_REPO="https://github.com/astroicers/AI-SOP-Protocol"
 PROTOCOL_DIR=".asp-tmp"
 
+# 檢查 jq（Hooks 需要）
+if command -v jq &>/dev/null; then
+    JQ_AVAILABLE=true
+else
+    JQ_AVAILABLE=false
+fi
+
 # 跨平台 sed
 SED_INPLACE() {
     if [ "$(uname)" = "Darwin" ]; then
@@ -98,7 +105,7 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
     done
 
     # 清理舊的 .asp/ 避免 cp -r 嵌套
-    rm -rf .asp/profiles .asp/templates .asp/scripts .asp/advanced
+    rm -rf .asp/profiles .asp/templates .asp/scripts .asp/advanced .asp/hooks
     mkdir -p .asp
 
     # 支援新結構（.asp/）和舊結構（根目錄）
@@ -111,6 +118,10 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
     cp -r "$SRC/templates" ./.asp/templates
     cp -r "$SRC/scripts" ./.asp/scripts
     cp -r "$SRC/advanced" ./.asp/advanced
+    if [ -d "$SRC/hooks" ]; then
+        cp -r "$SRC/hooks" ./.asp/hooks
+        chmod +x .asp/hooks/*.sh 2>/dev/null || true
+    fi
 
     # Makefile: 新安裝時複製，升級時更新
     if [ ! -f "Makefile" ]; then
@@ -167,6 +178,87 @@ if [ ! -f "docs/architecture.md" ]; then
     cp .asp/templates/architecture_spec.md docs/architecture.md
     SED_INPLACE "s/PROJECT_NAME/${PROJECT_NAME}/g" docs/architecture.md
     echo "✅ 已建立 docs/architecture.md"
+fi
+
+# 設定 Claude Code Hooks（技術強制 ASP 規則）
+HOOKS_JSON='{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/enforce-side-effects.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/enforce-workflow.sh"
+          }
+        ]
+      }
+    ]
+  }
+}'
+
+mkdir -p .claude
+
+if [ "$JQ_AVAILABLE" = true ]; then
+    if [ -f ".claude/settings.json" ]; then
+        # 加法合併：保留使用者自訂 hooks，移除舊 ASP hooks 後加入新的
+        EXISTING=$(cat .claude/settings.json)
+        NEW_HOOKS=$(echo "$HOOKS_JSON" | jq '.hooks.PreToolUse')
+        echo "$EXISTING" | jq --argjson asp_hooks "$NEW_HOOKS" '
+            .hooks.PreToolUse = (
+                [(.hooks.PreToolUse // [])[] | select(
+                    (.hooks // []) | all(.command | test("enforce-(side-effects|workflow)\\.sh$") | not)
+                )] + $asp_hooks
+            )
+        ' > .claude/settings.json.tmp \
+            && mv .claude/settings.json.tmp .claude/settings.json
+        echo "✅ 已將 ASP Hooks 合併至 .claude/settings.json（保留現有設定）"
+    else
+        echo "$HOOKS_JSON" | jq '.' > .claude/settings.json
+        echo "✅ 已建立 .claude/settings.json（含 ASP Hooks）"
+    fi
+else
+    if [ ! -f ".claude/settings.json" ]; then
+        cat > .claude/settings.json << 'HOOKJSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/enforce-side-effects.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/enforce-workflow.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+HOOKJSON
+        echo "✅ 已建立 .claude/settings.json（含 ASP Hooks）"
+    else
+        echo "⚠️  .claude/settings.json 已存在且無 jq 可用，請手動加入 hooks 設定"
+        echo "   參考：.asp/hooks/ 目錄內的腳本"
+    fi
 fi
 
 # 設定 RAG git hook

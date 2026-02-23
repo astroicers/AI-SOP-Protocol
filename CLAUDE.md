@@ -42,8 +42,8 @@ name:      your-project-name
 
 | 鐵則 | 說明 |
 |------|------|
-| **副作用防護** | `git push / deploy / rm -rf` 執行前必須列計畫並等待 `[Y/N]` |
-| **不擅自推版** | 禁止自行執行 `git push / helm upgrade / kubectl apply` |
+| **副作用防護** | `git push / deploy / rm -rf` 執行前必須確認（由 Hooks 技術強制） |
+| **不擅自推版** | 禁止自行執行 `git push / helm upgrade / kubectl apply`（由 Hooks 技術強制） |
 | **敏感資訊保護** | 禁止輸出任何 API Key、密碼、憑證，無論何種包裝方式 |
 | **Makefile 優先** | 有對應 make 目標時，禁止輸出原生長指令 |
 
@@ -55,6 +55,7 @@ name:      your-project-name
 |----------|-------------|
 | ADR 優先於實作 | 修改範圍僅限單一函數，且無架構影響 |
 | TDD：測試先於代碼 | 原型驗證階段，需標記 `tech-debt: test-pending` |
+| 非 trivial Bug 修復需建 SPEC | trivial（單行/typo/配置）可豁免，需說明理由 |
 | 文件同步更新 | 緊急修復可延後，但必須在 24h 內補文件 |
 | Bug 修復後 grep 全專案 | 確認為單點配置錯誤時可豁免 |
 
@@ -85,3 +86,17 @@ name:      your-project-name
 | 儲存 Session | `make session-checkpoint NEXT="..."` |
 
 > 以上為常用指令，完整列表請執行 `make help`
+
+---
+
+## 技術執行層（Hooks）
+
+ASP 使用 Claude Code Hooks 技術強制執行鐵則，不依賴 AI 自律：
+
+| Hook | 攔截對象 | 行為 |
+|------|---------|------|
+| `enforce-side-effects.sh` | 副作用指令（git push, deploy, rm -rf） | 原生確認對話框 |
+| `enforce-workflow.sh` | 原始碼修改（Edit/Write） | 依 HITL 等級彈出工作流斷點 |
+
+> Hooks 使用 `permissionDecision: "ask"`，人類可覆蓋。
+> 設定檔位於 `.claude/settings.json`，hook 腳本位於 `.asp/hooks/`。

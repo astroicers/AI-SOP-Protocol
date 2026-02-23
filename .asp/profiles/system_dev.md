@@ -38,9 +38,16 @@ Draft → Proposed → Accepted → Deprecated / Superseded by ADR-XXX
 ADR（為什麼）→ SDD（如何設計）→ TDD（驗證標準）→ BDD（業務確認）→ 實作 → 文件
 ```
 
-**允許的簡化路徑（需在回覆中說明）：**
+**Bug 修復流程：**
 
-- 緊急 Bug 修復：直接實作 → 測試 → 補 ADR（若涉及架構）
+| Bug 類型 | 流程 |
+|----------|------|
+| 非 trivial（跨模組、邏輯修正、行為變更） | `make spec-new TITLE="BUG-..."` → 分析 → TDD → 實作 → 文件 |
+| trivial（單行修復、typo、配置錯誤） | 直接修復，但需在回覆中說明豁免理由 |
+| 涉及架構決策 | 同上 + 補 ADR |
+
+**其他允許的簡化路徑（需在回覆中說明）：**
+
 - 原型驗證：實作 → 測試後補（標記 `tech-debt: test-pending`）
 - 明確小功能：可跳過 BDD，直接 TDD
 
