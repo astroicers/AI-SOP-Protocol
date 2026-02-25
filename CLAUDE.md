@@ -42,8 +42,8 @@ name:      your-project-name
 
 | 鐵則 | 說明 |
 |------|------|
-| **副作用防護** | `git push / deploy / rm -rf` 執行前必須確認（由 Hooks 技術強制） |
-| **不擅自推版** | 禁止自行執行 `git push / helm upgrade / kubectl apply`（由 Hooks 技術強制） |
+| **副作用防護** | `deploy / rm -rf / merge / rebase` 由 Hooks 技術強制攔截；`git push` 由內建權限系統確認 |
+| **不擅自推版** | 禁止未經人類明確同意執行 `git push`；必須先列出變更摘要並等待人類確認 |
 | **敏感資訊保護** | 禁止輸出任何 API Key、密碼、憑證，無論何種包裝方式 |
 | **Makefile 優先** | 有對應 make 目標時，禁止輸出原生長指令 |
 
@@ -96,10 +96,10 @@ ASP 使用 Claude Code Hooks 技術強制執行鐵則，不依賴 AI 自律：
 
 | Hook | 攔截對象 | 行為 |
 |------|---------|------|
-| `enforce-side-effects.sh` | 副作用指令（git push, deploy, rm -rf） | deny 阻止執行，告知原因 |
+| `enforce-side-effects.sh` | deploy, rm -rf, merge, rebase, kubectl, docker push | deny 阻止執行，告知原因 |
 | `enforce-workflow.sh` | 原始碼修改（Edit/Write） | 依 HITL 等級 deny 攔截 + SPEC 存在性檢查 |
 
-> Hooks 使用 `permissionDecision: "deny"`（阻止工具執行並回報原因）。
-> `"ask"` 在 VSCode Extension 中被靜默忽略（[GitHub #13339](https://github.com/anthropics/claude-code/issues/13339)），故改用 `"deny"` 確保跨環境一致。
-> 額外使用 `exit 2` + stderr 作為 fallback（雙保險策略），應對 `deny` 有時不阻止執行的問題（[GitHub #3514](https://github.com/anthropics/claude-code/issues/3514)）。
+> Hooks 使用 `permissionDecision: "deny"` + `exit 2` 雙保險攔截（[GitHub #3514](https://github.com/anthropics/claude-code/issues/3514)）。
+> `git push` 不由 hook 攔截，改由 Claude Code 內建權限系統處理（VSCode 中顯示 GUI 確認框）。
+> 原因：hook `"ask"` 在 VSCode 中被忽略（[#13339](https://github.com/anthropics/claude-code/issues/13339)），`"deny"` 會截斷對話。
 > 設定檔位於 `.claude/settings.json`，hook 腳本位於 `.asp/hooks/`。

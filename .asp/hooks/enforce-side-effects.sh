@@ -52,9 +52,12 @@ MSG
 )"
 fi
 
-# --- 版本控制副作用 ---
-if echo "$COMMAND" | grep -qiE '(^|\s|&&|\|)git\s+(push|merge|rebase)(\s|$|;)'; then
-    deny "🔒 ASP 副作用防護：git 操作（push/merge/rebase）需確認才能執行（global_core.md）"
+# --- 版本控制副作用（merge/rebase）---
+# git push 不由 hook 攔截，改由 Claude Code 內建權限系統處理
+# 原因：hook "ask" 在 VSCode 中無效（#13339），"deny" 會截斷對話
+# 內建權限系統的 GUI 確認框在 VSCode 中可正常運作
+if echo "$COMMAND" | grep -qiE '(^|\s|&&|\|)git\s+(merge|rebase)(\s|$|;)'; then
+    deny "🔒 ASP 副作用防護：git 操作（merge/rebase）需確認才能執行（global_core.md）"
 fi
 
 # --- 版本發布 ---
