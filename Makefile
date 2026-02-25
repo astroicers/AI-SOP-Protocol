@@ -1,7 +1,7 @@
 # AI-SOP-Protocol — Makefile
 # 目的：封裝重複指令，節省 Token，降低操作失誤風險
 # 使用方式：依專案需求保留/修改對應區塊
-# ASP_MAKEFILE_VERSION=1.1.0
+# ASP_MAKEFILE_VERSION=1.2.0
 
 APP_NAME ?= app-service
 VERSION  ?= latest

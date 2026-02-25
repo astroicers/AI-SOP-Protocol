@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ASP Hook: enforce-workflow.sh
-# PreToolUse (Edit|Write) — 工作流斷點，依 HITL 等級攔截檔案修改
+# PreToolUse (Edit|Write) — 工作流斷點，依 HITL 等級 deny 攔截檔案修改
 #
 # 對應規則：
 #   - vibe_coding.md「HITL 等級」與「無條件暫停」
@@ -141,12 +141,14 @@ if [ "$IS_DELETION" = true ]; then
 fi
 
 # --- 決策矩陣 ---
-ask_confirmation() {
+# 注意：permissionDecision: "ask" 在 VSCode Extension 中被靜默忽略（GitHub #13339）
+# 改用 "deny" 確保 CLI 與 VSCode 皆有效
+deny_with_reason() {
     local reason="$1"
     jq -n --arg reason "$reason" '{
         hookSpecificOutput: {
             hookEventName: "PreToolUse",
-            permissionDecision: "ask",
+            permissionDecision: "deny",
             permissionDecisionReason: $reason
         }
     }'
@@ -157,20 +159,20 @@ SHORT_PATH=$(echo "$FILE_PATH" | sed "s|.*/\(.*/.*/.*\)|\1|")
 
 case "$CATEGORY" in
     sensitive)
-        ask_confirmation "🔒 ASP 斷點：修改 auth/crypto/security 模組 ($SHORT_PATH)，任何 HITL 等級都需確認（vibe_coding.md）"
+        deny_with_reason "🔒 ASP 斷點：修改 auth/crypto/security 模組 ($SHORT_PATH)，任何 HITL 等級都需確認（vibe_coding.md）"
         ;;
     interface)
-        ask_confirmation "🔒 ASP 斷點：修改共用介面/API 合約 ($SHORT_PATH)，任何 HITL 等級都需確認（vibe_coding.md）"
+        deny_with_reason "🔒 ASP 斷點：修改共用介面/API 合約 ($SHORT_PATH)，任何 HITL 等級都需確認（vibe_coding.md）"
         ;;
     deletion)
-        ask_confirmation "⚠️ ASP 斷點：偵測到刪除現有代碼 ($SHORT_PATH)，任何 HITL 等級都需確認（vibe_coding.md）"
+        deny_with_reason "⚠️ ASP 斷點：偵測到刪除現有代碼 ($SHORT_PATH)，任何 HITL 等級都需確認（vibe_coding.md）"
         ;;
     source)
         if [ "$HITL" = "standard" ] || [ "$HITL" = "strict" ]; then
             SPEC_STATUS=$(check_spec_status)
             case "$SPEC_STATUS" in
                 none)
-                    ask_confirmation "$(cat <<MSG
+                    deny_with_reason "$(cat <<MSG
 ⚠️ ASP SPEC 缺失警告 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)
 
 docs/specs/ 中找不到任何 SPEC 文件。
@@ -184,7 +186,7 @@ MSG
 )"
                     ;;
                 stale)
-                    ask_confirmation "$(cat <<MSG
+                    deny_with_reason "$(cat <<MSG
 📋 ASP 工作流檢查點 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)
 
 docs/specs/ 有 SPEC 文件，但近 1 小時內無 SPEC 建立/更新。
@@ -196,19 +198,19 @@ MSG
 )"
                     ;;
                 recent)
-                    ask_confirmation "📋 ASP 工作流檢查點 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)。偵測到近期 SPEC 活動，請確認已按流程進行。（system_dev.md）"
+                    deny_with_reason "📋 ASP 工作流檢查點 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)。偵測到近期 SPEC 活動，請確認已按流程進行。（system_dev.md）"
                     ;;
             esac
         fi
         ;;
     test)
         if [ "$HITL" = "strict" ]; then
-            ask_confirmation "📋 ASP 工作流檢查點 (hitl: strict)：所有檔案修改均需確認 ($SHORT_PATH)"
+            deny_with_reason "📋 ASP 工作流檢查點 (hitl: strict)：所有檔案修改均需確認 ($SHORT_PATH)"
         fi
         ;;
     doc)
         if [ "$HITL" = "strict" ]; then
-            ask_confirmation "📋 ASP 工作流檢查點 (hitl: strict)：所有檔案修改均需確認 ($SHORT_PATH)"
+            deny_with_reason "📋 ASP 工作流檢查點 (hitl: strict)：所有檔案修改均需確認 ($SHORT_PATH)"
         fi
         ;;
 esac

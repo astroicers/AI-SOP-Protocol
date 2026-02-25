@@ -236,6 +236,33 @@ your-project/
 
 ---
 
+## Profile 表達方式
+
+Profiles 使用分層混合的表達格式，依內容性質選用最適合的格式：
+
+| 層級 | 格式 | 範例 |
+|------|------|------|
+| 設計哲學 | 自然語言 | CLAUDE.md 鐵則、profiles 開頭說明 |
+| 決策流程 | **Pseudocode** | guardrail 三層策略、HITL 暫停矩陣、RAG 查詢 |
+| 技術執行 | Bash / Make | enforce-workflow.sh、Makefile |
+| 靜態規則 | 表格 / YAML | ADR 分類、模型選擇、排版規範 |
+
+Pseudocode 語法慣例：
+
+```
+FUNCTION name(params):        // 決策流程入口
+  IF condition:               // 分支判斷
+    RETURN action(...)        // 回傳行為
+  MATCH (var1, var2):         // 多條件矩陣
+    (a, b) → RETURN x
+  INVARIANT: 不可違反的約束    // 對應鐵則
+  CALL other.function(...)    // 跨 profile 委派
+```
+
+> 核心邏輯：只在「AI 需要做判斷」的地方用 pseudocode，在「人類需要理解」的地方保留散文。
+
+---
+
 ## 技術強制層（Hooks）
 
 ASP 不只靠提示詞約束 AI——鐵則由 **Claude Code Hooks** 技術強制執行。

@@ -96,8 +96,9 @@ ASP 使用 Claude Code Hooks 技術強制執行鐵則，不依賴 AI 自律：
 
 | Hook | 攔截對象 | 行為 |
 |------|---------|------|
-| `enforce-side-effects.sh` | 副作用指令（git push, deploy, rm -rf） | 原生確認對話框 |
-| `enforce-workflow.sh` | 原始碼修改（Edit/Write） | 依 HITL 等級彈出工作流斷點 + SPEC 存在性檢查 |
+| `enforce-side-effects.sh` | 副作用指令（git push, deploy, rm -rf） | deny 阻止執行，告知原因 |
+| `enforce-workflow.sh` | 原始碼修改（Edit/Write） | 依 HITL 等級 deny 攔截 + SPEC 存在性檢查 |
 
-> Hooks 使用 `permissionDecision: "ask"`，人類可覆蓋。
+> Hooks 使用 `permissionDecision: "deny"`（阻止工具執行並回報原因）。
+> `"ask"` 在 VSCode Extension 中被靜默忽略（[GitHub #13339](https://github.com/anthropics/claude-code/issues/13339)），故改用 `"deny"` 確保跨環境一致。
 > 設定檔位於 `.claude/settings.json`，hook 腳本位於 `.asp/hooks/`。
