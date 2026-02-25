@@ -90,7 +90,7 @@ name: your-project
 | 等級 | 行為 |
 |------|------|
 | `minimal` | 僅攔截副作用（git push、deploy、rm -rf） |
-| `standard` | + 原始碼修改需確認 |
+| `standard` | + 原始碼修改需確認 + SPEC 存在性檢查 |
 | `strict` | + 所有檔案修改均需確認（含測試、文件） |
 
 > 無論 HITL 等級為何，auth/crypto/security 模組、共用介面（.proto/.graphql）、刪除操作**一律攔截**。
@@ -144,6 +144,16 @@ SPEC 定義「Done When」（驗收標準）
 | 非 trivial Bug 修復 | **是**（`make spec-new TITLE="BUG-..."`) |
 | trivial（單行/typo/配置） | 可跳過，需說明理由 |
 | 原型驗證 | 可延後，需標記 `tech-debt: test-pending` |
+
+**ADR↔SPEC 連動**（架構變更時）：
+
+```
+ADR（Accepted）→ SPEC（關聯 ADR-NNN）→ TDD → 實作
+                    ↑ ADR 為 Draft 時不建 SPEC、不寫生產代碼
+```
+
+- SPEC 的「關聯 ADR」欄位必須填入對應 ADR 編號
+- 非架構變更的 SPEC 不需要關聯 ADR
 
 SPEC 模板中的 **✅ Done When** 區塊就是測試定義：
 
@@ -240,10 +250,13 @@ ASP 不只靠提示詞約束 AI——鐵則由 **Claude Code Hooks** 技術強�
 | Hook | 攔截對象 | 行為 |
 |------|---------|------|
 | `enforce-side-effects.sh` | git push/merge/rebase、helm/kubectl、docker push、rm -rf、deploy | 彈出確認對話框 |
-| `enforce-workflow.sh` | 原始碼修改（依 HITL 等級）、敏感模組、共用介面、刪除操作 | 彈出確認對話框 |
+| `enforce-workflow.sh` | 原始碼修改（依 HITL 等級）、敏感模組、共用介面、刪除操作 | 彈出確認對話框 + SPEC 存在性檢查 |
 
 > Hooks 使用 `permissionDecision: "ask"`——人類始終可以覆蓋。
 > 這不是限制，而是安全網。
+
+**注意**：`settings.local.json` 的 `permissions.allow` 萬用規則（如 `Bash(make:*)`）會繞過 Hooks。
+確保 local 設定中不包含會自動放行危險指令的 wildcard pattern。
 
 ---
 

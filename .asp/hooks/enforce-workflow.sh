@@ -85,6 +85,43 @@ classify_file() {
     echo "source"
 }
 
+# --- SPEC 存在性檢查 ---
+check_spec_status() {
+    local project_dir="${CLAUDE_PROJECT_DIR:-.}"
+    local spec_dir="$project_dir/docs/specs"
+    local spec_count=0
+    local recent_spec=false
+    local threshold=3600  # 60 分鐘
+
+    # 計算 SPEC 檔案數量
+    if [ -d "$spec_dir" ]; then
+        spec_count=$(find "$spec_dir" -maxdepth 1 -name 'SPEC-*.md' 2>/dev/null | wc -l | tr -d ' ')
+    fi
+
+    # 檢查是否有近期修改的 SPEC
+    if [ "$spec_count" -gt 0 ]; then
+        local now
+        now=$(date +%s)
+        for f in "$spec_dir"/SPEC-*.md; do
+            local mtime
+            mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+            if [ $((now - mtime)) -le $threshold ]; then
+                recent_spec=true
+                break
+            fi
+        done
+    fi
+
+    # 回傳狀態：none | stale | recent
+    if [ "$spec_count" -eq 0 ]; then
+        echo "none"
+    elif [ "$recent_spec" = true ]; then
+        echo "recent"
+    else
+        echo "stale"
+    fi
+}
+
 CATEGORY=$(classify_file "$FILE_PATH")
 
 # --- 偵測刪除操作 ---
@@ -130,7 +167,38 @@ case "$CATEGORY" in
         ;;
     source)
         if [ "$HITL" = "standard" ] || [ "$HITL" = "strict" ]; then
-            ask_confirmation "📋 ASP 工作流檢查點 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)，請確認已按 ADR→設計→測試→實作 流程進行。緊急修復可覆蓋。（system_dev.md）"
+            SPEC_STATUS=$(check_spec_status)
+            case "$SPEC_STATUS" in
+                none)
+                    ask_confirmation "$(cat <<MSG
+⚠️ ASP SPEC 缺失警告 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)
+
+docs/specs/ 中找不到任何 SPEC 文件。
+ASP 標準流程：SPEC → 設計 → 測試 → 實作（system_dev.md）
+
+若為非 trivial 變更，請先執行：
+  make spec-new TITLE="功能名稱"
+
+若為 trivial 修改（單行/typo/配置），可覆蓋此警告並說明豁免理由。
+MSG
+)"
+                    ;;
+                stale)
+                    ask_confirmation "$(cat <<MSG
+📋 ASP 工作流檢查點 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)
+
+docs/specs/ 有 SPEC 文件，但近 1 小時內無 SPEC 建立/更新。
+若此為新任務，建議先建立或更新對應 SPEC。
+  make spec-new TITLE="功能名稱"  |  make spec-list
+
+trivial 修改可覆蓋。（system_dev.md）
+MSG
+)"
+                    ;;
+                recent)
+                    ask_confirmation "📋 ASP 工作流檢查點 (hitl: $HITL)：修改原始碼 ($SHORT_PATH)。偵測到近期 SPEC 活動，請確認已按流程進行。（system_dev.md）"
+                    ;;
+            esac
         fi
         ;;
     test)

@@ -53,6 +53,43 @@ ADR（為什麼）→ SDD（如何設計）→ TDD（驗證標準）→ BDD（�
 
 ---
 
+## Pre-Implementation Gate
+
+修改原始碼（非 trivial）前，執行此檢查：
+
+```
+1. SPEC 確認
+   └── make spec-list
+       ├── 有對應 SPEC → 確認理解 Goal 和 Done When
+       └── 無對應 SPEC → make spec-new TITLE="..."
+           └── 至少填寫：Goal、Done When、Edge Cases
+
+2. ADR 確認（僅架構變更時）
+   └── make adr-list → 有相關 ADR 且為 Accepted → 繼續
+       └── 無相關 ADR → make adr-new TITLE="..."
+
+3. ADR↔SPEC 連動（僅涉及架構變更時）
+   └── ADR 狀態為 Accepted → 才能建立對應 SPEC
+       ├── SPEC「關聯 ADR」欄位必須填入 ADR-NNN
+       └── ADR 為 Draft → 先完成 ADR 審議，不建 SPEC、不寫生產代碼
+
+4. 回覆格式：
+   「SPEC-NNN（關聯 ADR-NNN）已確認/已建立，開始實作。」
+   或
+   「SPEC-NNN 已確認/已建立，無架構影響，開始實作。」
+   或
+   「trivial 修改，豁免 SPEC，理由：...」
+```
+
+**豁免路徑**（需在回覆中明確說明）：
+- trivial（單行/typo/配置）→ 直接修復，說明理由
+- 原型驗證 → 標記 `tech-debt: spec-pending`，24h 內補 SPEC
+
+> **技術執行**：此規則由 `.asp/hooks/enforce-workflow.sh` 透過 SPEC 存在性檢查技術輔助。
+> 修改原始碼時，Hook 會依據 docs/specs/ 的 SPEC 狀態顯示不同層級的提醒。
+
+---
+
 ## 環境管理
 
 以下動作統一使用 Makefile，禁止輸出原生指令：

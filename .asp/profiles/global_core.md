@@ -8,6 +8,7 @@
 
 - 精簡直接，省略開場白，進入技術核心
 - 多步驟任務前，先提供 Step-by-Step 計畫供確認
+- 修改原始碼前，先確認對應 SPEC 存在（詳見 system_dev.md「Pre-Implementation Gate」）
 - 副作用操作前，主動說明「等待確認」
 
 ---

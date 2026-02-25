@@ -29,6 +29,11 @@
 3. **等待確認**（HITL: standard / strict 時）
 4. **自我驗收**：執行 Done When 清單並回報結果
 
+**無 SPEC 時的處理：**
+- 人類直接描述需求（非提供 SPEC）→ AI 主動建議 `make spec-new TITLE="..."` 並協助填寫
+- 至少確認 Goal 和 Done When 後再開始實作
+- 對話中可簡化為「口頭 SPEC」：AI 複述 Goal + Done When，人類確認後視為等效
+
 ---
 
 ## HITL 等級

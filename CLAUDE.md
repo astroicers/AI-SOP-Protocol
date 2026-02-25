@@ -57,6 +57,7 @@ name:      your-project-name
 | TDD：測試先於代碼 | 原型驗證階段，需標記 `tech-debt: test-pending` |
 | 非 trivial Bug 修復需建 SPEC | trivial（單行/typo/配置）可豁免，需說明理由 |
 | 文件同步更新 | 緊急修復可延後，但必須在 24h 內補文件 |
+| SPEC 先於原始碼修改 | trivial（單行/typo/配置）可豁免，需說明理由（由 Hook 技術提醒） |
 | Bug 修復後 grep 全專案 | 確認為單點配置錯誤時可豁免 |
 
 ---
@@ -96,7 +97,7 @@ ASP 使用 Claude Code Hooks 技術強制執行鐵則，不依賴 AI 自律：
 | Hook | 攔截對象 | 行為 |
 |------|---------|------|
 | `enforce-side-effects.sh` | 副作用指令（git push, deploy, rm -rf） | 原生確認對話框 |
-| `enforce-workflow.sh` | 原始碼修改（Edit/Write） | 依 HITL 等級彈出工作流斷點 |
+| `enforce-workflow.sh` | 原始碼修改（Edit/Write） | 依 HITL 等級彈出工作流斷點 + SPEC 存在性檢查 |
 
 > Hooks 使用 `permissionDecision: "ask"`，人類可覆蓋。
 > 設定檔位於 `.claude/settings.json`，hook 腳本位於 `.asp/hooks/`。

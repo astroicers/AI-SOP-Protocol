@@ -13,6 +13,10 @@ docs/session-log.md
 
 # 安裝備份
 CLAUDE.md.pre-asp
+CLAUDE.md.pre-upgrade
+
+# 安裝暫存
+.asp-tmp/
 
 # 暫存
 tmp/
