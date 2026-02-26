@@ -140,7 +140,7 @@ SPEC 定義「Done When」（驗收標準）
 
 | 情境 | 是否需要 SPEC |
 |------|-------------|
-| 新功能開發 | **是**（預設） |
+| 新功能開發 | **是**（預設），Done When 必須含測試條件 |
 | 非 trivial Bug 修復 | **是**（`make spec-new TITLE="BUG-..."`) |
 | trivial（單行/typo/配置） | 可跳過，需說明理由 |
 | 原型驗證 | 可延後，需標記 `tech-debt: test-pending` |
@@ -155,15 +155,19 @@ ADR（Accepted）→ SPEC（關聯 ADR-NNN）→ TDD → 實作
 - SPEC 的「關聯 ADR」欄位必須填入對應 ADR 編號
 - 非架構變更的 SPEC 不需要關聯 ADR
 
-SPEC 模板中的 **✅ Done When** 區塊就是測試定義：
+SPEC 模板中的 **✅ Done When** 區塊就是測試定義（**必須含至少一項測試條件**）：
 
 ```markdown
 ## ✅ Done When
+> 必須包含至少一項可驗證的測試條件。
+
 - [ ] `make test-filter FILTER=spec-000` all pass
 - [ ] `make lint` has no errors
 - [ ] Response time < ____ms
 - [ ] Updated CHANGELOG.md
 ```
+
+SPEC 最低必填欄位：**Goal、Inputs、Expected Output、Done When（含測試條件）、Edge Cases**。
 
 > 測試不是另外寫的文件，而是 SPEC 的一部分。SPEC 完成 = 驗收標準已定義。
 
@@ -219,7 +223,7 @@ your-project/
 鐵則（CLAUDE.md）
   ↓ 所有專案，不可覆蓋
 全域準則（global_core.md）
-  ↓ 溝通規範、副作用防護、連帶修復
+  ↓ 溝通規範、破壞性操作防護、連帶修復
 專案類型 Profile（system / content）
   ↓ 依 .ai_profile type 載入
 作業模式 Profile（multi-agent / committee）
@@ -288,7 +292,7 @@ ASP 使用 Claude Code **內建權限系統** + **SessionStart Hook** 保護危�
 
 **從「規則替代判斷」到「規則賦能判斷」；從「提示詞約束」到「技術強制」。**
 
-- 鐵則（不可繞過）只有 4 條，由內建權限系統 + SessionStart Hook 技術輔助
+- 鐵則（不可繞過）只有 3 條，由內建權限系統 + SessionStart Hook 技術輔助
 - 預設值可跳過，但必須說明理由——這讓 Claude 學會判斷，而不只是服從
 - 護欄預設「詢問與引導」，不是「拒絕」
 - 一條有條件的規則，勝過三條無條件的規則
