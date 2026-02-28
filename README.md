@@ -296,3 +296,11 @@ ASP 使用 Claude Code **內建權限系統** + **SessionStart Hook** 保護危�
 - 預設值可跳過，但必須說明理由——這讓 Claude 學會判斷，而不只是服從
 - 護欄預設「詢問與引導」，不是「拒絕」
 - 一條有條件的規則，勝過三條無條件的規則
+
+---
+
+## 延伸閱讀
+
+| 資源 | 說明 |
+|------|------|
+| [Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering) | Context engineering 教學庫：壓縮策略、衰退模式、multi-agent token 經濟學。ASP 已吸收其核心精髓，有興趣深入可參閱原始 skills |
