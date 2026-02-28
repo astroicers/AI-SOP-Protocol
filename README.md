@@ -80,6 +80,7 @@ workflow: standard    # standard | vibe-coding
 rag: disabled         # enabled | disabled
 guardrail: disabled   # enabled | disabled
 hitl: standard        # minimal | standard | strict
+design: disabled      # enabled | disabled
 name: your-project
 ```
 
@@ -196,11 +197,13 @@ your-project/
 │   │   ├── committee.md         # 角色委員會（決策期辯論）
 │   │   ├── vibe_coding.md       # 規格驅動工作流
 │   │   ├── rag_context.md       # Local RAG 整合
-│   │   └── guardrail.md         # 範疇限制與敏感資訊保護
+│   │   ├── guardrail.md         # 範疇限制與敏感資訊保護
+│   │   └── design_dev.md        # UI/UX 設計治理
 │   ├── templates/
 │   │   ├── ADR_Template.md
 │   │   ├── SPEC_Template.md
-│   │   └── architecture_spec.md
+│   │   ├── architecture_spec.md
+│   │   └── workflow-design.md   # 設計工作流範本
 │   ├── scripts/
 │   │   ├── install.sh           # 一鍵安裝（含 SessionStart Hook 設定）
 │   │   └── rag/
@@ -230,7 +233,7 @@ your-project/
   ↓ 依 .ai_profile mode 載入（可選）
 開發策略 Profile（vibe-coding）
   ↓ 依 .ai_profile workflow 載入（可選）
-選配 Profile（rag / guardrail）
+選配 Profile（rag / guardrail / design）
   ↓ 依 .ai_profile 各欄位載入（可選）
 ```
 
@@ -304,3 +307,5 @@ ASP 使用 Claude Code **內建權限系統** + **SessionStart Hook** 保護危�
 | 資源 | 說明 |
 |------|------|
 | [Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering) | Context engineering 教學庫：壓縮策略、衰退模式、multi-agent token 經濟學。ASP 已吸收其核心精髓，有興趣深入可參閱原始 skills |
+| [UI UX Pro Max Skill](https://github.com/nicobailon/ui-ux-pro-max-skill) | AI 驅動的 Design System 產生器：50 種 UI 風格、21 組色彩系統、支援 React/Next.js/Tailwind/shadcn 等 9 種技術棧。搭配 ASP `design: enabled` 使用效果最佳 |
+| [Interface Design Skill](https://github.com/mcsimw/Interface-Design) | 設計決策累積工具：自動儲存 spacing/depth/surface pattern 到 `.interface-design/system.md`，維持跨 session 的設計一致性 |

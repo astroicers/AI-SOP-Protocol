@@ -21,6 +21,7 @@ CLAUDE.md.pre-upgrade
 # 暫存
 tmp/
 *.out
+*.zip
 
 # 環境變數
 .env

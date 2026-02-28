@@ -18,6 +18,7 @@ workflow:  standard | vibe-coding            # 預設 standard
 rag:       enabled | disabled               # 預設 disabled
 guardrail: enabled | disabled               # 預設 disabled
 hitl:      minimal | standard | strict      # 預設 standard
+design:    enabled | disabled               # 預設 disabled
 name:      your-project-name
 ```
 
@@ -33,6 +34,7 @@ name:      your-project-name
 | `workflow: vibe-coding` | + `.asp/profiles/vibe_coding.md` |
 | `rag: enabled` | + `.asp/profiles/rag_context.md` |
 | `guardrail: enabled` | + `.asp/profiles/guardrail.md` |
+| `design: enabled` | + `.asp/profiles/design_dev.md` |
 
 ---
 
