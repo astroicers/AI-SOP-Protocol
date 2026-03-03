@@ -7,9 +7,10 @@
 ## 啟動程序
 
 1. 讀取 `.ai_profile`，依欄位載入對應 profile
-2. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`
-3. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
-4. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
+2. **Profile 依賴驗證**：每個 profile 頂部有 `<!-- requires: ... -->` 註解，載入時確認其依賴已載入。缺少依賴 → WARN 並建議使用者補充 `.ai_profile` 設定
+3. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`（同時確保 `vibe_coding.md` 已載入，未設定時自動補載）
+4. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
+5. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
 
 ```yaml
 # .ai_profile 完整欄位參考
@@ -91,6 +92,7 @@ name:         your-project-name
 | 局部測試 | `make test-filter FILTER=xxx` |
 | 新增 ADR | `make adr-new TITLE="..."` |
 | 新增規格書 | `make spec-new TITLE="..."` |
+| 新增事後分析 | `make postmortem-new TITLE="..."` |
 | 查詢知識庫 | `make rag-search Q="..."` |
 | Agent 完成回報 | `make agent-done TASK=xxx STATUS=success` |
 | 儲存 Session | `make session-checkpoint NEXT="..."` |

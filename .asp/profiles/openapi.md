@@ -1,5 +1,8 @@
 # OpenAPI Profile — API 設計規範與 API-First 工作流
 
+<!-- requires: global_core, system_dev -->
+<!-- optional: design_dev -->
+
 適用：提供 RESTful API 的系統開發專案。
 載入條件：`openapi: enabled`
 

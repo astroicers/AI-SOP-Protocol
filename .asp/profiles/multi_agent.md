@@ -1,5 +1,8 @@
 # Multi-Agent Orchestration Profile
 
+<!-- requires: global_core, system_dev -->
+<!-- optional: guardrail -->
+
 適用：並行任務分治、大型功能拆解、自動化 CI/CD 整合。
 載入條件：`mode: multi-agent`
 

@@ -1,5 +1,8 @@
 # Vibe Coding — 規格驅動開發策略
 
+<!-- requires: global_core -->
+<!-- optional: autonomous_dev (when hitl: minimal) -->
+
 適用：以「AI 餵食者 + 品質守門員」角色最大化輸出效率。
 載入條件：`workflow: vibe-coding`
 
@@ -111,6 +114,25 @@ Next Steps:        下一步行動
 | 矛盾（clash） | AI 在矛盾指令間擺盪，輸出不一致 |
 
 **應對**：偵測到任一信號 → `make session-checkpoint NEXT="..."` → 開新 session 或要求 AI 重讀 CLAUDE.md。
+
+### 主動預防（不等衰退再反應）
+
+上述為「偵測到衰退後的反應」，以下為「預防衰退的主動措施」：
+
+1. **定期壓縮**：每 30 回合主動執行 `make session-checkpoint`，不等 70% 閾值
+   - autonomous 模式下，每完成一個 Stage 也是壓縮時機
+
+2. **Context 品質自驗**：Stage 完成時，AI 重述當前 SPEC 的 Goal 和 Done When
+   - 重述準確 → 繼續
+   - 重述不完整或偏差 → context 已不可信 → 從檔案系統重新讀取 SPEC 再繼續
+   - 無法重述 → 立即 checkpoint + 新 session
+
+3. **不可跨 session 繼承的資訊**（新 session 必須從檔案系統重新讀取）：
+   - ADR 狀態（可能已在其他 session 中變更）
+   - 測試基線（`make test` 結果可能已過時）
+   - 架構圖（`docs/architecture.md` 可能已更新）
+   - 依賴版本（lock file 可能已變更）
+   - 其他人的 commit（git log 可能有新變更）
 
 ---
 

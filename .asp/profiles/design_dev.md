@@ -1,5 +1,8 @@
 # Design Development Profile — UI/UX 設計治理
 
+<!-- requires: global_core, system_dev -->
+<!-- optional: openapi -->
+
 適用：具有使用者介面的系統開發專案，確保設計決策可量化、可驗證、一致。
 載入條件：`design: enabled`
 
@@ -220,6 +223,10 @@ FUNCTION before_ui_work():
 3. **提取佈局資訊** → 對應到 CSS layout（flex/grid）
 
 ### 與 openapi 連動（design + openapi 同時啟用時）
+
+> **執行順序**：由 `system_dev.md` Pre-Implementation Gate 統一驅動。
+> Design Gate（步驟 4）先執行，OpenAPI Gate（步驟 5）後執行。
+> 本段描述的是 Design Gate 確認後，資料需求如何推導至 API 契約。
 
 設計稿中的資料需求自動推導 API 契約：
 
