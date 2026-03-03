@@ -49,7 +49,7 @@ Layer 6: 選配（rag/guardrail/design/coding_style/openapi） — 可選
    - 在 `CLAUDE.md` 加入 `.ai_profile` 欄位和 Profile 對應表條目
    - 在 `README.md` 更新 `.ai_profile` 範例和專案結構
    - 在 `install.sh` 加入互動提示和 `.ai_profile` 生成邏輯
-   - 在 `.asp/templates/.ai_profile.*` 模板中加入欄位
+   - 在 `.asp/templates/example-profile-*.yaml` 範例中加入欄位
    - 更新 `.asp/VERSION`
 
 2. **修改既有 Profile** 時：

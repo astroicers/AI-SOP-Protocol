@@ -73,6 +73,12 @@ cp .gitignore /your-project/           # 若無衝突
 
 ## .ai_profile 設定
 
+安裝時 `install.sh` 會在專案根目錄建立 `.ai_profile`，這是 ASP 唯一讀取的設定檔。
+直接編輯此檔案即可調整所有行為。
+
+> `.asp/templates/example-profile-*.yaml` 是不同專案類型的預設範例，供參考用。
+> 不需要複製或重命名——`install.sh` 已根據你的選擇產生了正確的 `.ai_profile`。
+
 ```yaml
 type: system              # system | content | architecture
 mode: single              # single | multi-agent | committee
@@ -288,7 +294,10 @@ your-project/
 │   │   ├── ADR_Template.md
 │   │   ├── SPEC_Template.md
 │   │   ├── architecture_spec.md
-│   │   └── workflow-design.md   # 設計工作流範本
+│   │   ├── workflow-design.md              # 設計工作流範本
+│   │   ├── example-profile-system.yaml     # .ai_profile 範例（system 專案）
+│   │   ├── example-profile-content.yaml    # .ai_profile 範例（content 專案）
+│   │   └── example-profile-full.yaml       # .ai_profile 範例（全功能）
 │   ├── scripts/
 │   │   ├── install.sh           # 一鍵安裝（含 SessionStart Hook 設定）
 │   │   └── rag/
