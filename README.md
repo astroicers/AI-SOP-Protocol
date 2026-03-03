@@ -190,7 +190,8 @@ autonomous: disabled
 
 #### 限制
 
-- **autonomous** 和 **multi-agent** / **committee** 不可同時啟用（策略互斥）
+- **autonomous** 和 **multi-agent** 不可同時啟用（同為實作期模式，控制方式衝突）
+- **committee** 可與任何實作期模式搭配（committee 是決策期模式）
 - **切換不自動化**：沒有「ADR Accepted 後自動切換模式」的機制，需人工修改 `.ai_profile`
 - **鐵則不受模式影響**：git push/rebase、docker push、rm -rf 在任何模式下都由內建權限系統彈確認框
 

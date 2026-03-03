@@ -2,6 +2,7 @@
 
 <!-- requires: global_core, system_dev, vibe_coding -->
 <!-- optional: guardrail -->
+<!-- conflicts: multi_agent -->
 
 適用：AI 全自動開發，人類僅在關鍵節點審核。
 載入條件：`.ai_profile` 中 `autonomous: enabled`
@@ -203,4 +204,4 @@ autonomous_dev.md
   └── 可選 guardrail.md（敏感資訊保護）
 ```
 
-不與 `multi_agent.md` 或 `committee.md` 同時啟用。autonomous 模式是單 agent 高速執行。
+不與 `multi_agent.md` 同時啟用（同為實作期模式）。`committee.md` 可搭配使用（決策期不衝突）。
