@@ -89,25 +89,26 @@ if [ -t 0 ]; then
     if [ "$IS_UPGRADE" = true ]; then
         echo "🔄 偵測到已安裝 ASP v${INSTALLED_VERSION}，執行升級"
     fi
-    echo "🔍 自動偵測專案類型：$DETECTED"
-    read -rp "確認類型（Enter 使用偵測值，或輸入 system/content/architecture）: " PROJECT_TYPE
-    PROJECT_TYPE="${PROJECT_TYPE:-$DETECTED}"
+    echo "專案類型：  [1] system  [2] content  [3] architecture  （偵測：$DETECTED）"
+    read -rp "選擇 (1-3，Enter 使用偵測值): " TYPE_CHOICE
+    case "${TYPE_CHOICE:-}" in
+        1) PROJECT_TYPE=system ;;
+        2) PROJECT_TYPE=content ;;
+        3) PROJECT_TYPE=architecture ;;
+        *) PROJECT_TYPE="$DETECTED" ;;
+    esac
+    PROJECT_NAME="$DEFAULT_NAME"
 
-    read -rp "專案名稱（Enter 使用目錄名 $DEFAULT_NAME）: " PROJECT_NAME
-    PROJECT_NAME="${PROJECT_NAME:-$DEFAULT_NAME}"
-
-    echo ""
     echo "開發風格：  [1] 標準  [2] 高速自主  [3] 完整治理"
     read -rp "選擇 (1-3，Enter 使用 1): " PRESET_CHOICE
-    PRESET_CHOICE="${PRESET_CHOICE:-1}"
-    apply_preset "$PRESET_CHOICE"
+    apply_preset "${PRESET_CHOICE:-1}"
 else
     echo ""
     echo "📋 非互動模式（可透過環境變數覆寫）"
     PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
-    PROJECT_NAME="${ASP_NAME:-$DEFAULT_NAME}"
+    PROJECT_NAME="$DEFAULT_NAME"
     apply_preset "${ASP_PRESET:-1}"
-    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL"
+    echo "  type: $PROJECT_TYPE | preset: ${ASP_PRESET:-1} | hitl: $HITL_LEVEL"
 fi
 
 echo ""

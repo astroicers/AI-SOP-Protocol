@@ -44,7 +44,7 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh | bash
 ```
 
-安裝只問三件事：**專案類型** → **專案名稱** → **開發風格**（三選一）。
+安裝只問兩題：**專案類型** → **開發風格**，全按 Enter 即可完成。
 
 | 開發風格 | 設定 | 適合 |
 |----------|------|------|
