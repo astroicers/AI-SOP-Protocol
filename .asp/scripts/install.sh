@@ -64,6 +64,25 @@ detect_type() {
 DETECTED=$(detect_type)
 DEFAULT_NAME="$(basename "$(pwd)")"
 
+# 預設開發風格
+apply_preset() {
+    case "$1" in
+        1) # 標準模式
+            ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=standard
+            ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
+            ENABLE_AUTONOMOUS=n; WORKFLOW=standard ;;
+        2) # 高速自主模式
+            ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
+            ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
+            ENABLE_AUTONOMOUS=y; WORKFLOW=vibe-coding ;;
+        3) # 完整治理模式
+            ENABLE_RAG=y; ENABLE_GUARDRAIL=y; HITL_LEVEL=strict
+            ENABLE_DESIGN=y; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=y
+            ENABLE_AUTONOMOUS=n; WORKFLOW=standard ;;
+        *) return 1 ;;
+    esac
+}
+
 # 偵測是否為互動式（curl | bash 時 stdin 不是 terminal）
 if [ -t 0 ]; then
     echo ""
@@ -78,39 +97,17 @@ if [ -t 0 ]; then
     PROJECT_NAME="${PROJECT_NAME:-$DEFAULT_NAME}"
 
     echo ""
-    read -rp "啟用 RAG 知識庫？（y/N）: " ENABLE_RAG
-    ENABLE_RAG="${ENABLE_RAG:-n}"
-
-    read -rp "啟用 Guardrail 護欄？（y/N）: " ENABLE_GUARDRAIL
-    ENABLE_GUARDRAIL="${ENABLE_GUARDRAIL:-n}"
-
-    read -rp "HITL 等級（minimal/standard/strict，Enter 使用 standard）: " HITL_LEVEL
-    HITL_LEVEL="${HITL_LEVEL:-standard}"
-
-    read -rp "啟用 UI/UX 設計治理？（y/N）: " ENABLE_DESIGN
-    ENABLE_DESIGN="${ENABLE_DESIGN:-n}"
-
-    read -rp "啟用程式碼風格治理？（y/N）: " ENABLE_CODING_STYLE
-    ENABLE_CODING_STYLE="${ENABLE_CODING_STYLE:-n}"
-
-    read -rp "啟用 API-First 工作流？（y/N）: " ENABLE_OPENAPI
-    ENABLE_OPENAPI="${ENABLE_OPENAPI:-n}"
-
-    read -rp "啟用 AI 全自動開發模式？（y/N）: " ENABLE_AUTONOMOUS
-    ENABLE_AUTONOMOUS="${ENABLE_AUTONOMOUS:-n}"
+    echo "開發風格：  [1] 標準  [2] 高速自主  [3] 完整治理"
+    read -rp "選擇 (1-3，Enter 使用 1): " PRESET_CHOICE
+    PRESET_CHOICE="${PRESET_CHOICE:-1}"
+    apply_preset "$PRESET_CHOICE"
 else
     echo ""
-    echo "📋 非互動模式，使用自動偵測值（可透過環境變數覆寫）："
+    echo "📋 非互動模式（可透過環境變數覆寫）"
     PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
     PROJECT_NAME="${ASP_NAME:-$DEFAULT_NAME}"
-    ENABLE_RAG="${ASP_RAG:-n}"
-    ENABLE_GUARDRAIL="${ASP_GUARDRAIL:-n}"
-    HITL_LEVEL="${ASP_HITL:-standard}"
-    ENABLE_DESIGN="${ASP_DESIGN:-n}"
-    ENABLE_CODING_STYLE="${ASP_CODING_STYLE:-n}"
-    ENABLE_OPENAPI="${ASP_OPENAPI:-n}"
-    ENABLE_AUTONOMOUS="${ASP_AUTONOMOUS:-n}"
-    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL | rag: $ENABLE_RAG | guardrail: $ENABLE_GUARDRAIL | design: $ENABLE_DESIGN | coding_style: $ENABLE_CODING_STYLE | openapi: $ENABLE_OPENAPI | autonomous: $ENABLE_AUTONOMOUS"
+    apply_preset "${ASP_PRESET:-1}"
+    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL"
 fi
 
 echo ""
@@ -282,7 +279,7 @@ AUTONOMOUS_VAL="disabled"
 
 NEW_PROFILE="type: ${PROJECT_TYPE}
 mode: single
-workflow: standard
+workflow: ${WORKFLOW:-standard}
 rag: ${RAG_VAL}
 guardrail: ${GUARDRAIL_VAL}
 hitl: ${HITL_LEVEL}

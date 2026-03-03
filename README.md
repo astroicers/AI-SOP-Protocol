@@ -44,10 +44,20 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh | bash
 ```
 
-安裝腳本會自動：
+安裝只問三件事：**專案類型** → **專案名稱** → **開發風格**（三選一）。
+
+| 開發風格 | 設定 | 適合 |
+|----------|------|------|
+| **標準**（預設） | `hitl: standard` | 大多數專案 |
+| **高速自主** | `autonomous: enabled` / `hitl: minimal` | 需求明確的快速迭代 |
+| **完整治理** | guardrail / coding_style / design / openapi 全開 | 正式環境 |
+
+> 安裝後隨時可編輯 `.ai_profile` 微調，開新 session 生效。
+
+安裝腳本還會自動：
 - 複製 `CLAUDE.md`、`.asp/`、`Makefile`、`.gitignore`
-- 建立 `.claude/settings.json` 並註冊 SessionStart Hook（若已存在會合併）
-- 舊版 ASP（profiles 散落在根目錄）會自動遷移至 `.asp/`
+- 根據選擇產生 `.ai_profile`
+- 建立 `.claude/settings.json` 並註冊 SessionStart Hook
 
 或手動複製：
 
