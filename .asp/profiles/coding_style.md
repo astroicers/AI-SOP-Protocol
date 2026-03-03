@@ -1,5 +1,8 @@
 # Coding Style Profile — 通用編碼風格規範
 
+<!-- requires: (none — standalone) -->
+<!-- optional: (none) -->
+
 適用：需要統一程式碼風格的系統開發專案。
 載入條件：`coding_style: enabled`
 
@@ -57,6 +60,62 @@
 
 ---
 
+## 穩定度導向編碼規則
+
+### 系統邊界驗證
+
+- 所有外部輸入（HTTP request、CLI 參數、檔案內容、環境變數）在進入系統邊界時驗證
+- 驗證邏輯集中在 handler / controller 層，不分散在業務邏輯中
+- 驗證失敗時回傳明確錯誤，不靜默使用預設值
+
+### Fail-Fast 與 Graceful Degradation
+
+| 情境 | 策略 |
+|------|------|
+| 不可恢復（config missing、DB connection failed） | fail fast + 明確錯誤訊息 |
+| 可恢復（外部 API timeout、cache miss） | graceful degradation + 日誌記錄 |
+
+- 禁止用 panic / os.Exit / process.exit 處理可恢復錯誤
+
+### 冪等性
+
+- 所有可能被重試的操作（API endpoint、message handler、background job）必須冪等
+- 使用 idempotency key 或 upsert 語義確保重試安全
+- 在 SPEC 的 Edge Cases 中明確列出「重試行為」
+
+### Timeout 與資源限制
+
+- 所有外部呼叫必須有 timeout 設定，禁止使用預設無限 timeout
+- 禁止在記憶體中無上限累積資料（unbounded queue / channel / list）
+- 長時間操作必須支援 context cancellation / abort signal
+
+---
+
+## 安全編碼基線
+
+### SQL / NoSQL
+
+- 禁止字串拼接查詢，一律使用 parameterized query / prepared statement
+- ORM 的 raw query 功能同樣適用此規則
+
+### 使用者輸入與輸出
+
+- 所有使用者輸入在輸出時進行 context-aware escaping
+  - HTML context → HTML escape；URL context → URL encode；JS context → JS escape
+- 禁止使用 `dangerouslySetInnerHTML` / `v-html` / `{!! !!}` 等 raw HTML 注入（除非有明確的 sanitization 並在註解中說明）
+
+### 認證與授權
+
+- 密碼儲存使用 bcrypt / argon2，禁止 MD5 / SHA1
+- JWT secret、API key 從環境變數讀取，禁止硬編碼
+- API endpoint 預設需要認證，公開 endpoint 需明確標記並說明理由
+
+### 禁止提交的檔案模式
+
+`*.pem`, `*.key`, `.env`（非 `.example`）, `credentials.*`, `*_secret*`
+
+---
+
 ## 風格審查決策流程
 
 ```
@@ -90,6 +149,19 @@ FUNCTION review_code_style(file, codebase_conventions):
 
   IF imports NOT sorted_by(stdlib, external, internal):
     violations.append("import 順序不符慣例")
+
+  // ─── 第 4 步：穩定度與安全檢查 ───
+  IF any_external_call.has_no_timeout():
+    violations.append("穩定度：外部呼叫缺少 timeout 設定")
+
+  IF code.has_string_concatenation_in_query():
+    violations.append("安全：禁止字串拼接 SQL 查詢，使用 parameterized query")
+
+  IF code.has_raw_html_injection():
+    violations.append("安全：禁止未經 sanitize 的 raw HTML 注入")
+
+  IF code.has_hardcoded_secret_pattern():
+    violations.append("安全：疑似硬編碼 credentials，應使用環境變數")
 
   IF violations:
     RETURN suggest_improvements(violations)

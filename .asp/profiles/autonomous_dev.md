@@ -1,5 +1,8 @@
 # Autonomous Development Profile
 
+<!-- requires: global_core, system_dev, vibe_coding -->
+<!-- optional: guardrail -->
+
 適用：AI 全自動開發，人類僅在關鍵節點審核。
 載入條件：`.ai_profile` 中 `autonomous: enabled`
           或 `workflow: vibe-coding` + `hitl: minimal`（後相容）
@@ -44,7 +47,7 @@
 | **範圍超出** | 實作中發現需求超出當前 SPEC / 版本範圍 |
 | **新增外部依賴** | pyproject.toml / package.json 等新增 dependency |
 | **DB Schema 變更** | 新增/修改資料庫結構（除非 SPEC 明確指定） |
-| **Bug 修復失敗** | 同一問題重試 3 次仍失敗 |
+| **Bug 修復失敗** | 重試 3 次仍失敗、振盪偵測（相同失敗重複）、級聯偵測（失敗增加）、偷渡偵測（測試被改） |
 
 ### 禁止（即使 autonomous 模式也不可）
 
@@ -62,27 +65,84 @@
 ```
 FUNCTION auto_fix_loop(test_command, max_retries=3):
 
+  // ─── 初始快照：記錄修復前的基線 ───
+  original_test_checksums = CHECKSUM(all_test_files)
+  previous_failures = NULL
+  previous_fix_descriptions = []
+
   FOR attempt IN 1..max_retries:
     result = EXECUTE(test_command)
+
+    // ─── 偷渡偵測：測試檔案被修改導致「假通過」 ───
+    current_test_checksums = CHECKSUM(all_test_files)
+    IF current_test_checksums != original_test_checksums:
+      changed_tests = DIFF(original_test_checksums, current_test_checksums)
+      WARN("⚠️ 測試檔案被修改：{changed_tests}")
+      PAUSE_AND_REPORT(
+        reason = "smuggling_detected",
+        detail = "測試通過但測試檔案已被修改。請人類審核修改是否合理（新增測試 OK、修改 assertion 需審核）。",
+        changed_files = changed_tests
+      )
+      RETURN NEEDS_REVIEW
 
     IF result.passed:
       LOG("測試通過（第 {attempt} 次）")
       RETURN SUCCESS
 
     // 分析失敗原因
-    errors = parse_test_failures(result.output)
+    current_failures = parse_test_failures(result.output)
 
-    FOR error IN errors:
+    // ─── 振盪偵測：相同失敗重複出現，修復策略無效 ───
+    IF previous_failures != NULL
+       AND SET(current_failures) == SET(previous_failures):
+      PAUSE_AND_REPORT(
+        reason = "oscillation_detected",
+        detail = "第 {attempt} 次修復後失敗模式與前一次相同。目前策略無效，需人類介入。",
+        failures = current_failures,
+        attempted_fixes = previous_fix_descriptions
+      )
+      RETURN FAILURE
+
+    // ─── 級聯偵測：修復導致更多失敗 ───
+    IF previous_failures != NULL
+       AND LEN(current_failures) > LEN(previous_failures):
+      REVERT_LAST_FIX()
+      PAUSE_AND_REPORT(
+        reason = "cascade_detected",
+        detail = "修復導致失敗數量增加（{LEN(previous_failures)} → {LEN(current_failures)}）。已回退上一次修改。",
+        before = previous_failures,
+        after = current_failures
+      )
+      RETURN FAILURE
+
+    // 套用修復
+    current_fix_descriptions = []
+    FOR error IN current_failures:
       fix = diagnose_and_fix(error)
       APPLY(fix)
+      current_fix_descriptions.append(fix.description)
 
+    previous_failures = current_failures
+    previous_fix_descriptions = current_fix_descriptions
     LOG("第 {attempt} 次修復完成，重新測試...")
 
   // 超過重試次數
   LOG("重試 {max_retries} 次仍失敗")
-  PAUSE_AND_REPORT(errors)
+  PAUSE_AND_REPORT(
+    reason = "max_retries_exceeded",
+    detail = "已嘗試 {max_retries} 次修復，仍有失敗。",
+    failures = current_failures,
+    attempted_fixes = previous_fix_descriptions
+  )
   RETURN FAILURE
 ```
+
+> **三道防護摘要**：
+> | 防護 | 偵測條件 | 動作 |
+> |------|----------|------|
+> | **振盪偵測** | 本次失敗集合 == 上次失敗集合 | PAUSE（修復策略無效） |
+> | **級聯偵測** | 本次失敗數量 > 上次失敗數量 | REVERT + PAUSE（修復引入新問題） |
+> | **偷渡偵測** | 測試檔案 checksum 改變 | WARN + PAUSE（AI 可能改了測試而非代碼） |
 
 ---
 
