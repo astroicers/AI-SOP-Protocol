@@ -1,10 +1,14 @@
 # AI-SOP-Protocol — Makefile
 # 目的：封裝重複指令，節省 Token，降低操作失誤風險
 # 使用方式：依專案需求保留/修改對應區塊
-# ASP_MAKEFILE_VERSION=1.3.0
+# ASP_MAKEFILE_VERSION=2.0.0
 
 APP_NAME ?= app-service
 VERSION  ?= latest
+
+# --- 條件載入：讀取 .ai_profile 的 type 欄位 ---
+# content 類型專案隱藏 Docker/Test/Lint/Deploy targets
+ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
 
 .PHONY: help \
         build clean deploy logs \
@@ -12,6 +16,7 @@ VERSION  ?= latest
         diagram \
         adr-new adr-list \
         spec-new spec-list \
+        postmortem-new postmortem-list \
         agent-done agent-status agent-reset agent-locks agent-unlock agent-lock-gc \
         session-checkpoint session-log \
         rag-index rag-search rag-stats rag-rebuild \
@@ -23,14 +28,17 @@ VERSION  ?= latest
 
 help:
 	@echo ""
-	@echo "AI-SOP-Protocol 指令速查"
+	@echo "AI-SOP-Protocol 指令速查（type: $(or $(ASP_TYPE),未設定)）"
 	@echo "========================="
 	@echo ""
+ifneq ($(ASP_TYPE),content)
 	@echo "📦 Container:   build | clean | deploy | logs"
 	@echo "🧪 Test:        test | test-filter FILTER=xxx | coverage | lint"
 	@echo "📐 Docs:        diagram"
+endif
 	@echo "📋 ADR:         adr-new TITLE=... | adr-list"
 	@echo "📄 Spec:        spec-new TITLE=... | spec-list"
+	@echo "🔥 Postmortem:  postmortem-new TITLE=... | postmortem-list"
 	@echo "🤖 Agent:       agent-done TASK=... STATUS=... | agent-status | agent-reset | agent-unlock FILE=... | agent-lock-gc"
 	@echo "💾 Session:     session-checkpoint NEXT=... | session-log"
 	@echo "🧠 RAG:         rag-index | rag-search Q=... | rag-stats | rag-rebuild"
@@ -38,8 +46,9 @@ help:
 	@echo ""
 
 #---------------------------------------------------------------------------
-# Docker / Container
+# Docker / Container（type: content 時隱藏）
 #---------------------------------------------------------------------------
+ifneq ($(ASP_TYPE),content)
 
 build:
 	@echo "🔨 Building $(APP_NAME):$(VERSION)..."
@@ -60,7 +69,7 @@ logs:
 	docker-compose logs -f --tail=100
 
 #---------------------------------------------------------------------------
-# Test
+# Test（type: content 時隱藏）
 #---------------------------------------------------------------------------
 
 test:
@@ -90,7 +99,7 @@ lint:
 	@echo "⚠️  未偵測到 Lint 工具"
 
 #---------------------------------------------------------------------------
-# Architecture Diagram
+# Architecture Diagram（type: content 時隱藏）
 #---------------------------------------------------------------------------
 
 diagram:
@@ -99,6 +108,12 @@ diagram:
 	@awk '/```mermaid/{flag=1;next}/```/{flag=0}flag' docs/architecture.md > /tmp/arch.mmd 2>/dev/null || true
 	@mmdc -i /tmp/arch.mmd -o docs/architecture.png 2>/dev/null || \
 	echo "⚠️  請安裝 mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
+
+else
+# --- content 類型的 stub targets（避免 make: *** No rule to make target 錯誤）---
+build clean deploy logs test test-filter coverage lint diagram:
+	@echo "⚠️  此指令不適用於 content 類型專案（目前 type: $(ASP_TYPE)）"
+endif
 
 #---------------------------------------------------------------------------
 # ADR 管理
@@ -146,6 +161,32 @@ spec-new:
 spec-list:
 	@echo "📋 Spec 列表："; \
 	ls docs/specs/SPEC-*.md 2>/dev/null | while read f; do echo "  $$f"; done || echo "  (無 Spec)"
+
+#---------------------------------------------------------------------------
+# Postmortem
+#---------------------------------------------------------------------------
+
+postmortem-new:
+	@if [ -z "$(TITLE)" ]; then read -p "Postmortem 標題: " TITLE; fi; \
+	mkdir -p docs/postmortems; \
+	COUNT=$$(ls docs/postmortems/PM-*.md 2>/dev/null | wc -l | tr -d ' '); \
+	NUM=$$(printf "%03d" $$((COUNT + 1))); \
+	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
+	FILE="docs/postmortems/PM-$$NUM-$$SLUG.md"; \
+	cp .asp/templates/Postmortem_Template.md $$FILE; \
+	SED_I=$$([ "$$(uname)" = "Darwin" ] && echo "sed -i ''" || echo "sed -i"); \
+	$$SED_I "s/PM-000/PM-$$NUM/g" $$FILE; \
+	$$SED_I "s/事件標題/$(TITLE)/g" $$FILE; \
+	$$SED_I "s/YYYY-MM-DD/$$(date +%Y-%m-%d)/g" $$FILE; \
+	echo "✅ 已建立: $$FILE"
+
+postmortem-list:
+	@echo "🔥 Postmortem 列表："; \
+	ls docs/postmortems/PM-*.md 2>/dev/null | while read f; do \
+		SEVERITY=$$(grep -m1 "嚴重等級" $$f | grep -o '`[^`]*`' | tr -d '`'); \
+		TITLE=$$(head -1 $$f | sed 's/# //'); \
+		echo "  $$TITLE [$$SEVERITY]"; \
+	done || echo "  (無 Postmortem)"
 
 #---------------------------------------------------------------------------
 # Multi-Agent
@@ -207,12 +248,13 @@ session-log:
 #---------------------------------------------------------------------------
 
 rag-index:
-	@echo "🔍 Building RAG index..."
+	@echo "🔍 Building RAG index (incremental)..."
 	@python3 .asp/scripts/rag/build_index.py \
 		--source docs/ \
 		--source .asp/profiles/ \
 		--output .rag/index \
-		--model all-MiniLM-L6-v2 2>/dev/null || \
+		--model all-MiniLM-L6-v2 \
+		--incremental 2>/dev/null || \
 	echo "⚠️  請先執行: pip install chromadb sentence-transformers"
 
 rag-search:
