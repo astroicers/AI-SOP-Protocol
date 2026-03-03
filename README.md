@@ -156,7 +156,7 @@ ASP 的開發分為兩個階段，每個階段有不同的模式可選：
 | **autonomous** | `autonomous: enabled` | 需求明確、想讓 AI 高速推進 | AI 在精確邊界內自主執行，僅在刪除檔案、新增依賴、超出範圍時暫停 |
 | **multi-agent** | `mode: multi-agent` | 大量低耦合任務 | Orchestrator 拆分任務，多 Worker 並行（token 消耗約 15 倍） |
 
-**autonomous 前提**：所有 ADR 已 Accepted + 每功能有 SPEC。詳見 `autonomous_dev.md`。
+**autonomous 前提**：所有 ADR 已 Accepted。缺少 SPEC 時 AI 會自動產生後再實作。詳見 `autonomous_dev.md`。
 
 #### 模式切換
 
