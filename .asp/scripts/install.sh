@@ -50,12 +50,28 @@ fi
 
 # 自動偵測專案類型
 detect_type() {
-    if [ -f "go.mod" ] || [ -f "Dockerfile" ] || [ -f "docker-compose.yml" ]; then
+    # architecture：多服務 / IaC / K8s 基礎設施
+    if [ -f "docker-compose.yml" ] && [ -d "docs/adr" ]; then
+        echo "architecture"
+    elif ls */Dockerfile &>/dev/null 2>&1 || ls */docker-compose.yml &>/dev/null 2>&1; then
+        echo "architecture"  # 多個子目錄有 Dockerfile = 多服務
+    elif [ -d "terraform" ] || [ -d "pulumi" ] || [ -f "helmfile.yaml" ] || \
+         ls *.tf &>/dev/null 2>&1 || [ -f "skaffold.yaml" ]; then
+        echo "architecture"
+    # system：有程式碼或建置檔的單一專案
+    elif [ -f "go.mod" ] || [ -f "Cargo.toml" ] || [ -f "pom.xml" ] || \
+         [ -f "build.gradle" ] || [ -f "build.gradle.kts" ] || \
+         [ -f "*.csproj" ] || [ -f "*.sln" ] || [ -f "CMakeLists.txt" ]; then
         echo "system"
-    elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+    elif [ -f "Dockerfile" ] || [ -f "Makefile" ]; then
         echo "system"
-    elif [ -f "package.json" ] && grep -qE '"react"|"vue"|"next"' package.json 2>/dev/null; then
+    elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
         echo "system"
+    elif [ -f "package.json" ]; then
+        echo "system"
+    elif [ -f "Gemfile" ] || [ -f "mix.exs" ] || [ -f "composer.json" ]; then
+        echo "system"
+    # content：以上都沒有
     else
         echo "content"
     fi
