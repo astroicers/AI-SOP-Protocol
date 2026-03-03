@@ -95,6 +95,9 @@ if [ -t 0 ]; then
 
     read -rp "啟用 API-First 工作流？（y/N）: " ENABLE_OPENAPI
     ENABLE_OPENAPI="${ENABLE_OPENAPI:-n}"
+
+    read -rp "啟用 AI 全自動開發模式？（y/N）: " ENABLE_AUTONOMOUS
+    ENABLE_AUTONOMOUS="${ENABLE_AUTONOMOUS:-n}"
 else
     echo ""
     echo "📋 非互動模式，使用自動偵測值（可透過環境變數覆寫）："
@@ -106,7 +109,8 @@ else
     ENABLE_DESIGN="${ASP_DESIGN:-n}"
     ENABLE_CODING_STYLE="${ASP_CODING_STYLE:-n}"
     ENABLE_OPENAPI="${ASP_OPENAPI:-n}"
-    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL | rag: $ENABLE_RAG | guardrail: $ENABLE_GUARDRAIL | design: $ENABLE_DESIGN | coding_style: $ENABLE_CODING_STYLE | openapi: $ENABLE_OPENAPI"
+    ENABLE_AUTONOMOUS="${ASP_AUTONOMOUS:-n}"
+    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL | rag: $ENABLE_RAG | guardrail: $ENABLE_GUARDRAIL | design: $ENABLE_DESIGN | coding_style: $ENABLE_CODING_STYLE | openapi: $ENABLE_OPENAPI | autonomous: $ENABLE_AUTONOMOUS"
 fi
 
 echo ""
@@ -273,12 +277,16 @@ CODING_STYLE_VAL="disabled"
 OPENAPI_VAL="disabled"
 [ "${ENABLE_OPENAPI,,}" = "y" ] && OPENAPI_VAL="enabled"
 
+AUTONOMOUS_VAL="disabled"
+[ "${ENABLE_AUTONOMOUS,,}" = "y" ] && AUTONOMOUS_VAL="enabled"
+
 NEW_PROFILE="type: ${PROJECT_TYPE}
 mode: single
 workflow: standard
 rag: ${RAG_VAL}
 guardrail: ${GUARDRAIL_VAL}
 hitl: ${HITL_LEVEL}
+autonomous: ${AUTONOMOUS_VAL}
 design: ${DESIGN_VAL}
 coding_style: ${CODING_STYLE_VAL}
 openapi: ${OPENAPI_VAL}
@@ -288,7 +296,7 @@ if [ -f ".ai_profile" ]; then
     echo "ℹ️  .ai_profile 已存在，保留現有設定"
     # 僅補充缺失欄位
     ADDED_FIELDS=0
-    for FIELD in type mode workflow rag guardrail hitl design coding_style openapi name; do
+    for FIELD in type mode workflow rag guardrail hitl autonomous design coding_style openapi name; do
         if ! grep -q "^${FIELD}:" .ai_profile; then
             DEFAULT_VAL=$(echo "$NEW_PROFILE" | grep "^${FIELD}:" | head -1)
             if [ -n "$DEFAULT_VAL" ]; then
@@ -405,21 +413,25 @@ HOOKJSON
     fi
 fi
 
-# --- 清理 settings.local.json 中的危險 allow 規則（安裝時執行一次）---
-if [ "$JQ_AVAILABLE" = true ] && [ -f ".claude/settings.local.json" ]; then
+# --- 清理 settings 中的危險 allow 規則（安裝時執行一次）---
+if [ "$JQ_AVAILABLE" = true ]; then
     DANGEROUS_PATTERNS='git\s+rebase|git\s+push|docker\s+(push|deploy)|rm\s+-[a-z]*r|find\s+.*-delete'
-    BEFORE_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' .claude/settings.local.json 2>/dev/null || echo 0)
-    jq --arg pattern "$DANGEROUS_PATTERNS" '
-      .permissions.allow = [
-        (.permissions.allow // [])[] |
-        select((startswith("Bash(") and test($pattern)) | not)
-      ]
-    ' .claude/settings.local.json > .claude/settings.local.json.tmp \
-        && mv .claude/settings.local.json.tmp .claude/settings.local.json
-    AFTER_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' .claude/settings.local.json 2>/dev/null || echo 0)
-    REMOVED_COUNT=$((BEFORE_COUNT - AFTER_COUNT))
-    if [ "$REMOVED_COUNT" -gt 0 ]; then
-        echo "🔒 已從 allow list 移除 ${REMOVED_COUNT} 條危險規則（git rebase/push, docker push, rm -r 等）"
+    TOTAL_REMOVED=0
+    for SETTINGS_FILE in .claude/settings.local.json .claude/settings.json; do
+        [ -f "$SETTINGS_FILE" ] || continue
+        BEFORE_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
+        jq --arg pattern "$DANGEROUS_PATTERNS" '
+          .permissions.allow = [
+            (.permissions.allow // [])[] |
+            select((startswith("Bash(") and test($pattern)) | not)
+          ]
+        ' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
+            && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+        AFTER_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
+        TOTAL_REMOVED=$((TOTAL_REMOVED + BEFORE_COUNT - AFTER_COUNT))
+    done
+    if [ "$TOTAL_REMOVED" -gt 0 ]; then
+        echo "🔒 已從 allow list 移除 ${TOTAL_REMOVED} 條危險規則（git rebase/push, docker push, rm -r 等）"
     fi
 fi
 

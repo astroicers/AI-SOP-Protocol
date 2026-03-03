@@ -4,6 +4,7 @@ workflow: standard
 rag: disabled
 guardrail: disabled
 hitl: standard
+autonomous: disabled
 design: disabled
 coding_style: disabled
 openapi: disabled

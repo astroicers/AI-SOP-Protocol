@@ -39,7 +39,7 @@
 ## HITL 等級與暫停決策
 
 ```yaml
-hitl: minimal   # 僅副作用前暫停（適合熟悉任務）
+hitl: minimal   # 明確定義的暫停觸發條件（見下方清單）
 hitl: standard  # 每個實作計畫需確認（預設）
 hitl: strict    # 每個檔案修改需確認（涉及生產/安全系統）
 ```
@@ -47,16 +47,43 @@ hitl: strict    # 每個檔案修改需確認（涉及生產/安全系統）
 ```
 FUNCTION should_pause(operation, hitl_level):
 
-  // Bash 副作用指令 — 由 Claude Code 內建權限系統確認
+  // ─── 鐵則級暫停（所有 HITL 等級都觸發）───
+  // 由 Claude Code 內建權限系統確認：
   // git rebase, docker push/deploy, rm -r*, find -delete, git push
-  // → 不依賴此決策樹，內建權限系統彈出確認框
 
-  // 檔案修改 — 依 HITL 等級（AI 自律）
+  // ─── 檔案修改 — 依 HITL 等級（AI 自律）───
   MATCH hitl_level:
-    "minimal"  → RETURN PASS           // 信任 AI 判斷
-    "standard" → RETURN ASK            // 每個實作計畫需確認
-    "strict"   → RETURN MUST_ASK       // 每個檔案修改需確認
+    "minimal":
+      // 暫停條件（明確列舉，非模糊的「信任 AI」）：
+      PAUSE_WHEN:
+        - operation.deletes_file()                          // 刪除檔案
+        - operation.adds_external_dependency()              // 新增外部依賴
+        - operation.modifies_db_schema() AND NOT spec.covers_schema_change()
+        - operation.scope_exceeds_current_spec()            // 超出 SPEC 範圍
+        - operation.auto_fix_retries >= 3                   // Bug 修復連續失敗
+      OTHERWISE:
+        RETURN PASS  // 在 SPEC 範圍內的所有操作自主執行
+
+    "standard":
+      RETURN ASK    // 每個實作計畫需確認
+
+    "strict":
+      RETURN MUST_ASK  // 每個檔案修改需確認
 ```
+
+### minimal 模式行為規範
+
+`hitl: minimal` 不是「無限制」，而是「精確限制」：
+
+| AI 可自主做 | AI 必須暫停 |
+|-------------|-------------|
+| 建立/修改 SPEC 範圍內的檔案 | 刪除任何非暫存檔案 |
+| 跟隨既有 pattern 做命名/結構決策 | 新增 pyproject.toml / package.json 依賴 |
+| `make test` 失敗後自動修復（≤3次） | 修改 DB schema（除非 SPEC 明確指定）|
+| 建立新 SPEC（前提：ADR 已 Accepted） | 發現需求超出 SPEC/版本範圍 |
+| 更新文件（ROADMAP、README、CHANGELOG） | git push / rebase（鐵則） |
+
+**自動修復上限**：同一測試失敗連續修復 3 次仍未通過 → 暫停並向人類報告失敗細節。
 
 ---
 

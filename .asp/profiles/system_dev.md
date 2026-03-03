@@ -30,6 +30,42 @@ Draft → Proposed → Accepted → Deprecated / Superseded by ADR-XXX
 - ADR 狀態為 `Draft` 時，禁止撰寫對應的生產代碼（鐵則）
 - `Accepted` ADR 被推翻時，必須建立新 ADR 說明原因，不可直接修改舊 ADR
 
+### 批次 ADR 預審（Autonomous 模式專用）
+
+當多個功能需要同時進入自主開發時，可使用批次預審流程：
+
+```
+FUNCTION batch_adr_review(adr_list):
+
+  // 1. AI 一次性建立所有 ADR（狀態為 Draft）
+  FOR adr IN adr_list:
+    CREATE adr_from_template(adr)
+    adr.status = "Draft"
+
+  // 2. 暫停 — 人類一次性審核所有 ADR
+  PAUSE("請審核以下 ADR 並決定是否 Accept：")
+  PRESENT(adr_list)
+
+  // 3. 人類審核完畢
+  FOR adr IN adr_list:
+    IF human_approves(adr):
+      adr.status = "Accepted"
+    ELSE:
+      adr.status = "Rejected"
+      REMOVE from autonomous_queue(adr.related_features)
+
+  // 4. 所有 Accepted ADR → AI 進入自主開發，不再暫停
+  RETURN accepted_adrs
+```
+
+**使用時機**：
+- 版本升級（多功能同步開發）
+- 人類希望一次審核、一次放行，AI 不間斷執行
+
+**限制**：
+- 批次預審不適用於跨版本的架構變更
+- 每個 ADR 仍須獨立評估，不可因批次而降低審核標準
+
 ---
 
 ## 標準開發流程
@@ -104,6 +140,7 @@ ADR（為什麼）→ [Design Gate] → [OpenAPI Gate] → SDD（如何設計）
 **豁免路徑**（需在回覆中明確說明）：
 - trivial（單行/typo/配置）→ 直接修復，說明理由
 - 原型驗證 → 標記 `tech-debt: spec-pending`，24h 內補 SPEC
+- autonomous 模式既有架構延伸 → 可由 AI 建立 SPEC 後直接實作，前提是對應 ADR 已 Accepted
 
 > 此規則依賴 AI 自律執行，無 Hook 技術強制。
 

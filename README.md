@@ -80,6 +80,7 @@ workflow: standard        # standard | vibe-coding
 rag: disabled             # enabled | disabled
 guardrail: disabled       # enabled | disabled
 hitl: standard            # minimal | standard | strict
+autonomous: disabled      # enabled | disabled
 design: disabled          # enabled | disabled
 coding_style: disabled    # enabled | disabled
 openapi: disabled         # enabled | disabled
@@ -92,7 +93,7 @@ name: your-project
 
 | 等級 | 行為 |
 |------|------|
-| `minimal` | 僅對副作用操作主動說明「等待確認」 |
+| `minimal` | 明確定義的暫停條件（刪除檔案、新增依賴、DB Schema 變更、範圍超出、自動修復失敗 ≥3 次） |
 | `standard` | + 原始碼修改前確認 SPEC 存在性 |
 | `strict` | + 所有檔案修改前主動暫停確認 |
 
@@ -198,6 +199,7 @@ your-project/
 │   │   ├── multi_agent.md       # 任務分治（實作期並行）
 │   │   ├── committee.md         # 角色委員會（決策期辯論）
 │   │   ├── vibe_coding.md       # 規格驅動工作流
+│   │   ├── autonomous_dev.md    # AI 全自動開發模式
 │   │   ├── rag_context.md       # Local RAG 整合
 │   │   ├── guardrail.md         # 範疇限制與敏感資訊保護
 │   │   ├── design_dev.md        # UI/UX 設計治理
@@ -237,6 +239,8 @@ your-project/
   ↓ 依 .ai_profile mode 載入（可選）
 開發策略 Profile（vibe-coding）
   ↓ 依 .ai_profile workflow 載入（可選）
+自主開發 Profile（autonomous_dev）
+  ↓ 依 .ai_profile autonomous 載入（可選）
 選配 Profile（rag / guardrail / design / coding_style / openapi）
   ↓ 依 .ai_profile 各欄位載入（可選）
 ```

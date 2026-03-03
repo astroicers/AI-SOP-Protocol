@@ -4,6 +4,7 @@ workflow: vibe-coding
 rag: enabled
 guardrail: enabled
 hitl: strict
+autonomous: enabled
 design: enabled
 coding_style: enabled
 openapi: enabled

@@ -7,8 +7,9 @@
 ## 啟動程序
 
 1. 讀取 `.ai_profile`，依欄位載入對應 profile
-2. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
-3. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
+2. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`
+3. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
+4. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
 
 ```yaml
 # .ai_profile 完整欄位參考
@@ -18,6 +19,7 @@ workflow:     standard | vibe-coding            # 預設 standard
 rag:          enabled | disabled               # 預設 disabled
 guardrail:    enabled | disabled               # 預設 disabled
 hitl:         minimal | standard | strict      # 預設 standard
+autonomous:   enabled | disabled               # 預設 disabled（AI 全自動開發模式）
 design:       enabled | disabled               # 預設 disabled
 coding_style: enabled | disabled               # 預設 disabled
 openapi:      enabled | disabled               # 預設 disabled
@@ -39,6 +41,8 @@ name:         your-project-name
 | `design: enabled` | + `.asp/profiles/design_dev.md` |
 | `coding_style: enabled` | + `.asp/profiles/coding_style.md` |
 | `openapi: enabled` | + `.asp/profiles/openapi.md` |
+| `autonomous: enabled` | + `.asp/profiles/autonomous_dev.md` |
+| `workflow: vibe-coding` + `hitl: minimal` | + `.asp/profiles/autonomous_dev.md` |
 
 ---
 
