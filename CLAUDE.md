@@ -12,14 +12,16 @@
 
 ```yaml
 # .ai_profile 完整欄位參考
-type:      system | content | architecture   # 必填
-mode:      single | multi-agent | committee  # 預設 single
-workflow:  standard | vibe-coding            # 預設 standard
-rag:       enabled | disabled               # 預設 disabled
-guardrail: enabled | disabled               # 預設 disabled
-hitl:      minimal | standard | strict      # 預設 standard
-design:    enabled | disabled               # 預設 disabled
-name:      your-project-name
+type:         system | content | architecture   # 必填
+mode:         single | multi-agent | committee  # 預設 single
+workflow:     standard | vibe-coding            # 預設 standard
+rag:          enabled | disabled               # 預設 disabled
+guardrail:    enabled | disabled               # 預設 disabled
+hitl:         minimal | standard | strict      # 預設 standard
+design:       enabled | disabled               # 預設 disabled
+coding_style: enabled | disabled               # 預設 disabled
+openapi:      enabled | disabled               # 預設 disabled
+name:         your-project-name
 ```
 
 **Profile 對應表：**
@@ -35,6 +37,8 @@ name:      your-project-name
 | `rag: enabled` | + `.asp/profiles/rag_context.md` |
 | `guardrail: enabled` | + `.asp/profiles/guardrail.md` |
 | `design: enabled` | + `.asp/profiles/design_dev.md` |
+| `coding_style: enabled` | + `.asp/profiles/coding_style.md` |
+| `openapi: enabled` | + `.asp/profiles/openapi.md` |
 
 ---
 

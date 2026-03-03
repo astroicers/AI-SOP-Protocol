@@ -4,7 +4,10 @@ workflow: vibe-coding
 rag: enabled
 guardrail: enabled
 hitl: strict
-name: merak-platform
+design: enabled
+coding_style: enabled
+openapi: enabled
+name: full-stack-platform
 
 # committee 角色（mode: committee 時生效）
 committee:

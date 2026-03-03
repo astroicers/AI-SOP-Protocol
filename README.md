@@ -74,13 +74,15 @@ cp .gitignore /your-project/           # 若無衝突
 ## .ai_profile 設定
 
 ```yaml
-type: system          # system | content | architecture
-mode: single          # single | multi-agent | committee
-workflow: standard    # standard | vibe-coding
-rag: disabled         # enabled | disabled
-guardrail: disabled   # enabled | disabled
-hitl: standard        # minimal | standard | strict
-design: disabled      # enabled | disabled
+type: system              # system | content | architecture
+mode: single              # single | multi-agent | committee
+workflow: standard        # standard | vibe-coding
+rag: disabled             # enabled | disabled
+guardrail: disabled       # enabled | disabled
+hitl: standard            # minimal | standard | strict
+design: disabled          # enabled | disabled
+coding_style: disabled    # enabled | disabled
+openapi: disabled         # enabled | disabled
 name: your-project
 ```
 
@@ -198,7 +200,9 @@ your-project/
 │   │   ├── vibe_coding.md       # 規格驅動工作流
 │   │   ├── rag_context.md       # Local RAG 整合
 │   │   ├── guardrail.md         # 範疇限制與敏感資訊保護
-│   │   └── design_dev.md        # UI/UX 設計治理
+│   │   ├── design_dev.md        # UI/UX 設計治理
+│   │   ├── coding_style.md      # 程式碼風格治理
+│   │   └── openapi.md           # API-First 工作流
 │   ├── templates/
 │   │   ├── ADR_Template.md
 │   │   ├── SPEC_Template.md
@@ -233,7 +237,7 @@ your-project/
   ↓ 依 .ai_profile mode 載入（可選）
 開發策略 Profile（vibe-coding）
   ↓ 依 .ai_profile workflow 載入（可選）
-選配 Profile（rag / guardrail / design）
+選配 Profile（rag / guardrail / design / coding_style / openapi）
   ↓ 依 .ai_profile 各欄位載入（可選）
 ```
 

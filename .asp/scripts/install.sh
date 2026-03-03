@@ -86,6 +86,15 @@ if [ -t 0 ]; then
 
     read -rp "HITL 等級（minimal/standard/strict，Enter 使用 standard）: " HITL_LEVEL
     HITL_LEVEL="${HITL_LEVEL:-standard}"
+
+    read -rp "啟用 UI/UX 設計治理？（y/N）: " ENABLE_DESIGN
+    ENABLE_DESIGN="${ENABLE_DESIGN:-n}"
+
+    read -rp "啟用程式碼風格治理？（y/N）: " ENABLE_CODING_STYLE
+    ENABLE_CODING_STYLE="${ENABLE_CODING_STYLE:-n}"
+
+    read -rp "啟用 API-First 工作流？（y/N）: " ENABLE_OPENAPI
+    ENABLE_OPENAPI="${ENABLE_OPENAPI:-n}"
 else
     echo ""
     echo "📋 非互動模式，使用自動偵測值（可透過環境變數覆寫）："
@@ -94,7 +103,10 @@ else
     ENABLE_RAG="${ASP_RAG:-n}"
     ENABLE_GUARDRAIL="${ASP_GUARDRAIL:-n}"
     HITL_LEVEL="${ASP_HITL:-standard}"
-    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL | rag: $ENABLE_RAG | guardrail: $ENABLE_GUARDRAIL"
+    ENABLE_DESIGN="${ASP_DESIGN:-n}"
+    ENABLE_CODING_STYLE="${ASP_CODING_STYLE:-n}"
+    ENABLE_OPENAPI="${ASP_OPENAPI:-n}"
+    echo "  type: $PROJECT_TYPE | name: $PROJECT_NAME | hitl: $HITL_LEVEL | rag: $ENABLE_RAG | guardrail: $ENABLE_GUARDRAIL | design: $ENABLE_DESIGN | coding_style: $ENABLE_CODING_STYLE | openapi: $ENABLE_OPENAPI"
 fi
 
 echo ""
@@ -252,19 +264,31 @@ RAG_VAL="disabled"
 GUARDRAIL_VAL="disabled"
 [ "${ENABLE_GUARDRAIL,,}" = "y" ] && GUARDRAIL_VAL="enabled"
 
+DESIGN_VAL="disabled"
+[ "${ENABLE_DESIGN,,}" = "y" ] && DESIGN_VAL="enabled"
+
+CODING_STYLE_VAL="disabled"
+[ "${ENABLE_CODING_STYLE,,}" = "y" ] && CODING_STYLE_VAL="enabled"
+
+OPENAPI_VAL="disabled"
+[ "${ENABLE_OPENAPI,,}" = "y" ] && OPENAPI_VAL="enabled"
+
 NEW_PROFILE="type: ${PROJECT_TYPE}
 mode: single
 workflow: standard
 rag: ${RAG_VAL}
 guardrail: ${GUARDRAIL_VAL}
 hitl: ${HITL_LEVEL}
+design: ${DESIGN_VAL}
+coding_style: ${CODING_STYLE_VAL}
+openapi: ${OPENAPI_VAL}
 name: ${PROJECT_NAME}"
 
 if [ -f ".ai_profile" ]; then
     echo "ℹ️  .ai_profile 已存在，保留現有設定"
     # 僅補充缺失欄位
     ADDED_FIELDS=0
-    for FIELD in type mode workflow rag guardrail hitl name; do
+    for FIELD in type mode workflow rag guardrail hitl design coding_style openapi name; do
         if ! grep -q "^${FIELD}:" .ai_profile; then
             DEFAULT_VAL=$(echo "$NEW_PROFILE" | grep "^${FIELD}:" | head -1)
             if [ -n "$DEFAULT_VAL" ]; then
