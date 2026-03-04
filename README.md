@@ -51,6 +51,7 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 | **標準**（預設） | `hitl: standard` | 大多數專案 |
 | **高速自主** | `autonomous: enabled` / `hitl: minimal` | 需求明確的快速迭代 |
 | **完整治理** | guardrail / coding_style / design / openapi 全開 | 正式環境 |
+| **高速自主+多Agent** | `autonomous: enabled` / `mode: multi-agent` | 大規模並行自主開發 |
 
 > 安裝後隨時可編輯 `.ai_profile` 微調，開新 session 生效。
 
@@ -137,6 +138,11 @@ ASP 的開發分為兩個階段，每個階段有不同的模式可選：
                                            │  multi-agent            │
                                            │  多 agent 並行分治       │
                                            └─────────────────────────┘
+                                                   或
+                                           ┌─────────────────────────┐
+                                           │  multi-agent+autonomous │
+                                           │  多 Worker 各自自主開發  │
+                                           └─────────────────────────┘
 ```
 
 #### 決策期模式
@@ -155,6 +161,7 @@ ASP 的開發分為兩個階段，每個階段有不同的模式可選：
 | **single**（預設） | `mode: single` | 一般開發 | 人類逐步確認計畫後實作（依 HITL 等級決定暫停頻率） |
 | **autonomous** | `autonomous: enabled` | 需求明確、想讓 AI 高速推進 | AI 在精確邊界內自主執行，僅在刪除檔案、新增依賴、超出範圍時暫停 |
 | **multi-agent** | `mode: multi-agent` | 大量低耦合任務 | Orchestrator 拆分任務，多 Worker 並行（token 消耗約 15 倍） |
+| **multi-agent + autonomous** | 兩者同時啟用 | 大規模自主開發 | 每個 Worker 在 scope 內自主執行 + 自動修復，Orchestrator 協調與驗證 |
 
 **autonomous 前提**：所有 ADR 已 Accepted。缺少 SPEC 時 AI 會自動產生後再實作。詳見 `autonomous_dev.md`。
 
@@ -183,15 +190,19 @@ autonomous: disabled
 mode: single
 autonomous: enabled
 
-# 大規模並行 — 任務拆分
+# 大規模並行 — 任務拆分（人類確認每個合併）
 mode: multi-agent
 autonomous: disabled
+
+# 大規模自主 — 多 Worker 各自自主開發
+mode: multi-agent
+autonomous: enabled
 ```
 
 #### 限制
 
-- **autonomous** 和 **multi-agent** 不可同時啟用（同為實作期模式，控制方式衝突）
 - **committee** 可與任何實作期模式搭配（committee 是決策期模式）
+- **autonomous + multi-agent**：可同時啟用。autonomous 規則分層套用——Orchestrator 協調全專案，Worker 在 Task Manifest scope 內自主執行（見 `autonomous_dev.md`「Multi-Agent 整合」）
 - **切換不自動化**：沒有「ADR Accepted 後自動切換模式」的機制，需人工修改 `.ai_profile`
 - **鐵則不受模式影響**：git push/rebase、docker push、rm -rf 在任何模式下都由內建權限系統彈確認框
 

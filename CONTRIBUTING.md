@@ -38,7 +38,7 @@ Layer 2: 全域準則（global_core.md）   — 所有專案
 Layer 3: 專案類型（system/content）   — 依 .ai_profile type
 Layer 4: 作業模式（multi-agent/committee） — 可選
 Layer 5: 開發策略（vibe-coding）      — 可選
-Layer 5.5: 自主開發（autonomous）      — 可選，不與 multi-agent 並行
+Layer 5.5: 自主開發（autonomous）      — 可選，可與 multi-agent 組合（分層套用）
 Layer 6: 選配（rag/guardrail/design/coding_style/openapi） — 可選
 ```
 
