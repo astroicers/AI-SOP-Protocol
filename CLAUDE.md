@@ -8,9 +8,10 @@
 
 1. 讀取 `.ai_profile`，依欄位載入對應 profile
 2. **Profile 依賴與衝突驗證**：每個 profile 頂部有 `<!-- requires: ... -->` 和 `<!-- conflicts: ... -->` 註解。載入時確認依賴已載入、衝突 Profile 未同時啟用。缺少依賴 → WARN 並建議補充。衝突 → WARN 並說明哪兩個 Profile 互斥
-3. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`（同時確保 `vibe_coding.md` 已載入，未設定時自動補載）。若同時 `mode: multi-agent`，autonomous 規則分層套用（見 `autonomous_dev.md`「Multi-Agent 整合」）
-4. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
-5. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
+3. **自動載入規則**：`design: enabled` 時自動載入 `frontend_quality.md`（不需額外設定）
+4. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`（同時確保 `vibe_coding.md` 已載入，未設定時自動補載）。若同時 `mode: multi-agent`，autonomous 規則分層套用（見 `autonomous_dev.md`「Multi-Agent 整合」）
+5. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
+6. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
 
 ```yaml
 # .ai_profile 完整欄位參考
@@ -22,6 +23,7 @@ guardrail:    enabled | disabled               # 預設 disabled
 hitl:         minimal | standard | strict      # 預設 standard
 autonomous:   enabled | disabled               # 預設 disabled（AI 全自動開發模式）
 design:       enabled | disabled               # 預設 disabled
+frontend_quality: enabled | disabled           # 預設 disabled（design: enabled 時自動載入）
 coding_style: enabled | disabled               # 預設 disabled
 openapi:      enabled | disabled               # 預設 disabled
 name:         your-project-name
@@ -43,6 +45,8 @@ name:         your-project-name
 | `coding_style: enabled` | + `.asp/profiles/coding_style.md` |
 | `openapi: enabled` | + `.asp/profiles/openapi.md` |
 | `autonomous: enabled` | + `.asp/profiles/autonomous_dev.md` |
+| `frontend_quality: enabled` | + `.asp/profiles/frontend_quality.md` |
+| `design: enabled`（自動） | + `.asp/profiles/frontend_quality.md` |
 | `workflow: vibe-coding` + `hitl: minimal` | + `.asp/profiles/autonomous_dev.md` |
 
 ---
@@ -90,6 +94,7 @@ name:         your-project-name
 | 重新部署 | `make deploy` |
 | 執行測試 | `make test` |
 | 局部測試 | `make test-filter FILTER=xxx` |
+| i18n 檢查 | `make i18n-check` |
 | 新增 ADR | `make adr-new TITLE="..."` |
 | 新增規格書 | `make spec-new TITLE="..."` |
 | 新增事後分析 | `make postmortem-new TITLE="..."` |

@@ -50,7 +50,7 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 |----------|------|------|
 | **標準**（預設） | `hitl: standard` | 大多數專案 |
 | **高速自主** | `autonomous: enabled` / `hitl: minimal` | 需求明確的快速迭代 |
-| **完整治理** | guardrail / coding_style / design / openapi 全開 | 正式環境 |
+| **完整治理** | guardrail / coding_style / design / openapi / frontend_quality 全開 | 正式環境 |
 | **高速自主+多Agent** | `autonomous: enabled` / `mode: multi-agent` | 大規模並行自主開發 |
 
 > 安裝後隨時可編輯 `.ai_profile` 微調，開新 session 生效。
@@ -101,6 +101,7 @@ autonomous: disabled      # enabled | disabled
 design: disabled          # enabled | disabled
 coding_style: disabled    # enabled | disabled
 openapi: disabled         # enabled | disabled
+frontend_quality: disabled  # enabled | disabled（design: enabled 時自動載入）
 name: your-project
 ```
 
@@ -217,6 +218,7 @@ make help              # 顯示所有指令
 make build             # 建立 Docker Image
 make test              # 執行測試
 make test-filter FILTER=xxx   # 局部測試
+make i18n-check        # i18n 語系一致性檢查
 make deploy            # 部署（需確認）
 
 # 文件
@@ -311,10 +313,12 @@ your-project/
 │   │   ├── guardrail.md         # 範疇限制與敏感資訊保護
 │   │   ├── design_dev.md        # UI/UX 設計治理
 │   │   ├── coding_style.md      # 程式碼風格治理
-│   │   └── openapi.md           # API-First 工作流
+│   │   ├── openapi.md           # API-First 工作流
+│   │   └── frontend_quality.md  # 前端工程品質驗證
 │   ├── templates/
 │   │   ├── ADR_Template.md
 │   │   ├── SPEC_Template.md
+│   │   ├── Postmortem_Template.md
 │   │   ├── architecture_spec.md
 │   │   ├── workflow-design.md              # 設計工作流範本
 │   │   ├── example-profile-system.yaml     # .ai_profile 範例（system 專案）
@@ -351,7 +355,7 @@ your-project/
   ↓ 依 .ai_profile workflow 載入（可選）
 自主開發 Profile（autonomous_dev）
   ↓ 依 .ai_profile autonomous 載入（可選）
-選配 Profile（rag / guardrail / design / coding_style / openapi）
+選配 Profile（rag / guardrail / design / coding_style / openapi / frontend_quality）
   ↓ 依 .ai_profile 各欄位載入（可選）
 ```
 

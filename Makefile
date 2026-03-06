@@ -1,7 +1,7 @@
 # AI-SOP-Protocol — Makefile
 # 目的：封裝重複指令，節省 Token，降低操作失誤風險
 # 使用方式：依專案需求保留/修改對應區塊
-# ASP_MAKEFILE_VERSION=2.0.0
+# ASP_MAKEFILE_VERSION=2.2.0
 
 APP_NAME ?= app-service
 VERSION  ?= latest
@@ -12,7 +12,7 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
 
 .PHONY: help \
         build clean deploy logs \
-        test test-filter coverage lint \
+        test test-filter coverage lint i18n-check \
         diagram \
         adr-new adr-list \
         spec-new spec-list \
@@ -34,6 +34,7 @@ help:
 ifneq ($(ASP_TYPE),content)
 	@echo "📦 Container:   build | clean | deploy | logs"
 	@echo "🧪 Test:        test | test-filter FILTER=xxx | coverage | lint"
+	@echo "🌐 i18n:        i18n-check"
 	@echo "📐 Docs:        diagram"
 endif
 	@echo "📋 ADR:         adr-new TITLE=... | adr-list"
@@ -99,6 +100,48 @@ lint:
 	@echo "⚠️  未偵測到 Lint 工具"
 
 #---------------------------------------------------------------------------
+# i18n Check（type: content 時隱藏）
+#---------------------------------------------------------------------------
+
+i18n-check:
+	@echo "🌐 Checking i18n consistency..."
+	@LOCALE_DIR=$$(find . -maxdepth 4 -type d \( -name "locales" -o -name "i18n" -o -name "messages" -o -name "translations" -o -name "lang" \) ! -path '*/node_modules/*' ! -path '*/.git/*' | head -1); \
+	if [ -z "$$LOCALE_DIR" ]; then \
+		echo "⚠️  未偵測到語系目錄（locales/i18n/messages/translations/lang）"; \
+		exit 0; \
+	fi; \
+	echo "  語系目錄：$$LOCALE_DIR"; \
+	BASE_FILE=$$(ls $$LOCALE_DIR/*.json 2>/dev/null | head -1); \
+	if [ -z "$$BASE_FILE" ]; then \
+		echo "⚠️  語系目錄中未找到 JSON 檔案"; \
+		exit 0; \
+	fi; \
+	BASE_COUNT=$$(python3 -c "import json; print(len(json.load(open('$$BASE_FILE'))))" 2>/dev/null || echo "ERR"); \
+	if [ "$$BASE_COUNT" = "ERR" ]; then \
+		echo "⚠️  無法解析 $$BASE_FILE（需要 python3）"; \
+		exit 0; \
+	fi; \
+	echo "  基準檔案：$$BASE_FILE ($$BASE_COUNT keys)"; \
+	FAIL=0; \
+	for f in $$LOCALE_DIR/*.json; do \
+		COUNT=$$(python3 -c "import json; print(len(json.load(open('$$f'))))" 2>/dev/null); \
+		if [ "$$COUNT" != "$$BASE_COUNT" ]; then \
+			echo "  ❌ $$f: $$COUNT keys (expected $$BASE_COUNT)"; \
+			FAIL=1; \
+		else \
+			echo "  ✅ $$f: $$COUNT keys"; \
+		fi; \
+	done; \
+	if [ "$$FAIL" = "1" ]; then \
+		echo ""; \
+		echo "❌ i18n key 數量不一致，請同步所有語系檔案"; \
+		exit 1; \
+	else \
+		echo ""; \
+		echo "✅ 所有語系檔案 key 數量一致"; \
+	fi
+
+#---------------------------------------------------------------------------
 # Architecture Diagram（type: content 時隱藏）
 #---------------------------------------------------------------------------
 
@@ -111,7 +154,7 @@ diagram:
 
 else
 # --- content 類型的 stub targets（避免 make: *** No rule to make target 錯誤）---
-build clean deploy logs test test-filter coverage lint diagram:
+build clean deploy logs test test-filter coverage lint i18n-check diagram:
 	@echo "⚠️  此指令不適用於 content 類型專案（目前 type: $(ASP_TYPE)）"
 endif
 

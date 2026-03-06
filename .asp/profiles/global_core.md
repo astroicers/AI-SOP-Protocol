@@ -184,6 +184,20 @@ Postmortem 不是懲罰，是學習工具。重點是「系統為什麼沒有防
 - OpenAPI spec 變更 → 列出受影響的前端呼叫點與後端實作，確認是否需同步修改
 - 若反向掃描發現需修改但無法在本次處理 → 標記 `tech-debt` 並說明
 
+### DEPRECATED 程式碼追蹤
+
+程式碼標記 `DEPRECATED` 時，必須在同一 commit 建立清理計畫：
+
+| 清理方式 | 說明 |
+|----------|------|
+| 🔴 同 PR 直接移除（推薦） | 最安全，不留殘餘 |
+| 🟡 標記 `tech-debt: deprecated-cleanup` | 指定清理期限，不超過 2 個 sprint |
+
+**規則**：
+- ❌ 禁止無限期 DEPRECATED：超過 2 個版本/月未清理 → 自動升級為 blocker
+- 標記時 commit message 必須包含：`[deprecated] {module/function} — 清理期限：{date}`
+- 反向掃描：`grep -r "DEPRECATED\|@deprecated" --include="*.{ts,tsx,js,jsx,py,go,java}"` 找出所有標記點
+
 ---
 
 ## Token 節約

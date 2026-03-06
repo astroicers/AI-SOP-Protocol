@@ -4,6 +4,31 @@
 
 ---
 
+## v2.2.0
+
+- **Frontend Quality Profile**：新增 `frontend_quality.md`，獨立的前端工程品質驗證
+  - i18n 硬編碼偵測 + 語系一致性驗證 pseudocode
+  - 顏色值驗證（禁止硬編碼 hex/rgb）
+  - 元件三態驗證 pseudocode
+  - Error/Loading/Empty 標準化規範
+  - Accessibility 自動化驗證 pseudocode
+  - 載入：`frontend_quality: enabled` 或 `design: enabled` 時自動載入
+- **Design Token 同步**：`design_dev.md` 新增 Token ↔ CSS 雙向驗證 pseudocode
+- **design: disabled UI 兜底**：`system_dev.md` 新增 `ui_baseline_rules`
+- **DEPRECATED 程式碼追蹤**：`global_core.md` 新增清理計畫規範
+- **提交前自審擴充**：清潔度 +3 項、新增「前端元件完整性」區塊
+- **TDD 場景擴充**：前端互動元件建議基本測試
+- **設計 Review 擴充**：a11y checklist 新增 4 項
+- **Makefile**：新增 `i18n-check` target
+- **install.sh**：支援 `frontend_quality` 欄位
+
+## v2.1.0
+
+- **Autonomous + Multi-Agent 可組合**：分層授權（Worker scope 內自主、Orchestrator 全專案協調）
+- **Profile 衝突驗證**：新增 `<!-- conflicts: -->` 標籤
+- **安裝簡化**：從多題 y/N 精簡為 2 題（專案類型 + 開發風格）
+- **專案偵測擴充**：Rust/Java/C#/C++/Ruby/Elixir/PHP + 架構偵測
+
 ## v2.0.0
 
 - **Autonomous 開發模式**：新增 `autonomous_dev.md` profile，支援 AI 全自動開發
