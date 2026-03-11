@@ -244,8 +244,8 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
             fi
             echo "🔄 Makefile 已升級 ${INSTALLED_MK_VER:-unknown} → ${NEW_MK_VER:-unknown}（APP_NAME 已保留）"
         fi
-    elif [ "$IS_UPGRADE" = true ] && ! grep -q "guardrail-log" Makefile 2>/dev/null; then
-        # ASP Makefile 但缺少新版 target（無版本標記的過渡版本）
+    elif [ "$IS_UPGRADE" = true ] && ! grep -q "audit-health" Makefile 2>/dev/null; then
+        # ASP Makefile 但缺少 v2.3.0+ target（無版本標記或過渡版本）
         echo "🔄 偵測到缺少新版目標的 Makefile，更新為新版"
         CURRENT_APP=$(grep "^APP_NAME" Makefile | head -1 || true)
         cp "$PROTOCOL_DIR/Makefile" ./Makefile
@@ -446,6 +446,11 @@ if [ "$JQ_AVAILABLE" = true ]; then
     TOTAL_REMOVED=0
     for SETTINGS_FILE in .claude/settings.local.json .claude/settings.json; do
         [ -f "$SETTINGS_FILE" ] || continue
+        # 跳過非 object 的 JSON 檔案（例如損壞的 settings.local.json）
+        FILE_TYPE=$(jq -r 'type' "$SETTINGS_FILE" 2>/dev/null || echo "invalid")
+        if [ "$FILE_TYPE" != "object" ]; then
+            continue
+        fi
         BEFORE_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
         jq --arg pattern "$DANGEROUS_PATTERNS" '
           .permissions.allow = [

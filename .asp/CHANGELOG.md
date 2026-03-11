@@ -4,6 +4,15 @@
 
 ---
 
+## v2.4.1
+
+- **install.sh Bug 修復**：
+  - **Makefile 升級偵測**：修復舊版 Makefile（有 `guardrail-log` 但無 `ASP_MAKEFILE_VERSION`）不會被升級的問題。改用 `audit-health` 作為最新版本標記
+  - **settings.local.json jq 錯誤**：修復 JSON 檔案非 object 類型時 jq 報錯。新增 type guard 跳過非 object 檔案
+- **clean-allow-list.sh**：同步修復相同的 jq type guard 問題
+
+---
+
 ## v2.4.0
 
 - **框架穩健性優化**：提升 task_orchestrator 的可執行性與錯誤恢復能力
