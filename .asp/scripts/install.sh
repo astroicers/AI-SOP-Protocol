@@ -220,38 +220,29 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
         cp "$PROTOCOL_DIR/.asp/VERSION" ./.asp/VERSION
     fi
 
-    # --- Makefile 升級偵測（多層策略）---
+    # --- Makefile 處理（include-based，非破壞性）---
+    # ASP targets 放在 .asp/Makefile.inc，專案 Makefile 只需 include
+    if [ -f "$PROTOCOL_DIR/.asp/Makefile.inc" ]; then
+        cp "$PROTOCOL_DIR/.asp/Makefile.inc" ./.asp/Makefile.inc
+    fi
+
+    ASP_INCLUDE_LINE='-include .asp/Makefile.inc'
     if [ ! -f "Makefile" ]; then
-        # 全新安裝
+        # 全新安裝：使用 stub 範本
         cp "$PROTOCOL_DIR/Makefile" ./Makefile
-    elif grep -q "cp templates/ADR_Template" Makefile 2>/dev/null; then
-        # 舊版格式（pre-.asp/ 目錄結構）
-        echo "🔄 偵測到舊版 Makefile（legacy 格式），更新為新版"
+    elif grep -q "AI-SOP-Protocol" Makefile 2>/dev/null; then
+        # ASP 產生的 Makefile（舊版完整式或 stub）：替換為 stub（保留 APP_NAME）
+        cp Makefile Makefile.pre-asp-upgrade
         CURRENT_APP=$(grep "^APP_NAME" Makefile | head -1 || true)
         cp "$PROTOCOL_DIR/Makefile" ./Makefile
         if [ -n "${CURRENT_APP:-}" ]; then
             SED_INPLACE "s/^APP_NAME.*/$CURRENT_APP/" Makefile
         fi
-    elif grep -q "ASP_MAKEFILE_VERSION" Makefile 2>/dev/null; then
-        # 有版本標記：比對版本
-        INSTALLED_MK_VER=$(grep "ASP_MAKEFILE_VERSION" Makefile | sed 's/.*=//' || true)
-        NEW_MK_VER=$(grep "ASP_MAKEFILE_VERSION" "$PROTOCOL_DIR/Makefile" | sed 's/.*=//' || true)
-        if [ "${INSTALLED_MK_VER:-}" != "${NEW_MK_VER:-}" ]; then
-            CURRENT_APP=$(grep "^APP_NAME" Makefile | head -1 || true)
-            cp "$PROTOCOL_DIR/Makefile" ./Makefile
-            if [ -n "${CURRENT_APP:-}" ]; then
-                SED_INPLACE "s/^APP_NAME.*/$CURRENT_APP/" Makefile
-            fi
-            echo "🔄 Makefile 已升級 ${INSTALLED_MK_VER:-unknown} → ${NEW_MK_VER:-unknown}（APP_NAME 已保留）"
-        fi
-    elif [ "$IS_UPGRADE" = true ] && ! grep -q "audit-health" Makefile 2>/dev/null; then
-        # ASP Makefile 但缺少 v2.3.0+ target（無版本標記或過渡版本）
-        echo "🔄 偵測到缺少新版目標的 Makefile，更新為新版"
-        CURRENT_APP=$(grep "^APP_NAME" Makefile | head -1 || true)
-        cp "$PROTOCOL_DIR/Makefile" ./Makefile
-        if [ -n "${CURRENT_APP:-}" ]; then
-            SED_INPLACE "s/^APP_NAME.*/$CURRENT_APP/" Makefile
-        fi
+        echo "🔄 Makefile 已轉換為 include 模式（ASP targets 移至 .asp/Makefile.inc，舊版備份於 Makefile.pre-asp-upgrade）"
+    elif ! grep -qF "$ASP_INCLUDE_LINE" Makefile 2>/dev/null; then
+        # 非 ASP Makefile：僅追加 include 指令（不覆蓋原有內容）
+        printf '\n# ASP targets（勿刪除此行）\n%s\n' "$ASP_INCLUDE_LINE" >> Makefile
+        echo "✅ 已在現有 Makefile 追加 ASP include 指令（原有內容完整保留）"
     fi
 
     # --- .gitignore 增量合併 ---

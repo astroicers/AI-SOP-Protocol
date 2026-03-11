@@ -4,6 +4,16 @@
 
 ---
 
+## v2.5.0
+
+- **Makefile 非破壞性安裝（Breaking Change）**：
+  - **Include-based 架構**：ASP targets 移至 `.asp/Makefile.inc`（ASP 完全擁有），專案 Makefile 改為 stub + `-include .asp/Makefile.inc`
+  - **非 ASP 專案保護**：目標專案有自己的 Makefile 時，僅追加 include 指令，不覆蓋原有內容
+  - **升級相容**：舊版 ASP Makefile（含 `AI-SOP-Protocol` 標記）自動轉換為 stub + include 模式
+  - **install.sh 重構**：移除 4 層覆蓋式 Makefile 偵測邏輯，改為 3 分支 include-based 邏輯
+
+---
+
 ## v2.4.1
 
 - **install.sh Bug 修復**：
