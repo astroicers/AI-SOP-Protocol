@@ -6,6 +6,7 @@ rag: enabled
 guardrail: enabled
 hitl: strict
 autonomous: enabled
+orchestrator: enabled
 design: enabled
 coding_style: enabled
 openapi: enabled

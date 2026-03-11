@@ -4,6 +4,61 @@
 
 ---
 
+## v2.4.0
+
+- **框架穩健性優化**：提升 task_orchestrator 的可執行性與錯誤恢復能力
+  - **Helper Function 定義**：新增 Part H，定義 ~12 個先前未規格化的函數（`is_core_module`、`determine_change_level`、`analyze_requirement`、`decompose` 等），含 pseudocode 與判定範例
+  - **L1-L4 量化**：`determine_change_level()` 加入量化門檻與判定範例表，消除分類模糊性
+  - **後置審計 Circuit Breaker**：最多 2 輪，超過記入 tech-debt，防止 infinite loop
+  - **ADR Pre-flight Timeout**：30 分鐘逾時機制，提供繼續等待/暫存/跳過三個選項
+  - **Gate 防護**：Design/OpenAPI Gate 呼叫前檢查 profile 是否載入，未載入時 WARN + tech-debt 而非靜默失敗
+  - **auto_fix_loop 失敗處理**：D1/D2/D3 工作流加入 guard_triggered 檢查，三重防護觸發時 PAUSE 不繼續
+  - **新鮮度維度修復**：SPEC 存在但無 Traceability 時發出 WARNING（不再靜默跳過）
+  - **交叉引用表**：Part H 結尾新增 helper function → 來源 profile 對照表
+- **Makefile 修復**：
+  - `make test` / `make test-filter`：偵測框架後才執行，測試失敗正確傳播 exit code，無框架時 exit 1（不再靜默成功）
+  - `audit-health` 維度 7：SPEC 存在但無 Traceability 時輸出 WARNING
+- **CLAUDE.md 更新**：Makefile 速查表補齊所有 target（coverage、lint、diagram、agent-locks、rag-stats、guardrail、task-report 等），Profile 對應表去除冗餘列
+- **跨 Profile 交叉引用**：
+  - `multi_agent.md`「Autonomous 模式整合」加 canonical source 註記
+  - `autonomous_dev.md`「Multi-Agent 整合」加擴展來源註記
+  - `task_orchestrator.md` Part G 加 routing-only 註記
+- **Trivial 統一定義**：`global_core.md` 新增量化標準（檔案 ≤ 2、行數 ≤ 10、不涉及商業邏輯），不確定時視為 non-trivial
+- **SPEC Template**：Traceability 區塊加 HTML 註解標註「實作完成後回填」
+
+---
+
+## v2.3.0
+
+- **Task Orchestrator Profile**：新增 `task_orchestrator.md`，統一任務入口與協調層
+  - 任務分類：自動識別 5 種任務類型（新增/修復/修改/移除/複合）並路由到對應工作流
+  - 架構影響評估：自動判斷是否需要 ADR
+  - REMOVAL 工作流：全新的功能移除流程（依賴分析→deprecation 評估→安全移除→零殘留驗證）
+  - 文件產出管線：所有任務類型共用，自動更新 CHANGELOG/README/architecture/SPEC
+  - 完成報告：結構化報告含健康改善指標
+  - Multi-Agent 整合：TASK_GENERAL 可分解為並行子任務
+  - 載入：`orchestrator: enabled` 或 `autonomous: enabled` 時自動載入
+- **專案健康審計**：`task_orchestrator.md` 內建 7 維度掃描 + 強制補齊機制
+  - 測試覆蓋、SPEC 覆蓋、ADR 覆蓋、文件完整性、程式碼衛生、依賴健康、文件新鮮度
+  - 分級報告：Blocker / Warning / Info
+  - 觸發時機：首次介入專案自動觸發、距上次審計 > 7 天、`make audit-health`
+  - 審計基線追蹤：`.asp-audit-baseline.json`
+- **軟工缺陷修復**：
+  - **雙向可追溯性**：SPEC Template 新增 Traceability 區塊（實作檔案、測試檔案、最後驗證日期）
+  - **文件新鮮度追蹤**：`global_core.md` 新增技術強制機制，不再純靠 AI 自律
+  - **非功能需求（NFR）**：SPEC Template 新增 optional 的效能/安全/可用性/相容性區塊
+  - **測試金字塔**：`system_dev.md` 新增單元→整合→契約→E2E 指引
+  - **Hotfix 流程**：`system_dev.md` 新增生產環境緊急修復流程（簡化 Gate + 24h 回填義務）
+  - **分支與合併**：`system_dev.md` 新增輕量分支策略指引
+  - **Tech Debt 彙總**：`global_core.md` 新增規則，`make tech-debt-list` 掃描全專案
+- **Makefile 新增 targets**：
+  - `audit-health`：完整專案健康掃描（7 維度）
+  - `audit-quick`：快速 blocker 檢查
+  - `doc-audit`：文件新鮮度掃描
+  - `tech-debt-list`：tech-debt/TODO/FIXME/DEPRECATED 彙總
+  - `task-start`/`task-status`/`task-report`：任務記錄與統計
+- **install.sh**：支援 `orchestrator` 欄位，模式 2/4 自動啟用，安裝完成提示 `make audit-health`
+
 ## v2.2.0
 
 - **Frontend Quality Profile**：新增 `frontend_quality.md`，獨立的前端工程品質驗證

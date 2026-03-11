@@ -87,19 +87,19 @@ apply_preset() {
         1) # 標準模式
             ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=standard
             ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
-            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; WORKFLOW=standard ;;
+            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; WORKFLOW=standard ;;
         2) # 高速自主模式
             ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
             ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
-            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; WORKFLOW=vibe-coding ;;
+            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; WORKFLOW=vibe-coding ;;
         3) # 完整治理模式
             ENABLE_RAG=y; ENABLE_GUARDRAIL=y; HITL_LEVEL=strict
             ENABLE_DESIGN=y; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=y
-            ENABLE_FRONTEND_QUALITY=y; ENABLE_AUTONOMOUS=n; WORKFLOW=standard ;;
+            ENABLE_FRONTEND_QUALITY=y; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; WORKFLOW=standard ;;
         4) # 高速自主+多Agent模式
             ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
             ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
-            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; WORKFLOW=vibe-coding; MODE=multi-agent ;;
+            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; WORKFLOW=vibe-coding; MODE=multi-agent ;;
         *) return 1 ;;
     esac
 }
@@ -302,6 +302,9 @@ FRONTEND_QUALITY_VAL="disabled"
 AUTONOMOUS_VAL="disabled"
 [ "${ENABLE_AUTONOMOUS,,}" = "y" ] && AUTONOMOUS_VAL="enabled"
 
+ORCHESTRATOR_VAL="disabled"
+[ "${ENABLE_ORCHESTRATOR,,}" = "y" ] && ORCHESTRATOR_VAL="enabled"
+
 NEW_PROFILE="type: ${PROJECT_TYPE}
 mode: ${MODE:-single}
 workflow: ${WORKFLOW:-standard}
@@ -309,6 +312,7 @@ rag: ${RAG_VAL}
 guardrail: ${GUARDRAIL_VAL}
 hitl: ${HITL_LEVEL}
 autonomous: ${AUTONOMOUS_VAL}
+orchestrator: ${ORCHESTRATOR_VAL}
 design: ${DESIGN_VAL}
 coding_style: ${CODING_STYLE_VAL}
 openapi: ${OPENAPI_VAL}
@@ -319,7 +323,7 @@ if [ -f ".ai_profile" ]; then
     echo "ℹ️  .ai_profile 已存在，保留現有設定"
     # 僅補充缺失欄位
     ADDED_FIELDS=0
-    for FIELD in type mode workflow rag guardrail hitl autonomous design coding_style openapi frontend_quality name; do
+    for FIELD in type mode workflow rag guardrail hitl autonomous orchestrator design coding_style openapi frontend_quality name; do
         if ! grep -q "^${FIELD}:" .ai_profile; then
             DEFAULT_VAL=$(echo "$NEW_PROFILE" | grep "^${FIELD}:" | head -1)
             if [ -n "$DEFAULT_VAL" ]; then
@@ -513,3 +517,5 @@ if [ "${ENABLE_RAG,,}" = "y" ]; then
     echo "  pip install chromadb sentence-transformers && make rag-index"
     echo ""
 fi
+echo "💡 建議執行 make audit-health 進行專案健康檢查"
+echo ""

@@ -106,6 +106,75 @@ ADR（為什麼）→ [Design Gate] → [OpenAPI Gate] → SDD（如何設計）
 
 ---
 
+## 測試金字塔
+
+TDD 的預設產出是單元測試，但完整品質保證需要多層次測試：
+
+| 層級 | 何時需要 | 範圍 | 範例 |
+|------|----------|------|------|
+| **單元測試** | 所有新功能（鐵則） | 單一函數/模組 | `TestCalculateTotal` |
+| **整合測試** | 跨模組互動、DB 操作、外部 API 呼叫 | 模組間介面 | `TestUserService_CreateAndNotify` |
+| **契約測試** | 微服務間的 API 消費者-提供者關係 | API schema 相容性 | `TestAPI_ResponseMatchesSchema` |
+| **E2E 測試** | 使用者核心流程（登入→操作→結果） | 全鏈路 | `TestCheckoutFlow_GuestUser` |
+
+**規則**：
+- 單元測試覆蓋是 TDD 的預設產出（已有）
+- 涉及 DB / 外部 API 的 SPEC → Done When **必須**含整合測試條件
+- 新增 API endpoint → Done When **建議**含契約測試條件
+- 非 trivial 使用者流程 → **建議** E2E 測試
+- 測試層級的選擇應反映在 SPEC 的 Done When 清單中
+
+---
+
+## Hotfix 流程（生產環境緊急修復）
+
+適用：生產環境正在影響使用者，需要立即修復。
+
+**簡化 Gate**（與標準流程的差異）：
+
+| 步驟 | 標準流程 | Hotfix |
+|------|----------|--------|
+| SPEC | 必須 | ⏭️ 跳過（commit message 含根因一行摘要） |
+| TDD 先行 | 必須 | ⏭️ 跳過（修復後 24h 內補寫 regression test） |
+| ADR | 架構變更必須 | ⏭️ 跳過（先修後補） |
+| `make test` | 必須 | ✅ 仍需通過 |
+| `grep -r` 全專案 | 必須 | ✅ 仍需執行 |
+| `git push` 人類確認 | 鐵則 | ✅ 鐵則不豁免 |
+
+**修復後必須（24h 內）**：
+1. `make spec-new TITLE="HOTFIX-{description}"` → 補 SPEC（含根因分析）
+2. 補寫 regression test（重現測試：修復前 FAIL、修復後 PASS）
+3. `make postmortem-new TITLE="..."` → 建立 Postmortem（所有 Hotfix 強制觸發）
+4. 標記 `tech-debt: hotfix-backfill` 直到以上全部補齊
+
+**判定標準**：只有「生產環境正在影響使用者」才適用 Hotfix 流程。「想快一點」不是理由。
+
+---
+
+## 分支與合併
+
+建議策略（非強制，依專案調整）：
+
+```
+main / master     穩定可部署，受保護分支
+feature/SPEC-NNN  功能分支，從 main 建立，完成後合併回 main
+hotfix/描述        緊急修復，從 main 建立，修復後合併回 main
+```
+
+**合併前檢查**：
+- `make test` 全量通過
+- 文件已同步（CHANGELOG、相關 docs、SPEC Traceability 已回填）
+- `git push` 前列出變更摘要（鐵則）
+
+**commit message 規範**（建議）：
+- 功能：`feat: 描述 (SPEC-NNN)`
+- 修復：`fix: 描述 [bug:category] (SPEC-NNN)`
+- Hotfix：`hotfix: 描述`
+- 文件：`docs: 描述`
+- 重構：`refactor: 描述`
+
+---
+
 ## Pre-Implementation Gate
 
 修改原始碼（非 trivial）前，執行此檢查：
