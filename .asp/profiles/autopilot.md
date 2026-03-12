@@ -94,6 +94,43 @@ FUNCTION ensure_project_description():
     LOG("🔄 CLAUDE.md 專案描述已更新")
 ```
 
+### Phase 6.5: README.md 產生/修訂
+
+Autopilot 完成所有任務後，自動產生或修訂 README.md：
+
+```
+FUNCTION ensure_project_readme():
+  // ─── 收集資訊來源 ───
+  roadmap = READ("ROADMAP.yaml")
+  changelog = READ("CHANGELOG.md") IF EXISTS
+  srs = READ("docs/specs/SRS.md") IF EXISTS
+  ai_profile = READ(".ai_profile")
+  makefile = READ("Makefile") IF EXISTS
+
+  IF NOT EXISTS("README.md"):
+    // ─── 全新產生 ───
+    GENERATE "README.md" with sections:
+      - 專案名稱 + 簡介（from roadmap.description OR srs 第一段）
+      - 功能列表（from roadmap completed milestones/tasks）
+      - 安裝方式（from Dockerfile / requirements.txt / package.json / Makefile）
+      - 使用方式（from CLI entry points / API endpoints / 程式碼分析）
+      - 開發指引（make test, make lint, make build 等常用指令）
+      - 架構概覽（link to docs/architecture.md if exists）
+      - License（if LICENSE file exists）
+    LOG("📝 README.md 已自動產生")
+
+  ELSE:
+    // ─── 修訂現有 README ───
+    existing_readme = READ("README.md")
+    REVIEW and UPDATE:
+      - 功能列表是否反映最新 ROADMAP 完成項
+      - 安裝/使用方式是否與當前程式碼一致
+      - 是否有過時或不正確的描述
+      - 是否遺漏重要的新功能
+    PRESERVE: 手動撰寫的客製化內容（不覆蓋使用者特意編寫的段落）
+    LOG("📝 README.md 已修訂更新")
+```
+
 ---
 
 ## Profile 自動載入
@@ -340,6 +377,9 @@ FUNCTION autopilot_main():
   SAVE_STATE(state)
 
   EXECUTE("make audit-health")
+
+  // ═══ Phase 6.5: README.md 產生/修訂 ═══
+  ensure_project_readme()
 
   PRESENT("═══════════════════════════════════════")
   PRESENT("  🤖 Autopilot 執行完成")
