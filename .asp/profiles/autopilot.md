@@ -58,6 +58,44 @@ FUNCTION detect_required_documents(roadmap):
 
 ---
 
+## CLAUDE.md 專案描述自動產生
+
+Autopilot 從 ROADMAP.yaml + `.ai_profile` + SRS 自動產生 CLAUDE.md 的「專案概覽」區塊。
+觸發時機：`make autopilot-validate`（驗證通過後）及 autopilot 每次啟動（Phase 1.5）。
+
+```
+FUNCTION ensure_project_description():
+  // 由 .asp/scripts/update-project-description.py 實作
+
+  IF NOT exists("CLAUDE.md") OR NOT exists("ROADMAP.yaml"):
+    LOG("⚠️ 缺少必要檔案，跳過專案描述產生")
+    RETURN
+
+  IF "ASP-AUTO-PROJECT-DESCRIPTION: START" NOT IN READ("CLAUDE.md"):
+    LOG("⚠️ CLAUDE.md 缺少標記，跳過")
+    RETURN
+
+  roadmap = PARSE("ROADMAP.yaml")
+  profile = PARSE(".ai_profile")
+  srs_summary = extract_first_paragraph(roadmap.documents.srs)
+
+  new_desc = FORMAT("""
+    專案名稱 / 類型 / 模式 / 工作流
+    技術棧（frontend / backend / database / infra / 架構 / API / 認證）
+    開發規範（命名 / commit / 分支 / 錯誤處理 / 語言）
+    專案簡述（來自 SRS 第一段）
+  """)
+
+  existing = extract_between("CLAUDE.md", START_MARKER, END_MARKER)
+  IF existing == new_desc:
+    LOG("ℹ️ CLAUDE.md 專案描述已是最新")
+  ELSE:
+    replace_between("CLAUDE.md", START_MARKER, END_MARKER, new_desc)
+    LOG("🔄 CLAUDE.md 專案描述已更新")
+```
+
+---
+
 ## Profile 自動載入
 
 Autopilot 根據 ROADMAP.yaml 的 `requires` 欄位補充載入 profile：
@@ -127,6 +165,9 @@ FUNCTION autopilot_main():
   LOG("Tech stack: {roadmap.stack}")
   LOG("Conventions: {roadmap.conventions}")
   LOG("Architecture: {roadmap.architecture}")
+
+  // ═══ Phase 1.5: Update CLAUDE.md Project Description ═══
+  ensure_project_description()  // .asp/scripts/update-project-description.py
 
   // ═══ Phase 2: Validate Prerequisites ═══
   errors = []

@@ -52,23 +52,9 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 | **高速自主** | `autonomous: enabled` / `hitl: minimal` | 需求明確的快速迭代 |
 | **完整治理** | guardrail / coding_style / design / openapi / frontend_quality 全開 | 正式環境 |
 | **高速自主+多Agent** | `autonomous: enabled` / `mode: multi-agent` | 大規模並行自主開發 |
+| **Autopilot** | `autopilot: enabled` | ROADMAP 驅動持續執行至 token 耗盡 |
 
 > 安裝後隨時可編輯 `.ai_profile` 微調，開新 session 生效。
-
-安裝腳本還會自動：
-- 複製 `CLAUDE.md`、`.asp/`、`Makefile`、`.gitignore`
-- 根據選擇產生 `.ai_profile`
-- 建立 `.claude/settings.json` 並註冊 SessionStart Hook
-
-或手動複製：
-
-```bash
-cp CLAUDE.md /your-project/
-cp -r .asp/ /your-project/.asp/
-cp -r .claude/ /your-project/.claude/  # SessionStart Hook 設定
-cp Makefile /your-project/             # 若無衝突
-cp .gitignore /your-project/           # 若無衝突
-```
 
 ---
 
@@ -103,6 +89,7 @@ design: disabled          # enabled | disabled
 coding_style: disabled    # enabled | disabled
 openapi: disabled         # enabled | disabled
 frontend_quality: disabled  # enabled | disabled（design: enabled 時自動載入）
+autopilot: disabled       # enabled | disabled（ROADMAP 驅動持續執行）
 name: your-project
 ```
 
@@ -116,97 +103,25 @@ name: your-project
 | `standard` | + 原始碼修改前確認 SPEC 存在性 |
 | `strict` | + 所有檔案修改前主動暫停確認 |
 
-> 危險操作（git push/rebase、docker push、rm -rf 等）由 Claude Code 內建權限系統彈出確認框，不依賴 HITL 等級。
+> 危險操作（git push/rebase、docker push、rm -rf 等）由 Claude Code 內建權限系統彈出確認框，不依賴 HITL 等級。詳見 [技術強制層](docs/technical-enforcement.md)。
 
-### 開發模式
+---
 
-ASP 的開發分為兩個階段，每個階段有不同的模式可選：
+## 開發模式
 
-```
-                    決策期                              實作期
-              （產出 ADR / 設計方向）              （產出代碼 / 測試 / 文件）
+ASP 分為**決策期**（ADR 產出）和**實作期**（代碼產出），各有不同模式可選：
+single → autonomous → multi-agent → autopilot，逐步提升 AI 自主權。
 
-          ┌─────────────────────┐          ┌─────────────────────────┐
-  預設 →  │  single             │   ADR    │  single                 │ ← 預設
-          │  AI 獨立分析產出 ADR │─Accepted─▶│  人類逐步確認每個計畫    │
-          └─────────────────────┘          └─────────────────────────┘
-                  或                               或
-          ┌─────────────────────┐          ┌─────────────────────────┐
-          │  committee          │          │  autonomous             │
-          │  多角色辯論（高風險） │          │  AI 在精確邊界內自主執行  │
-          └─────────────────────┘          └─────────────────────────┘
-                                                   或
-                                           ┌─────────────────────────┐
-                                           │  multi-agent            │
-                                           │  多 agent 並行分治       │
-                                           └─────────────────────────┘
-                                                   或
-                                           ┌─────────────────────────┐
-                                           │  multi-agent+autonomous │
-                                           │  多 Worker 各自自主開發  │
-                                           └─────────────────────────┘
-```
+| 階段 | 模式 | 設定 | AI 行為 |
+|------|------|------|---------|
+| 決策期 | **single**（預設） | `mode: single` | AI 獨立產出 ADR Draft → 人類審核 |
+| 決策期 | **committee** | `mode: committee` | 多角色辯論 → ADR Draft → 人類審核 |
+| 實作期 | **single**（預設） | `mode: single` | 人類逐步確認 |
+| 實作期 | **autonomous** | `autonomous: enabled` | AI 在精確邊界內自主執行 |
+| 實作期 | **multi-agent** | `mode: multi-agent` | Orchestrator 拆分，多 Worker 並行 |
+| 實作期 | **autopilot** | `autopilot: enabled` | ROADMAP 驅動，持續執行至 token 耗盡 |
 
-#### 決策期模式
-
-| 模式 | 設定 | 適用場景 | AI 行為 |
-|------|------|----------|---------|
-| **single**（預設） | `mode: single` | 大多數專案 | AI 獨立分析，產出 ADR Draft → 人類審核 Accepted |
-| **committee** | `mode: committee` | 換 DB、重構核心架構等高風險決策 | 多角色（architect/security/devops/qa）辯論 → 產出 ADR Draft → 人類審核 |
-
-> ADR 不強制使用 committee。`mode: single` 下 AI 就能獨立產出 ADR，只是少了多角色交叉質疑。
-
-#### 實作期模式
-
-| 模式 | 設定 | 適用場景 | AI 行為 |
-|------|------|----------|---------|
-| **single**（預設） | `mode: single` | 一般開發 | 人類逐步確認計畫後實作（依 HITL 等級決定暫停頻率） |
-| **autonomous** | `autonomous: enabled` | 需求明確、想讓 AI 高速推進 | AI 在精確邊界內自主執行，僅在刪除檔案、新增依賴、超出範圍時暫停 |
-| **multi-agent** | `mode: multi-agent` | 大量低耦合任務 | Orchestrator 拆分任務，多 Worker 並行（token 消耗約 15 倍） |
-| **multi-agent + autonomous** | 兩者同時啟用 | 大規模自主開發 | 每個 Worker 在 scope 內自主執行 + 自動修復，Orchestrator 協調與驗證 |
-
-**autonomous 前提**：所有 ADR 已 Accepted。缺少 SPEC 時 AI 會自動產生後再實作。詳見 `autonomous_dev.md`。
-
-#### 模式切換
-
-修改 `.ai_profile` 對應欄位，**開新 session** 生效。常見的階段切換範例：
-
-```yaml
-# ── 決策期：選擇 ADR 產出方式 ──
-
-# 一般專案（預設）— AI 獨立產出 ADR
-mode: single
-autonomous: disabled
-
-# 高風險決策 — 多角色辯論產出 ADR
-mode: committee
-autonomous: disabled
-
-# ── 實作期：ADR Accepted 後，選擇實作方式 ──
-
-# 一般實作 — 人類逐步確認
-mode: single
-autonomous: disabled
-
-# 高速自主 — AI 全自動推進
-mode: single
-autonomous: enabled
-
-# 大規模並行 — 任務拆分（人類確認每個合併）
-mode: multi-agent
-autonomous: disabled
-
-# 大規模自主 — 多 Worker 各自自主開發
-mode: multi-agent
-autonomous: enabled
-```
-
-#### 限制
-
-- **committee** 可與任何實作期模式搭配（committee 是決策期模式）
-- **autonomous + multi-agent**：可同時啟用。autonomous 規則分層套用——Orchestrator 協調全專案，Worker 在 Task Manifest scope 內自主執行（見 `autonomous_dev.md`「Multi-Agent 整合」）
-- **切換不自動化**：沒有「ADR Accepted 後自動切換模式」的機制，需人工修改 `.ai_profile`
-- **鐵則不受模式影響**：git push/rebase、docker push、rm -rf 在任何模式下都由內建權限系統彈確認框
+> 📖 [完整模式說明、切換範例與限制](docs/development-modes.md)
 
 ---
 
@@ -215,173 +130,56 @@ autonomous: enabled
 ```bash
 make help              # 顯示所有指令
 
-# 開發
-make build             # 建立 Docker Image
-make test              # 執行測試
-make test-filter FILTER=xxx   # 局部測試
-make i18n-check        # i18n 語系一致性檢查
-make deploy            # 部署（需確認）
-
-# 文件
-make adr-new TITLE="選型理由"
-make spec-new TITLE="功能名稱"
-
-# RAG（需 rag: enabled）
-make rag-index         # 建立向量索引
-make rag-search Q="問題"
-
-# Multi-Agent
-make agent-done TASK=TASK-001 STATUS=success
-make agent-status
-make agent-lock-gc     # 清理逾時鎖定
-
-# Session
-make session-checkpoint NEXT="下一步"
+make adr-new TITLE="選型理由"    # 建立 ADR
+make spec-new TITLE="功能名稱"   # 建立 SPEC
+make test                        # 執行測試
+make audit-health                # 專案健康審計（7 維度）
+make autopilot-init              # 建立 ROADMAP.yaml
+make srs-new / sds-new / uiux-spec-new / deploy-spec-new  # 前置文件
 ```
+
+> 完整指令列表請執行 `make help`。
 
 ---
 
 ## SPEC 驅動開發
 
-ASP 的 SPEC（規格書）不只是文件——它定義了**需求、邊界條件、測試驗收標準**，是一體的。
+SPEC 定義需求、邊界條件、測試驗收標準，是 ASP 開發的核心單位。
 
 ```
-SPEC 定義「Done When」（驗收標準）
-  → TDD 先寫測試（基於 Done When）
-    → 實作讓測試通過
-      → 驗收
+SPEC「Done When」→ TDD 先寫測試 → 實作讓測試通過 → 驗收
 ```
 
 | 情境 | 是否需要 SPEC |
 |------|-------------|
-| 新功能開發 | **是**（預設），Done When 必須含測試條件 |
-| 非 trivial Bug 修復 | **是**（`make spec-new TITLE="BUG-..."`) |
+| 新功能開發 | **是**（預設） |
+| 非 trivial Bug 修復 | **是** |
 | trivial（單行/typo/配置） | 可跳過，需說明理由 |
-| 原型驗證 | 可延後，需標記 `tech-debt: test-pending` |
 
-**ADR↔SPEC 連動**（架構變更時）：
-
-```
-ADR（Accepted）→ SPEC（關聯 ADR-NNN）→ TDD → 實作
-                    ↑ ADR 為 Draft 時不建 SPEC、不寫生產代碼
-```
-
-- SPEC 的「關聯 ADR」欄位必須填入對應 ADR 編號
-- 非架構變更的 SPEC 不需要關聯 ADR
-
-SPEC 模板中的 **✅ Done When** 區塊就是測試定義（**必須含至少一項測試條件**）：
-
-```markdown
-## ✅ Done When
-> 必須包含至少一項可驗證的測試條件。
-
-- [ ] `make test-filter FILTER=spec-000` all pass
-- [ ] `make lint` has no errors
-- [ ] Response time < ____ms
-- [ ] Updated CHANGELOG.md
-```
-
-SPEC 最低必填欄位：**Goal、Inputs、Expected Output、Done When（含測試條件）、Edge Cases**。
-
-> 測試不是另外寫的文件，而是 SPEC 的一部分。SPEC 完成 = 驗收標準已定義。
+> 📖 [Done When 模板、ADR↔SPEC 連動](docs/spec-driven-dev.md)
 
 ---
 
 ## 任務協調與專案健康審計
 
-`orchestrator: enabled`（或 `autonomous: enabled` 自動載入）時，ASP 提供兩個核心能力：
+`orchestrator: enabled` 時，ASP 自動掃描專案健康度（7 維度）並將任務分類路由到對應工作流（5 種類型）。
 
-### 專案健康審計
-
-任何時候介入一個專案，ASP 會自動掃描 7 個維度，偵測缺失並強制補齊：
-
-| 維度 | 掃描內容 |
-|------|----------|
-| 測試覆蓋 | source files vs test files 比對 |
-| SPEC 覆蓋 | 主要模組是否有對應 SPEC |
-| ADR 覆蓋 | Draft ADR 是否已有實作代碼（鐵則違反） |
-| 文件完整性 | README / CHANGELOG / architecture.md 存在與更新時間 |
-| 程式碼衛生 | DEPRECATED / TODO 無 owner / tech-debt 標記 |
-| 依賴健康 | lock file / loose version / .env.example |
-| 文件新鮮度 | SPEC Traceability 的實作檔案 vs SPEC 修改時間 |
-
-```bash
-make audit-health    # 完整 7 維度掃描
-make audit-quick     # 只檢查 blocker
-make doc-audit       # 文件新鮮度掃描
-make tech-debt-list  # tech-debt/TODO/FIXME/DEPRECATED 彙總
-```
-
-審計結果分為 🔴 Blocker / 🟡 Warning / 🟢 Info。Blocker 必須先修復才能開始主任務。
-
-### 任務自動分類與路由
-
-收到任何任務描述時，自動分類為 5 種類型並路由到對應工作流：
-
-| 任務類型 | 工作流摘要 |
-|----------|-----------|
-| **新增功能** | 架構評估 → ADR(需要時) → SPEC → TDD → 實作 → 驗證 → 文件管線 |
-| **修復 Bug** | 嚴重度判斷 → SPEC → 重現測試 → 修復 → grep 全專案 → 文件管線 |
-| **修改功能** | 變更等級(L1-L4) → 對應流程 → 測試更新 → 文件管線 |
-| **移除功能** | 依賴分析 → deprecation 評估 → 安全移除 → 零殘留驗證 → 文件管線 |
-| **複合需求** | 分解子任務 → 分類 → 並行/串行執行 → 整合測試 → 統一文件管線 |
-
-每個工作流結束都經過共用的**文件產出管線**，自動更新 CHANGELOG / README / architecture / SPEC Traceability。
+> 📖 [健康審計維度、任務路由規則](docs/task-orchestration.md)
 
 ---
 
-## 專案結構
+## Autopilot 模式
+
+`autopilot: enabled` 讓 AI 讀取 `ROADMAP.yaml`，零確認持續執行所有任務，直到完成或 token 耗盡。支援跨 session 自動續接。
 
 ```
-your-project/
-├── CLAUDE.md                    # Claude Code 主入口（鐵則 + Profile 對應表）
-├── Makefile                     # 指令封裝
-├── .ai_profile                  # 專案設定（type/mode/workflow/hitl）
-├── .gitignore
-│
-├── .claude/
-│   └── settings.json            # SessionStart Hook 設定（install.sh 自動建立）
-│
-├── .asp/                        # ← ASP 所有靜態檔案收在這裡
-│   ├── hooks/
-│   │   └── clean-allow-list.sh     # SessionStart hook（清理危險 allow 規則）
-│   ├── profiles/
-│   │   ├── global_core.md       # 全域準則（所有專案必載）
-│   │   ├── system_dev.md        # 系統開發（ADR/TDD/Docker）
-│   │   ├── content_creative.md  # 文字專案（排版/Markdown）
-│   │   ├── multi_agent.md       # 任務分治（實作期並行）
-│   │   ├── committee.md         # 角色委員會（決策期辯論）
-│   │   ├── vibe_coding.md       # 規格驅動工作流
-│   │   ├── autonomous_dev.md    # AI 全自動開發模式
-│   │   ├── rag_context.md       # Local RAG 整合
-│   │   ├── guardrail.md         # 範疇限制與敏感資訊保護
-│   │   ├── design_dev.md        # UI/UX 設計治理
-│   │   ├── coding_style.md      # 程式碼風格治理
-│   │   ├── openapi.md           # API-First 工作流
-│   │   ├── frontend_quality.md  # 前端工程品質驗證
-│   │   └── task_orchestrator.md # 任務協調 + 專案健康審計
-│   ├── templates/
-│   │   ├── ADR_Template.md
-│   │   ├── SPEC_Template.md
-│   │   ├── Postmortem_Template.md
-│   │   ├── architecture_spec.md
-│   │   ├── workflow-design.md              # 設計工作流範本
-│   │   ├── example-profile-system.yaml     # .ai_profile 範例（system 專案）
-│   │   ├── example-profile-content.yaml    # .ai_profile 範例（content 專案）
-│   │   └── example-profile-full.yaml       # .ai_profile 範例（全功能）
-│   ├── scripts/
-│   │   ├── install.sh           # 一鍵安裝（含 SessionStart Hook 設定）
-│   │   └── rag/
-│   │       ├── build_index.py   # 建立向量索引
-│   │       ├── search.py        # 查詢知識庫
-│   │       └── stats.py         # 統計資訊
-│   └── advanced/
-│       └── spectra_integration.md
-│
-└── docs/
-    ├── adr/                     # 架構決策紀錄
-    └── specs/                   # 功能規格書
+安裝 ASP → 建前置文件 → autopilot-init → 填寫 ROADMAP
+→ autopilot-validate（自動產生 CLAUDE.md 專案描述）→ 啟動 → 持續執行
 ```
+
+`make autopilot-validate` 會從 ROADMAP.yaml + `.ai_profile` + SRS 自動產生 CLAUDE.md 的「專案概覽」區塊，讓 AI 首次讀取時即掌握專案全貌。
+
+> 📖 [完整 onboarding 流程、ROADMAP 結構、零確認策略](docs/autopilot.md)
 
 ---
 
@@ -400,6 +198,8 @@ your-project/
   ↓ 依 .ai_profile workflow 載入（可選）
 自主開發 Profile（autonomous_dev）
   ↓ 依 .ai_profile autonomous 載入（可選）
+Autopilot Profile（autopilot）
+  ↓ 依 .ai_profile autopilot 載入（可選，為 autonomous 的上層調度）
 選配 Profile（rag / guardrail / design / coding_style / openapi / frontend_quality）
   ↓ 依 .ai_profile 各欄位載入（可選）
 ```
@@ -407,54 +207,7 @@ your-project/
 **RAG 模式的作用**：當 Profiles 太多時，不再全部塞進 context，
 改由 AI 主動查詢 `make rag-search` 按需召回相關規則，解決 context 飽和問題。
 
----
-
-## Profile 表達方式
-
-Profiles 使用分層混合的表達格式，依內容性質選用最適合的格式：
-
-| 層級 | 格式 | 範例 |
-|------|------|------|
-| 設計哲學 | 自然語言 | CLAUDE.md 鐵則、profiles 開頭說明 |
-| 決策流程 | **Pseudocode** | guardrail 三層策略、HITL 暫停矩陣、RAG 查詢 |
-| 技術執行 | Bash / Make | clean-allow-list.sh、Makefile |
-| 靜態規則 | 表格 / YAML | ADR 分類、模型選擇、排版規範 |
-
-Pseudocode 語法慣例：
-
-```
-FUNCTION name(params):        // 決策流程入口
-  IF condition:               // 分支判斷
-    RETURN action(...)        // 回傳行為
-  MATCH (var1, var2):         // 多條件矩陣
-    (a, b) → RETURN x
-  INVARIANT: 不可違反的約束    // 對應鐵則
-  CALL other.function(...)    // 跨 profile 委派
-```
-
-> 核心邏輯：只在「AI 需要做判斷」的地方用 pseudocode，在「人類需要理解」的地方保留散文。
-
----
-
-## 技術強制層（Hooks + 內建權限）
-
-ASP 使用 Claude Code **內建權限系統** + **SessionStart Hook** 保護危險操作：
-
-```
-.claude/settings.json
-  └── SessionStart hook → clean-allow-list.sh（清理 allow list）
-
-每次 session 啟動 → 自動清理 allow list 中的危險規則
-  → 危險指令不在 allow list → 內建權限系統彈出「Allow this bash command?」確認框
-```
-
-| 機制 | 說明 |
-|------|------|
-| **內建權限系統** | 危險指令（git push/rebase, docker push, rm -rf 等）不在 allow list 中時，Claude Code 自動彈出確認框 |
-| **SessionStart Hook** | `clean-allow-list.sh` 每次 session 啟動時自動清理 allow list 中的危險規則，確保內建權限系統持續生效 |
-
-> 使用者可在確認框中選擇 "Allow"（一次性）或 "Always allow"（永久），但後者會在下次 session 啟動時被自動清理。
-> 設定檔位於 `.claude/settings.json`，hook 腳本位於 `.asp/hooks/`。
+> 📖 [專案結構、Profile 表達方式](docs/project-structure.md)
 
 ---
 

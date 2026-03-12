@@ -4,6 +4,17 @@
 
 ---
 
+## 專案概覽
+
+<!-- ASP-AUTO-PROJECT-DESCRIPTION: START -->
+> 此區塊由 autopilot 自動產生（`make autopilot-validate` 或 autopilot 啟動時），請勿手動編輯。
+> 若需更新，修改 ROADMAP.yaml 後重新執行 `make autopilot-validate`。
+
+（尚未產生 — 執行 `make autopilot-validate` 或啟動 autopilot 時會自動填入）
+<!-- ASP-AUTO-PROJECT-DESCRIPTION: END -->
+
+---
+
 ## 啟動程序
 
 1. 讀取 `.ai_profile`，依欄位載入對應 profile

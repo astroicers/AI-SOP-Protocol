@@ -4,6 +4,41 @@
 
 ---
 
+## v2.7.0
+
+- **CLAUDE.md 專案描述自動產生**：autopilot 從 ROADMAP.yaml + `.ai_profile` + SRS 自動產生 CLAUDE.md 的「專案概覽」區塊
+  - 新增 `## 專案概覽` 區塊（含 `ASP-AUTO-PROJECT-DESCRIPTION` 標記）
+  - 新增 `.asp/scripts/update-project-description.py` 腳本
+  - `make autopilot-validate` 驗證通過後自動呼叫
+  - autopilot 每次啟動時（Phase 1.5）自動檢查並更新
+  - 冪等：內容沒變則不寫入
+- **Onboarding 流程文件化**：`docs/autopilot.md` 和 `README.md` 更新為完整 onboarding 流程
+
+---
+
+## v2.6.0
+
+- **Autopilot Profile**：新增 `.asp/profiles/autopilot.md`，ROADMAP 驅動持續自動執行
+  - 6 階段偽代碼（Resume → Load & Configure → Validate → Queue → Health Audit → Execute Loop → Complete）
+  - 零確認執行：所有 13 個暫停點改為自主處理策略（skip + record）
+  - 動態前置文件探測：根據 ROADMAP.yaml 的 `stack` / `requires` 自動判斷必要文件
+  - 自動 Profile 載入：根據 ROADMAP.yaml 元資料載入對應 Profile
+  - 跨 Session 續接：`.asp-autopilot-state.json` 存儲執行狀態
+  - 安全邊界：繼承 autonomous_dev 全部規則 + 14 項 autopilot 專屬自主處理策略
+- **前置文件模板**：
+  - `ROADMAP_Template.yaml`：專案元資料（stack/requires/conventions/architecture/quality/security/observability）+ milestones/tasks
+  - `SRS_Template.md`：需求規格（FR/US/UC/資料模型/介面規格/追溯矩陣）
+  - `SDS_Template.md`：設計規格（系統架構/模組設計/資料設計/API 合約/安全設計）
+  - `UIUX_SPEC_Template.md`：UI/UX 規格（Design System/頁面流程/元件規格/響應式/無障礙/動畫）
+  - `DEPLOY_SPEC_Template.md`：部署規格（環境定義/Container/CI-CD/監控/災難復原）
+- **Makefile.inc 新增 targets**：
+  - `autopilot-init` / `autopilot-validate` / `autopilot-status` / `autopilot-reset`
+  - `srs-new` / `sds-new` / `uiux-spec-new` / `deploy-spec-new`
+- **install.sh**：支援 `autopilot` 欄位
+- **CLAUDE.md**：autopilot 欄位 + Profile 對應表 + 啟動程序 step 4b + ADR 鐵則備註
+
+---
+
 ## v2.5.0
 
 - **Makefile 非破壞性安裝（Breaking Change）**：

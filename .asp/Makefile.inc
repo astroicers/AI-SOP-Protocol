@@ -589,6 +589,8 @@ pending = sum(1 for t in tasks if t.get("status")=="pending");\
 print("  Tasks: "+str(len(tasks))+" | Pending: "+str(pending)+" | Errors: "+str(len(errors)));\
 [print("  \u274c "+e) for e in errors];\
 sys.exit(1 if errors else 0)'
+	@echo "📝 Updating CLAUDE.md project description..."
+	@python3 .asp/scripts/update-project-description.py
 
 autopilot-status:
 	@echo "🤖 Autopilot Status"
