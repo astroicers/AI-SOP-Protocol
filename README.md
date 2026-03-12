@@ -38,13 +38,15 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 
 ---
 
-## 快速安裝
+## 快速安裝與啟動
+
+### Step 1. 安裝 ASP
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh | bash
 ```
 
-安裝只問兩題：**專案類型** → **開發風格**，全按 Enter 即可完成。
+安裝會詢問兩題：**專案類型** → **開發風格**。全按 Enter 使用預設值即可。
 
 | 開發風格 | 設定 | 適合 |
 |----------|------|------|
@@ -54,27 +56,34 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 | **高速自主+多Agent** | `autonomous: enabled` / `mode: multi-agent` | 大規模並行自主開發 |
 | **Autopilot** | `autopilot: enabled` | ROADMAP 驅動持續執行至 token 耗盡 |
 
-> 安裝後隨時可編輯 `.ai_profile` 微調，開新 session 生效。
+> **驗證：** 專案根目錄出現 `.ai_profile`、`.asp/` 目錄、`CLAUDE.md`。
 
----
+### Step 2. 啟動 ASP
 
-## 啟動
-
-安裝後，在 Claude Code 輸入：
+開啟 Claude Code，輸入：
 
 ```
 請讀取 CLAUDE.md，依照 .ai_profile 載入對應 Profile，後續遵循 ASP 協議。
 ```
 
+> **驗證：** AI 回應中提及已載入的 Profile 名稱。
+
+### Step 3. 調整設定（選用）
+
+安裝後可隨時編輯 `.ai_profile` 微調行為，**開新 session 生效**。
+
 ---
 
 ## .ai_profile 設定
 
-安裝時 `install.sh` 會在專案根目錄建立 `.ai_profile`，這是 ASP 唯一讀取的設定檔。
-直接編輯此檔案即可調整所有行為。
+`.ai_profile` 是 ASP 唯一讀取的設定檔（安裝時自動建立於專案根目錄）。
 
-> `.asp/templates/example-profile-*.yaml` 是不同專案類型的預設範例，供參考用。
-> 不需要複製或重命名——`install.sh` 已根據你的選擇產生了正確的 `.ai_profile`。
+### 修改方式
+
+1. 編輯 `.ai_profile` 中對應欄位
+2. **開新 Claude Code session** 使變更生效
+
+> `.asp/templates/example-profile-*.yaml` 提供不同專案類型的範例供參考。
 
 ```yaml
 type: system              # system | content | architecture
@@ -146,15 +155,41 @@ make srs-new / sds-new / uiux-spec-new / deploy-spec-new  # 前置文件
 
 SPEC 定義需求、邊界條件、測試驗收標準，是 ASP 開發的核心單位。
 
-```
-SPEC「Done When」→ TDD 先寫測試 → 實作讓測試通過 → 驗收
-```
+### Step 1. 判斷是否需要 SPEC
 
 | 情境 | 是否需要 SPEC |
 |------|-------------|
 | 新功能開發 | **是**（預設） |
 | 非 trivial Bug 修復 | **是** |
 | trivial（單行/typo/配置） | 可跳過，需說明理由 |
+| 原型驗證 | 可延後，需標記 `tech-debt: test-pending` |
+
+### Step 2. 建立 SPEC
+
+```bash
+make spec-new TITLE="功能名稱"
+```
+
+若有對應的架構決策，在 SPEC 的「關聯 ADR」欄位填入 ADR 編號（ADR 必須為 Accepted 狀態）。
+
+### Step 3. 填寫 Done When
+
+Done When 是測試的定義，**必須含至少一項可驗證的測試條件**：
+
+```markdown
+## ✅ Done When
+- [ ] `make test-filter FILTER=spec-000` all pass
+- [ ] `make lint` has no errors
+- [ ] Updated CHANGELOG.md
+```
+
+> 最低必填欄位：**Goal、Inputs、Expected Output、Done When（含測試條件）、Edge Cases**。
+
+### Step 4. TDD → 實作 → 驗收
+
+```
+Done When 條件 → 先寫測試 → 實作讓測試通過 → 驗收
+```
 
 > 📖 [Done When 模板、ADR↔SPEC 連動](docs/spec-driven-dev.md)
 
@@ -162,7 +197,16 @@ SPEC「Done When」→ TDD 先寫測試 → 實作讓測試通過 → 驗收
 
 ## 任務協調與專案健康審計
 
-`orchestrator: enabled` 時，ASP 自動掃描專案健康度（7 維度）並將任務分類路由到對應工作流（5 種類型）。
+`orchestrator: enabled` 時，ASP 自動掃描專案健康度並將任務路由到對應工作流。
+
+### 執行審計
+
+```bash
+make audit-health    # 完整 7 維度掃描
+make audit-quick     # 只檢查 blocker
+```
+
+審計結果分為 Blocker / Warning / Info。**Blocker 必須先修復才能開始主任務。**
 
 > 📖 [健康審計維度、任務路由規則](docs/task-orchestration.md)
 
@@ -172,14 +216,14 @@ SPEC「Done When」→ TDD 先寫測試 → 實作讓測試通過 → 驗收
 
 `autopilot: enabled` 讓 AI 讀取 `ROADMAP.yaml`，零確認持續執行所有任務，直到完成或 token 耗盡。支援跨 session 自動續接。
 
-```
-安裝 ASP → 建前置文件 → autopilot-init → 填寫 ROADMAP
-→ autopilot-validate（自動產生 CLAUDE.md 專案描述）→ 啟動 → 持續執行
-```
+| 步驟 | 操作 | 指令 |
+|------|------|------|
+| 1. 建立前置文件 | SRS（必要）、SDS / UIUX_SPEC / DEPLOY_SPEC（依技術棧） | `make srs-new` 等 |
+| 2. 建立 ROADMAP | 初始化模板並填寫任務清單 | `make autopilot-init` |
+| 3. 驗證 | 檢查結構 + 自動產生 CLAUDE.md 專案描述 | `make autopilot-validate` |
+| 4. 啟用 | `.ai_profile` 設定 `autopilot: enabled` | — |
 
-`make autopilot-validate` 會從 ROADMAP.yaml + `.ai_profile` + SRS 自動產生 CLAUDE.md 的「專案概覽」區塊，讓 AI 首次讀取時即掌握專案全貌。
-
-> 📖 [完整 onboarding 流程、ROADMAP 結構、零確認策略](docs/autopilot.md)
+> 📖 [Autopilot 標準作業程序（SOP）](docs/autopilot.md) — 完整的前置準備、啟動、執行、續接、故障排除流程
 
 ---
 
