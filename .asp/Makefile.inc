@@ -44,6 +44,8 @@ endif
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
 	@echo "📌 Task:        task-start DESC=... | task-status | task-report"
+	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
+	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -558,3 +560,89 @@ started=sum(1 for t in tasks if t.get('status')=='started'); \
 completed=sum(1 for t in tasks if t.get('status')=='completed'); \
 print(f'  Total: {total} | Started: {started} | Completed: {completed}')" 2>/dev/null; \
 	else echo "  (無任務紀錄)"; fi
+
+#---------------------------------------------------------------------------
+# Autopilot
+#---------------------------------------------------------------------------
+
+autopilot-init:
+	@if [ -f "ROADMAP.yaml" ]; then \
+		echo "⚠️  ROADMAP.yaml already exists"; \
+	else \
+		cp .asp/templates/ROADMAP_Template.yaml ROADMAP.yaml; \
+		echo "✅ Created ROADMAP.yaml from template"; \
+	fi
+
+autopilot-validate:
+	@echo "🔍 Validating ROADMAP.yaml..."
+	@python3 -c '\
+import yaml, sys, os;\
+data = yaml.safe_load(open("ROADMAP.yaml"));\
+tasks = [t for m in data.get("milestones",[]) for t in m.get("tasks",[])];\
+ids = [t["id"] for t in tasks];\
+errors = [];\
+[errors.append(t["id"]+" depends on unknown "+d) for t in tasks for d in (t.get("depends_on") or []) if d not in ids];\
+[errors.append(t["id"]+" references missing "+t["adr"]) for t in tasks if t.get("adr") and not any(t["adr"] in f for f in (os.listdir("docs/adr") if os.path.isdir("docs/adr") else []))];\
+docs = data.get("documents",{});\
+[errors.append("Document "+k+": "+v+" not found") for k,v in docs.items() if v and not os.path.exists(v)];\
+pending = sum(1 for t in tasks if t.get("status")=="pending");\
+print("  Tasks: "+str(len(tasks))+" | Pending: "+str(pending)+" | Errors: "+str(len(errors)));\
+[print("  \u274c "+e) for e in errors];\
+sys.exit(1 if errors else 0)'
+
+autopilot-status:
+	@echo "🤖 Autopilot Status"
+	@echo "==================="
+	@if [ -f ".asp-autopilot-state.json" ]; then \
+		python3 -c '\
+import json; s=json.load(open(".asp-autopilot-state.json"));\
+print("  Status:    "+s["status"]);\
+print("  Sessions:  "+str(s["session_count"]));\
+print("  Current:   "+s.get("current_task","N/A"));\
+print("  Completed: "+str(len(s["completed"]))+"/"+str(s.get("total_tasks","?")));\
+print("  Failed:    "+str(len(s.get("failed",[]))));\
+print("  Blocked:   "+str(len(s.get("blocked",[]))));\
+print("  Exit:      "+s.get("exit_reason","N/A"))'; \
+	else echo "  (No autopilot state — not started)"; fi
+	@echo ""
+	@if [ -f "ROADMAP.yaml" ]; then \
+		python3 -c '\
+import yaml; data=yaml.safe_load(open("ROADMAP.yaml"));\
+tasks=[t for m in data.get("milestones",[]) for t in m.get("tasks",[])];\
+by_status={};\
+[by_status.setdefault(t.get("status","pending"),[]).append(t["id"]) for t in tasks];\
+print("  ROADMAP progress:");\
+[print("    "+s+": "+str(len(by_status[s]))) for s in ["completed","in_progress","pending","blocked","failed","skipped"] if s in by_status]'; \
+	else echo "  (No ROADMAP.yaml)"; fi
+
+autopilot-reset:
+	@rm -f .asp-autopilot-state.json
+	@echo "🧹 Autopilot state cleared (ROADMAP.yaml unchanged)"
+
+srs-new:
+	@mkdir -p docs
+	@if [ ! -f "docs/SRS.md" ]; then \
+		cp .asp/templates/SRS_Template.md docs/SRS.md; \
+		echo "✅ Created docs/SRS.md from template"; \
+	else echo "ℹ️  docs/SRS.md already exists"; fi
+
+sds-new:
+	@mkdir -p docs
+	@if [ ! -f "docs/SDS.md" ]; then \
+		cp .asp/templates/SDS_Template.md docs/SDS.md; \
+		echo "✅ Created docs/SDS.md from template"; \
+	else echo "ℹ️  docs/SDS.md already exists"; fi
+
+uiux-spec-new:
+	@mkdir -p docs
+	@if [ ! -f "docs/UIUX_SPEC.md" ]; then \
+		cp .asp/templates/UIUX_SPEC_Template.md docs/UIUX_SPEC.md; \
+		echo "✅ Created docs/UIUX_SPEC.md from template"; \
+	else echo "ℹ️  docs/UIUX_SPEC.md already exists"; fi
+
+deploy-spec-new:
+	@mkdir -p docs
+	@if [ ! -f "docs/DEPLOY_SPEC.md" ]; then \
+		cp .asp/templates/DEPLOY_SPEC_Template.md docs/DEPLOY_SPEC.md; \
+		echo "✅ Created docs/DEPLOY_SPEC.md from template"; \
+	else echo "ℹ️  docs/DEPLOY_SPEC.md already exists"; fi

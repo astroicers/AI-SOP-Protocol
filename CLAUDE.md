@@ -11,6 +11,7 @@
 3. **自動載入規則**：`design: enabled` 時自動載入 `frontend_quality.md`（不需額外設定）
 4. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`（同時確保 `vibe_coding.md` 已載入，未設定時自動補載）。若同時 `mode: multi-agent`，autonomous 規則分層套用（見 `autonomous_dev.md`「Multi-Agent 整合」）
 4a. **若 `orchestrator: enabled`，或 `autonomous: enabled`**：額外載入 `task_orchestrator.md`。首次介入專案時自動執行專案健康審計（`project_health_audit()`），偵測缺失的測試、SPEC、ADR、文件並強制補齊
+4b. **若 `autopilot: enabled`**：額外載入 `autopilot.md`（自動確保 `autonomous_dev.md` + `task_orchestrator.md` 已載入）。Session 啟動時檢查 `.asp-autopilot-state.json`——若存在且 status == "in_progress"，自動提示續接
 5. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
 6. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
 
@@ -28,6 +29,7 @@ design:       enabled | disabled               # 預設 disabled
 frontend_quality: enabled | disabled           # 預設 disabled（design: enabled 時自動載入）
 coding_style: enabled | disabled               # 預設 disabled
 openapi:      enabled | disabled               # 預設 disabled
+autopilot:    enabled | disabled               # 預設 disabled（roadmap 驅動持續執行）
 name:         your-project-name
 ```
 
@@ -51,6 +53,7 @@ name:         your-project-name
 | `frontend_quality: enabled` | + `.asp/profiles/frontend_quality.md` |
 | `design: enabled`（自動） | + `.asp/profiles/frontend_quality.md` |
 | `workflow: vibe-coding` + `hitl: minimal` | + `.asp/profiles/autonomous_dev.md` |
+| `autopilot: enabled` | + `.asp/profiles/autopilot.md` + `autonomous_dev.md` + `task_orchestrator.md`（自動） |
 
 ---
 
@@ -120,6 +123,14 @@ name:         your-project-name
 | 記錄任務 | `make task-start DESC="..."` |
 | 任務狀態 | `make task-status` |
 | 任務統計 | `make task-report` |
+| Autopilot 初始化 | `make autopilot-init` |
+| Autopilot 驗證 | `make autopilot-validate` |
+| Autopilot 狀態 | `make autopilot-status` |
+| Autopilot 重置 | `make autopilot-reset` |
+| 建立 SRS | `make srs-new` |
+| 建立 SDS | `make sds-new` |
+| 建立 UI/UX Spec | `make uiux-spec-new` |
+| 建立 Deploy Spec | `make deploy-spec-new` |
 
 > 以上為常用指令，完整列表請執行 `make help`
 

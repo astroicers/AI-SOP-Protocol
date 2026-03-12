@@ -8,6 +8,9 @@
 .agent-events/
 .agent-lock.yaml
 
+# Autopilot 狀態（跨 session 續接，本地生成）
+.asp-autopilot-state.json
+
 # Session 紀錄（本地）
 docs/session-log.md
 
