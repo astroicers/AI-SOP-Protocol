@@ -16,6 +16,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 - **CLAUDE.md**: Autopilot field, Profile mapping, startup procedure step 4b, Makefile quickref
 
 ### Changed
+- **Zero-confirmation autopilot**: All 13 pause points removed; autopilot runs continuously to token exhaustion with auto-handling strategies (skip + record)
 - `.asp/VERSION`: 2.5.0 → 2.6.0
 - `.gitignore`: Added `.asp-autopilot-state.json`
 
