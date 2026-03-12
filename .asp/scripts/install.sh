@@ -360,7 +360,7 @@ if [ ! -f "docs/architecture.md" ]; then
     echo "✅ 已建立 docs/architecture.md"
 fi
 
-# 設定 Claude Code Hooks（SessionStart: 清理危險 allow 規則）
+# 設定 Claude Code Hooks（SessionStart: 設定權限 — allow all + deny 危險指令）
 HOOKS_JSON='{
   "hooks": {
     "SessionStart": [
@@ -372,6 +372,15 @@ HOOKS_JSON='{
           }
         ]
       }
+    ]
+  },
+  "permissions": {
+    "allow": ["Bash(*)"],
+    "deny": [
+      "Bash(git push *)", "Bash(git push)",
+      "Bash(git rebase *)", "Bash(git rebase)",
+      "Bash(docker push *)", "Bash(docker deploy *)",
+      "Bash(rm -rf *)", "Bash(rm -r *)"
     ]
   }
 }'
@@ -410,6 +419,18 @@ if [ "$JQ_AVAILABLE" = true ]; then
         echo "$HOOKS_JSON" | jq '.' > .claude/settings.json
         echo "✅ 已建立 .claude/settings.json（含 ASP SessionStart Hook）"
     fi
+
+    # --- 設定 deny 規則（從 denied-commands.json 讀取）---
+    DENIED_FILE=".asp/hooks/denied-commands.json"
+    if [ -f "$DENIED_FILE" ] && [ -f ".claude/settings.json" ]; then
+        DENY_JSON=$(cat "$DENIED_FILE")
+        jq --argjson deny "$DENY_JSON" '
+            .permissions.allow = ((.permissions.allow // []) + ["Bash(*)"] | unique) |
+            .permissions.deny = ((.permissions.deny // []) + $deny | unique)
+        ' .claude/settings.json > .claude/settings.json.tmp \
+            && mv .claude/settings.json.tmp .claude/settings.json
+        echo "✅ 已設定權限 — allow: Bash(*), deny: $(echo "$DENY_JSON" | jq length) 條危險指令"
+    fi
 else
     if [ ! -f ".claude/settings.json" ]; then
         cat > .claude/settings.json << 'HOOKJSON'
@@ -425,6 +446,15 @@ else
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": ["Bash(*)"],
+    "deny": [
+      "Bash(git push *)", "Bash(git push)",
+      "Bash(git rebase *)", "Bash(git rebase)",
+      "Bash(docker push *)", "Bash(docker deploy *)",
+      "Bash(rm -rf *)", "Bash(rm -r *)"
+    ]
   }
 }
 HOOKJSON
@@ -435,30 +465,31 @@ HOOKJSON
     fi
 fi
 
-# --- 清理 settings 中的危險 allow 規則（安裝時執行一次）---
+# --- 清理 allow list 中的具體危險指令 + 確保 deny 規則存在（安裝時執行一次）---
+# 舊版 ASP 可能在 allow list 中有具體危險指令，需要清理
+# 新版只需 Bash(*) 在 allow + deny 列表阻擋危險指令
 if [ "$JQ_AVAILABLE" = true ]; then
     DANGEROUS_PATTERNS='git\s+rebase|git\s+push|docker\s+(push|deploy)|rm\s+-[a-z]*r|find\s+.*-delete'
     TOTAL_REMOVED=0
     for SETTINGS_FILE in .claude/settings.local.json .claude/settings.json; do
         [ -f "$SETTINGS_FILE" ] || continue
-        # 跳過非 object 的 JSON 檔案（例如損壞的 settings.local.json）
         FILE_TYPE=$(jq -r 'type' "$SETTINGS_FILE" 2>/dev/null || echo "invalid")
         if [ "$FILE_TYPE" != "object" ]; then
             continue
         fi
-        BEFORE_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
+        BEFORE_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash(") and . != "Bash(*)")] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
         jq --arg pattern "$DANGEROUS_PATTERNS" '
           .permissions.allow = [
             (.permissions.allow // [])[] |
-            select((startswith("Bash(") and test($pattern)) | not)
+            select((startswith("Bash(") and . != "Bash(*)" and test($pattern)) | not)
           ]
         ' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
             && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-        AFTER_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash("))] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
+        AFTER_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash(") and . != "Bash(*)")] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
         TOTAL_REMOVED=$((TOTAL_REMOVED + BEFORE_COUNT - AFTER_COUNT))
     done
     if [ "$TOTAL_REMOVED" -gt 0 ]; then
-        echo "🔒 已從 allow list 移除 ${TOTAL_REMOVED} 條危險規則（git rebase/push, docker push, rm -r 等）"
+        echo "🔒 已從 allow list 移除 ${TOTAL_REMOVED} 條舊版危險規則"
     fi
 fi
 

@@ -149,12 +149,22 @@ name:         your-project-name
 
 ## 技術執行層（Hooks + 內建權限）
 
-ASP 使用 Claude Code 內建權限系統 + SessionStart Hook 保護危險操作：
+ASP 採用「全開放 + 黑名單」策略：預設允許所有 Bash 指令，僅禁止危險操作。
 
 | 機制 | 說明 |
 |------|------|
-| **內建權限系統** | 危險指令（git push/rebase, docker push, rm -rf 等）不在 allow list 中時，Claude Code 自動彈出「Allow this bash command?」確認框 |
-| **SessionStart Hook** | `clean-allow-list.sh` 每次 session 啟動時自動清理 allow list 中的危險規則，確保內建權限系統持續生效 |
+| **Allow: `Bash(*)`** | 所有 Bash 指令預設允許，autopilot/autonomous 模式不會被無害指令中斷 |
+| **Deny 黑名單** | 危險指令由 `.asp/hooks/denied-commands.json` 定義，Claude Code 自動阻擋 |
+| **SessionStart Hook** | `clean-allow-list.sh` 每次 session 啟動時確保 allow + deny 規則正確，防止手動繞過 |
 
-> 設定檔位於 `.claude/settings.json`，hook 腳本位於 `.asp/hooks/`。
-> 使用者可在確認框中選擇 "Allow"（一次性）或 "Always allow"（永久），但後者會在下次 session 啟動時被自動清理。
+**被禁止的危險指令（deny list）：**
+
+| 指令 | 原因 |
+|------|------|
+| `git push` | 鐵則：推送前必須人工確認 |
+| `git rebase` | 鐵則：禁止改寫歷史 |
+| `docker push / deploy` | 鐵則：部署需人工確認 |
+| `rm -rf / rm -r` | 破壞性刪除 |
+
+> 設定檔位於 `.claude/settings.json`，deny 規則位於 `.asp/hooks/denied-commands.json`，hook 腳本位於 `.asp/hooks/`。
+> 如需新增禁止指令，編輯 `denied-commands.json` 即可，下次 session 自動生效。
