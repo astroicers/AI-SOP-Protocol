@@ -55,11 +55,14 @@
 
 ## ⚠️ 邊界條件（Edge Cases）
 
-- Case 1：ROADMAP.yaml 不存在時 → autopilot 提示 `make autopilot-init`
-- Case 2：依賴圖有循環 → 驗證階段報錯，不進入執行
+- Case 1：ROADMAP.yaml 不存在時 → 自動執行 `make autopilot-init` 建立（零確認）
+- Case 2：依賴圖有循環 → 標記涉及的 tasks 為 blocked，繼續執行其他獨立 task（零確認）
 - Case 3：所有 tasks 已 completed → 直接報告完成，不執行
 - Case 4：context > 75% 剛好在 task 執行中間 → 等當前 task 完成後再 checkpoint
 - Case 5：task 失敗 → 標記 failed，跳過依賴此 task 的後續任務，繼續獨立任務
+- Case 6：前置文件缺失 → 自動執行對應 make target 建立模板（零確認）
+- Case 7：ADR 未 Accepted → 標記相關 task 為 blocked 並跳過（不違反鐵則，零確認）
+- Case 8：autonomous_dev 暫停項（git push/刪檔/新增依賴等）→ 由 autopilot 自主處理策略覆寫（見 autopilot.md「零確認」段落）
 
 ### 回退方案（Rollback Plan）
 
@@ -105,13 +108,21 @@
 
 | 實作檔案 | 測試檔案 | 最後驗證日期 |
 |----------|----------|-------------|
-| （實作時填入） | （實作時填入） | YYYY-MM-DD |
+| `.asp/profiles/autopilot.md` | `tests/test_autopilot_targets.sh` | 2026-03-12 |
+| `.asp/templates/ROADMAP_Template.yaml` | （人工審核） | 2026-03-12 |
+| `.asp/templates/SRS_Template.md` | （人工審核） | 2026-03-12 |
+| `.asp/templates/SDS_Template.md` | （人工審核） | 2026-03-12 |
+| `.asp/templates/UIUX_SPEC_Template.md` | （人工審核） | 2026-03-12 |
+| `.asp/templates/DEPLOY_SPEC_Template.md` | （人工審核） | 2026-03-12 |
+| `.asp/Makefile.inc` | `tests/test_autopilot_targets.sh` (27/27) | 2026-03-12 |
+| `CLAUDE.md` | （人工審核） | 2026-03-12 |
+| `.asp/scripts/install.sh` | （人工審核） | 2026-03-12 |
 
 ---
 
 ## 🚫 禁止事項（Out of Scope）
 
-- 不要修改：既有 profile 的行為邏輯（autopilot 只在上層調度）
+- 不要修改：既有 profile 的行為邏輯（autopilot 只在上層調度；autonomous_dev 的暫停覆寫規則放在 autopilot.md 內，不修改 autonomous_dev.md 本體）
 - 不要修改：task_orchestrator.md 或 autonomous_dev.md
 - 不要引入新依賴：所有 Makefile targets 只用 python3 + pyyaml（已有 fallback）
 

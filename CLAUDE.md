@@ -11,7 +11,7 @@
 3. **自動載入規則**：`design: enabled` 時自動載入 `frontend_quality.md`（不需額外設定）
 4. **若 `autonomous: enabled`，或 `workflow: vibe-coding` + `hitl: minimal`**：額外載入 `autonomous_dev.md`（同時確保 `vibe_coding.md` 已載入，未設定時自動補載）。若同時 `mode: multi-agent`，autonomous 規則分層套用（見 `autonomous_dev.md`「Multi-Agent 整合」）
 4a. **若 `orchestrator: enabled`，或 `autonomous: enabled`**：額外載入 `task_orchestrator.md`。首次介入專案時自動執行專案健康審計（`project_health_audit()`），偵測缺失的測試、SPEC、ADR、文件並強制補齊
-4b. **若 `autopilot: enabled`**：額外載入 `autopilot.md`（自動確保 `autonomous_dev.md` + `task_orchestrator.md` 已載入）。Session 啟動時檢查 `.asp-autopilot-state.json`——若存在且 status == "in_progress"，自動提示續接
+4b. **若 `autopilot: enabled`**：額外載入 `autopilot.md`（自動確保 `autonomous_dev.md` + `task_orchestrator.md` 已載入）。Session 啟動時檢查 `.asp-autopilot-state.json`——若存在且 status == "in_progress"，自動續接（零確認）
 5. **RAG 已啟用時**：回答任何專案架構/規格問題前，先執行 `make rag-search Q="..."`
 6. 無 `.ai_profile` 時：只套用本檔案鐵則，詢問使用者專案類型
 
@@ -65,7 +65,7 @@ name:         your-project-name
 |------|------|
 | **破壞性操作防護** | `rebase / rm -rf / docker push / git push` 等危險操作由 Claude Code 內建權限系統確認（SessionStart hook 自動清理 allow list）；`git push` 前必須先列出變更摘要並等待人類明確同意 |
 | **敏感資訊保護** | 禁止輸出任何 API Key、密碼、憑證，無論何種包裝方式 |
-| **ADR 未定案禁止實作** | ADR 狀態為 Draft 時，禁止撰寫對應的生產代碼；必須等 ADR 進入 Accepted 狀態 |
+| **ADR 未定案禁止實作** | ADR 狀態為 Draft 時，禁止撰寫對應的生產代碼；必須等 ADR 進入 Accepted 狀態。autopilot 模式下不暫停詢問，而是自動將該 task 標記 blocked 並跳過 |
 
 ---
 
