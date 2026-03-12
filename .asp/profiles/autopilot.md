@@ -212,10 +212,26 @@ FUNCTION autopilot_main():
   // 驗證前置文件
   detect_required_documents(roadmap)  // 缺少時自動建立
 
-  // 驗證 ADR 狀態
+  // ─── 強制為所有任務建立 SPEC（提前至 Phase 2）───
+  FOR task IN roadmap.all_tasks():
+    IF task.spec == null:
+      spec = EXECUTE("make spec-new TITLE=\"{task.title}\"")
+      IF task.srs_ref AND exists(roadmap.documents.srs):
+        srs_content = READ(roadmap.documents.srs)
+        fr = extract_fr(srs_content, task.srs_ref)
+        FILL spec.goal FROM fr.description
+        FILL spec.done_when FROM fr.acceptance_criteria
+      ELSE:
+        FILL spec FROM task.description
+      task.spec = spec.id
+      UPDATE_ROADMAP(task)
+      LOG("📋 Task {task.id}: SPEC 已自動建立 → {spec.id}")
+
+  // ─── 驗證 ADR 狀態 + 智能評估架構影響 ───
   blocked_by_adr = []
   FOR task IN roadmap.all_tasks():
     IF task.adr:
+      // 明確指定 ADR 的 task：驗證 ADR 是否存在且已 Accepted
       adr = FIND_ADR(task.adr)
       IF NOT adr:
         LOG("Task {task.id}: ADR {task.adr} 不存在 → 自動建立 Draft ADR")
@@ -224,6 +240,16 @@ FUNCTION autopilot_main():
       ELIF adr.status != "Accepted":
         LOG("Task {task.id}: {task.adr} 狀態為 {adr.status} → 標記 blocked")
         blocked_by_adr.append(task.id)
+    ELSE:
+      // adr: null 的 task：智能評估是否需要 ADR
+      impact = assess_architecture_impact(task)  // 呼叫 task_orchestrator.md 的函式
+      IF impact.requires_adr:
+        adr_title = "ADR: {task.title}"
+        EXECUTE("make adr-new TITLE=\"{adr_title}\"")
+        task.adr = adr_title
+        UPDATE_ROADMAP(task)
+        blocked_by_adr.append(task.id)
+        LOG("🏗️ Task {task.id}: 架構影響評估需要 ADR（{impact.reasons}）→ 自動建立 Draft，標記 blocked")
 
   // 驗證依賴圖無環
   cycle_tasks = []
@@ -297,17 +323,12 @@ FUNCTION autopilot_main():
       LOG("Task {task.id} blocked by: {unmet}")
       CONTINUE
 
-    // ─── 自動建立 SPEC（如果沒有）───
+    // ─── 確認 SPEC 存在（Phase 2 已建立）───
     IF task.spec == null:
+      // 防禦性：不應發生（Phase 2 已強制建立），但以防萬一
+      LOG("⚠️ Task {task.id}: SPEC 缺失（應在 Phase 2 建立），自動補建")
       spec = EXECUTE("make spec-new TITLE=\"{task.title}\"")
-      // 若有 srs_ref，從 SRS 交叉引用需求填充 SPEC
-      IF task.srs_ref AND exists(roadmap.documents.srs):
-        srs_content = READ(roadmap.documents.srs)
-        fr = extract_fr(srs_content, task.srs_ref)
-        FILL spec.goal FROM fr.description
-        FILL spec.done_when FROM fr.acceptance_criteria
-      ELSE:
-        FILL spec FROM task.description
+      FILL spec FROM task.description
       task.spec = spec.id
       UPDATE_ROADMAP(task)
 
