@@ -39,6 +39,7 @@ Layer 3: 專案類型（system/content）   — 依 .ai_profile type
 Layer 4: 作業模式（multi-agent/committee） — 可選
 Layer 5: 開發策略（vibe-coding）      — 可選
 Layer 5.5: 自主開發（autonomous）      — 可選，可與 multi-agent 組合（分層套用）
+Layer 5.6: Autopilot（autopilot）       — 可選，autonomous 的上層調度（ROADMAP 驅動）
 Layer 6: 選配（rag/guardrail/design/coding_style/openapi/frontend_quality） — 可選
 ```
 
