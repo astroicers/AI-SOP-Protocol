@@ -212,6 +212,37 @@ Postmortem 不是懲罰，是學習工具。重點是「系統為什麼沒有防
 - `make audit-health` 自動包含 tech-debt 彙總（程式碼衛生維度）
 - 超過 2 個 sprint 未處理的 tech-debt → 自動升級為 blocker（同 DEPRECATED 規則）
 
+#### 標準標記格式
+
+所有 `tech-debt:` 標記必須使用以下統一格式，方便按優先級排序和追蹤：
+
+```
+# tech-debt: [HIGH|MED|LOW] [CATEGORY] description (DUE: YYYY-MM-DD)
+```
+
+**Priority 等級：**
+- `HIGH` — 影響功能正確性、安全性、或有明確 deadline 的技術債
+- `MED` — 影響可維護性、測試覆蓋、文件同步
+- `LOW` — 代碼風格、小幅重構、優化
+
+**CATEGORY 常用值：**
+
+| Category | 說明 | 範例 |
+|----------|------|------|
+| `test-pending` | Bug 修復或原型驗證後待補的測試 | `tech-debt: HIGH test-pending UserService.Delete 需補回歸測試 (DUE: 2026-04-30)` |
+| `adr-pending` | 正在等待 ADR 核准的設計決策 | `tech-debt: HIGH adr-pending 等待 ADR-003 Accepted 後實作 (DUE: 2026-04-15)` |
+| `spec-pending` | 原型驗證後待補的 SPEC | `tech-debt: MED spec-pending AuthModule 缺 SPEC (DUE: 2026-05-01)` |
+| `doc-stale` | 文件與實作不同步 | `tech-debt: MED doc-stale SPEC-002 未反映最新 API 變更 (DUE: 2026-04-20)` |
+| `deprecated-cleanup` | 已標記 DEPRECATED 待移除 | `tech-debt: MED deprecated-cleanup OldPaymentService 待移除 (DUE: 2026-05-31)` |
+| `refactor` | 代碼重構，不影響功能 | `tech-debt: LOW refactor UserController 方法過長 (DUE: 2026-06-30)` |
+| `perf` | 已知效能問題，影響用戶可接受 | `tech-debt: MED perf N+1 query in OrderList (DUE: 2026-05-15)` |
+| `security` | 安全相關待修項，必須明確 deadline | `tech-debt: HIGH security JWT 過期時間過長 (DUE: 2026-04-10)` |
+
+**使用規則：**
+- `HIGH` 項目必須附 `DUE` 日期，超期自動升級為 blocker
+- `DUE` 日期超過 2 個 sprint 未處理 → 視同 DEPRECATED 規則，升級 blocker
+- 無法確定 category → 使用 `tech-debt: MED misc description (DUE: ...)` 後再分類
+
 ---
 
 ### DEPRECATED 程式碼追蹤

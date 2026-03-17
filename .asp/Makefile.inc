@@ -18,7 +18,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         rag-index rag-search rag-stats rag-rebuild \
         guardrail-log guardrail-reset \
         audit-health audit-quick doc-audit tech-debt-list \
-        task-start task-status task-report
+        task-start task-status task-report \
+        profile-validate
 
 #---------------------------------------------------------------------------
 # Help
@@ -44,6 +45,7 @@ endif
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
 	@echo "📌 Task:        task-start DESC=... | task-status | task-report"
+	@echo "🔍 Profile:     profile-validate"
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
 	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
 	@echo ""
@@ -648,3 +650,10 @@ deploy-spec-new:
 		cp .asp/templates/DEPLOY_SPEC_Template.md docs/DEPLOY_SPEC.md; \
 		echo "✅ Created docs/DEPLOY_SPEC.md from template"; \
 	else echo "ℹ️  docs/DEPLOY_SPEC.md already exists"; fi
+
+#---------------------------------------------------------------------------
+# Profile 驗證
+#---------------------------------------------------------------------------
+
+profile-validate:
+	@bash .asp/scripts/validate-profile.sh
