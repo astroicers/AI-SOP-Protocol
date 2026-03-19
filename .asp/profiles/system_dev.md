@@ -201,7 +201,8 @@ hotfix/描述        緊急修復，從 main 建立，修復後合併回 main
        │     ├── 讀取 design-system/MASTER.md（若存在）
        │     ├── 讀取 design-system/tokens.yaml（若存在）
        │     ├── 讀取 frontend/DESIGN_MAP.md（若存在）← 路由↔元件對應、Frame ID
-       │     └── 讀取設計相關 SPEC（若存在）← 設計防錯規則
+       │     ├── 讀取設計相關 SPEC（若存在）← 設計防錯規則
+       │     └── design-system/ 不存在 → BLOCK（必須先建立 design system）
        └── STEP 4b: CALL design_gate(requirement)  // 確認設計稿存在且一致
            ├── 設計已存在且與需求一致 → 繼續
            └── 設計不存在或不一致 → 建立/更新設計 → 等待人類確認

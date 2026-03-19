@@ -216,9 +216,18 @@ FUNCTION before_ui_work():
     READ(spec)
     // 包含：anti-pattern 禁止列表、token 速查表、元件樣式模板
 
-  // 5. 無 design system 時
+  // 5. 無 design system 時 → BLOCK（design: enabled 代表專案承諾設計驅動）
   IF NOT exists("design-system/"):
-    SUGGEST("建議使用 UI/UX Skill 產生 design system，或手動建立 design-system/MASTER.md")
+    BLOCK("design: enabled 但 design-system/ 不存在。必須先建立 design system 再實作 UI。")
+    SUGGEST("執行 UI/UX Skill 產生 design system，或手動建立以下必要檔案：")
+    //   design-system/MASTER.md    — 設計系統總覽（色彩、字型、間距、圓角等規範）
+    //   design-system/tokens.yaml  — Design Token 定義（所有 semantic token 的鍵值對）
+    // autopilot 模式：標記 task 為 blocked，跳至下一個 task
+
+  // 5b. Design Token 檔案存在但不完整 → WARN
+  IF exists("design-system/") AND NOT exists("design-system/tokens.yaml"):
+    WARN("design-system/ 存在但缺少 tokens.yaml。建議補齊 token 定義以啟用 verify_token_sync 驗證。")
+    // 不 BLOCK——有 MASTER.md 仍可推進，但 token sync 驗證會失效
 ```
 
 > Design system 檔案由各專案自行維護，ASP 只規範讀取順序和覆寫規則。
