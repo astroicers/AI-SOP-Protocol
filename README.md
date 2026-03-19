@@ -17,6 +17,22 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 
 ---
 
+## 核心能力
+
+| 能力 | 說明 | 版本 |
+|------|------|------|
+| **Skill Layer** | 5 個 Claude Code 原生 skill（plan/ship/audit/review/autopilot），按意圖自動路由 | v2.12 |
+| **設計閘門強制** | `design: enabled` 時，無 design system → BLOCK；缺 tokens.yaml → WARN | v2.13 |
+| **安全違規 BLOCK** | SQL injection、raw HTML、硬編碼密碼直接阻擋，無豁免 | v2.14 |
+| **提交前自審報告** | 5 維度通過/失敗結論，任一 🔴 即阻擋提交 | v2.14 |
+| **Bug 分類客觀化** | 檔案數 >2、行數 >10、邏輯/DB/API/認證變更 → 自動判定 non-trivial | v2.14 |
+| **Breaking Change 閘門** | API 偵測到 breaking change → BLOCK + 強制版本遞增 | v2.14 |
+| **Profile 衝突偵測** | 啟動時自動驗證 profile 依賴/衝突，WARN 不一致 | v2.14 |
+| **Autopilot 持續執行** | ROADMAP 驅動，跨 session 自動續接，自動建立 SPEC + 評估 ADR | v2.11 |
+| **Deny-list 權限模型** | 預設允許所有 Bash，僅禁止危險指令（git push/rebase、rm -rf 等） | v2.9 |
+
+---
+
 ## 前置需求（選配，非必須）
 
 以下工具安裝在**使用者層**（`~/.claude/`），與 ASP 互補但獨立：
@@ -108,7 +124,7 @@ name: your-project
 
 | 等級 | 行為 |
 |------|------|
-| `minimal` | 明確定義的暫停條件（刪除檔案、新增依賴、DB Schema 變更、範圍超出、自動修復失敗 ≥3 次） |
+| `minimal` | 明確定義的暫停條件（刪除檔案、新增依賴、DB Schema 變更、範圍超出、自動修復失敗 ≥3 次、Design Gate 需確認） |
 | `standard` | + 原始碼修改前確認 SPEC 存在性 |
 | `strict` | + 所有檔案修改前主動暫停確認 |
 
@@ -260,7 +276,9 @@ Autopilot Profile（autopilot）
 **從「規則替代判斷」到「規則賦能判斷」；從「提示詞約束」到「技術強制」。**
 
 - 鐵則（不可繞過）只有 3 條，由內建權限系統 + SessionStart Hook 技術輔助
+- 安全違規（SQL injection、硬編碼密碼、raw HTML）直接 BLOCK，無豁免、不可延後
 - 預設值可跳過，但必須說明理由——這讓 Claude 學會判斷，而不只是服從
+- 提交前自審必須輸出結論報告，不允許靜默跳過
 - 護欄預設「詢問與引導」，不是「拒絕」
 - 一條有條件的規則，勝過三條無條件的規則
 
