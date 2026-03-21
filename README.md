@@ -30,6 +30,7 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 | **Profile 衝突偵測** | 啟動時自動驗證 profile 依賴/衝突，WARN 不一致 | v2.14 |
 | **Autopilot 持續執行** | ROADMAP 驅動，跨 session 自動續接，自動建立 SPEC + 評估 ADR | v2.11 |
 | **Deny-list 權限模型** | 預設允許所有 Bash，僅禁止危險指令（git push/rebase、rm -rf 等） | v2.9 |
+| **E2E 強制閘門** | 全端專案（frontend/ + backend/）必須使用 Playwright，BLOCKER 級 | v2.15 |
 
 ---
 

@@ -2,6 +2,15 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [2.15.0] - 2026-03-22
+
+### Added
+- **E2E Test Gate**: 全端專案（同時具有 frontend/ + backend/）強制 Playwright E2E 測試
+- **Pre-Implementation Gate Step 5c**: Playwright 設定檔 + e2e/ 目錄不存在 → BLOCK
+- **Testing Pyramid enforcement**: E2E 從「建議」升級為「有前後端時必須」
+- **Health audit dimension 1c**: E2E 測試審計，缺少設定/目錄/測試檔 → BLOCKER
+- **Pre-commit checklist**: 使用者流程修改需驗證 E2E 覆蓋
+
 ## [2.14.0] - 2026-03-19
 
 ### Added

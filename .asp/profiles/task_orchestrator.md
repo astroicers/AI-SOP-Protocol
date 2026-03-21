@@ -88,6 +88,21 @@ FUNCTION project_health_audit():
       severity = is_core_module(file) ? BLOCKER : WARNING
       report.add(severity, "無測試覆蓋：{file}")
 
+  // ─── 1c. E2E 測試審計（全端專案專用）───
+  IF exists("frontend/") AND (exists("backend/") OR exists("api/") OR exists("server/")):
+    IF NOT exists("playwright.config.ts") AND NOT exists("playwright.config.js"):
+      report.add(BLOCKER, "全端專案缺少 Playwright 設定（playwright.config.ts）")
+    ELSE:
+      e2e_dir = find_e2e_directory()  // e2e/, tests/e2e/, frontend/e2e/ 等
+      IF NOT e2e_dir:
+        report.add(BLOCKER, "全端專案缺少 E2E 測試目錄")
+      ELSE:
+        e2e_count = count_files_matching(e2e_dir, "*.spec.ts", "*.e2e.ts", "*.test.ts")
+        IF e2e_count == 0:
+          report.add(BLOCKER, "E2E 測試目錄存在但無測試檔案")
+        ELIF e2e_count < 3:
+          report.add(WARNING, "E2E 測試僅 {e2e_count} 個（建議 ≥ 3，至少覆蓋：導航、核心 CRUD、錯誤處理）")
+
   // ─── 2. SPEC 覆蓋 ───
   specs = list_specs()  // make spec-list
   modules = identify_major_modules()  // src/ 下的一級目錄
