@@ -7,10 +7,10 @@
 ## 專案概覽
 
 <!-- ASP-AUTO-PROJECT-DESCRIPTION: START -->
-> 此區塊由 autopilot 自動產生（`make autopilot-validate` 或 autopilot 啟動時），請勿手動編輯。
-> 若需更新，修改 ROADMAP.yaml 後重新執行 `make autopilot-validate`。
-
-（尚未產生 — 執行 `make autopilot-validate` 或啟動 autopilot 時會自動填入）
+> **AI-SOP-Protocol (ASP)** — 軟體開發流程治理框架。
+> 把開發文化（ADR 先於實作、測試先於代碼、部署必須確認）寫成機器可讀的約束，讓 AI 自動遵守。
+> 15 個 Profile 分層載入、5 個 Claude Code 原生 Skill、7 維度健康審計、Autopilot 持續執行。
+> 詳見 README.md。
 <!-- ASP-AUTO-PROJECT-DESCRIPTION: END -->
 
 ---

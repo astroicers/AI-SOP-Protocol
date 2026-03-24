@@ -8,7 +8,14 @@ your-project/
 ├── .gitignore
 │
 ├── .claude/
-│   └── settings.json            # SessionStart Hook 設定（install.sh 自動建立）
+│   ├── settings.json            # SessionStart Hook 設定（install.sh 自動建立）
+│   └── skills/asp/              # Claude Code 原生 Skills（5 個）
+│       ├── SKILL.md             # 意圖路由器
+│       ├── asp-plan.md          # 功能規劃工作流
+│       ├── asp-ship.md          # 提交前驗證
+│       ├── asp-audit.md         # 專案健康審計
+│       ├── asp-review.md        # 程式碼審查
+│       └── asp-autopilot.md     # ROADMAP 執行引擎
 │
 ├── .asp/                        # ← ASP 所有靜態檔案收在這裡
 │   ├── hooks/

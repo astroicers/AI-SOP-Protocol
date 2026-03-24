@@ -74,6 +74,8 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 | **Autopilot** | `autopilot: enabled` | ROADMAP 驅動持續執行至 token 耗盡 |
 
 > **驗證：** 專案根目錄出現 `.ai_profile`、`.asp/` 目錄、`CLAUDE.md`。
+>
+> 不確定該從哪個指令開始？先看 [決策流程指南](docs/where-to-start.md)。
 
 ### Step 2. 啟動 ASP
 
@@ -129,7 +131,7 @@ name: your-project
 | `standard` | + 原始碼修改前確認 SPEC 存在性 |
 | `strict` | + 所有檔案修改前主動暫停確認 |
 
-> 危險操作（git push/rebase、docker push、rm -rf 等）由 Claude Code 內建權限系統彈出確認框，不依賴 HITL 等級。詳見 [技術強制層](docs/technical-enforcement.md)。
+> 危險操作（git push/rebase、docker push、rm -rf 等）由 Claude Code 內建權限系統彈出確認框，不依賴 HITL 等級。詳見 CLAUDE.md「技術執行層」。
 
 ---
 
@@ -292,3 +294,4 @@ Autopilot Profile（autopilot）
 | [Agent-Skills-for-Context-Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering) | Context engineering 教學庫：壓縮策略、衰退模式、multi-agent token 經濟學。ASP 已吸收其核心精髓，有興趣深入可參閱原始 skills |
 | [UI UX Pro Max Skill](https://github.com/nicobailon/ui-ux-pro-max-skill) | AI 驅動的 Design System 產生器：50 種 UI 風格、21 組色彩系統、支援 React/Next.js/Tailwind/shadcn 等 9 種技術棧。搭配 ASP `design: enabled` 使用效果最佳 |
 | [Interface Design Skill](https://github.com/mcsimw/Interface-Design) | 設計決策累積工具：自動儲存 spacing/depth/surface pattern 到 `.interface-design/system.md`，維持跨 session 的設計一致性 |
+| [autoresearch](https://github.com/karpathy/autoresearch) | Karpathy 的 ML 實驗自動化：agent 自主修改→訓練→評估→keep/discard 迴圈。不合併進 ASP，但可搭配使用於效能調優場景。詳見 [搭配指南](docs/autoresearch-integration.md) |
