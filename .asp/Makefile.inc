@@ -1,6 +1,6 @@
 # AI-SOP-Protocol — ASP Targets (included by project Makefile)
 # 勿直接編輯此檔案，升級 ASP 時會自動覆蓋
-# ASP_MAKEFILE_VERSION=3.0.0
+# ASP_MAKEFILE_VERSION=3.3.0
 
 # --- 條件載入：讀取 .ai_profile 的 type 欄位 ---
 # content 類型專案隱藏 Docker/Test/Lint/Deploy targets
