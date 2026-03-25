@@ -21,7 +21,7 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 
 | 能力 | 說明 | 版本 |
 |------|------|------|
-| **Skill Layer** | 5 個 Claude Code 原生 skill（plan/ship/audit/review/autopilot），按意圖自動路由 | v2.12 |
+| **Skill Layer** | 10 個 Claude Code 原生 skill（plan/ship/audit/review/autopilot + dispatch/qa/security/reality-check/impact），按意圖自動路由 | v2.12 |
 | **設計閘門強制** | `design: enabled` 時，無 design system → BLOCK；缺 tokens.yaml → WARN | v2.13 |
 | **安全違規 BLOCK** | SQL injection、raw HTML、硬編碼密碼直接阻擋，無豁免 | v2.14 |
 | **提交前自審報告** | 5 維度通過/失敗結論，任一 🔴 即阻擋提交 | v2.14 |
@@ -31,6 +31,11 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 | **Autopilot 持續執行** | ROADMAP 驅動，跨 session 自動續接，自動建立 SPEC + 評估 ADR | v2.11 |
 | **Deny-list 權限模型** | 預設允許所有 Bash，僅禁止危險指令（git push/rebase、rm -rf 等） | v2.9 |
 | **E2E 強制閘門** | 全端專案（frontend/ + backend/）必須使用 Playwright，BLOCKER 級 | v2.15 |
+| **Multi-Agent 自動分工** | `mode: auto` 預設啟用，AI 自動判斷是否並行、分派角色、即時驗證 | |
+| **自動升級協議** | 失敗自動重試 → 重新分派 → 僅在無法解決時通知人類 | |
+| **根因領域偵測** | Bug 修復時自動偵測 auth/concurrency/API 等 7 個根因領域，追加專精角色 + 歷史記憶主動檢查 | |
+| **Gherkin 驗收場景** | SPEC 內建測試矩陣（正/負/邊界）+ Gherkin 場景，AI 自動產生測試骨架，品質門強制驗證 | |
+| **穩定度強化** | 回歸基線比對、空測試偵測、副作用驗證、Rollback 測試、可觀測性要求 | |
 
 ---
 
@@ -106,7 +111,7 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 
 ```yaml
 type: system              # system | content | architecture
-mode: single              # single | multi-agent | committee
+mode: auto                # auto | single | multi-agent | committee（auto: AI 自動判斷是否並行）
 workflow: standard        # standard | vibe-coding
 rag: disabled             # enabled | disabled
 guardrail: disabled       # enabled | disabled
@@ -137,19 +142,36 @@ name: your-project
 
 ## 開發模式
 
-ASP 分為**決策期**（ADR 產出）和**實作期**（代碼產出），各有不同模式可選：
-single → autonomous → multi-agent → autopilot，逐步提升 AI 自主權。
+預設 `mode: auto`——AI 根據任務複雜度自動決定是否並行。大多數情況不需要手動設定。
 
-| 階段 | 模式 | 設定 | AI 行為 |
-|------|------|------|---------|
-| 決策期 | **single**（預設） | `mode: single` | AI 獨立產出 ADR Draft → 人類審核 |
-| 決策期 | **committee** | `mode: committee` | 多角色辯論 → ADR Draft → 人類審核 |
-| 實作期 | **single**（預設） | `mode: single` | 人類逐步確認 |
-| 實作期 | **autonomous** | `autonomous: enabled` | AI 在精確邊界內自主執行 |
-| 實作期 | **multi-agent** | `mode: multi-agent` | Orchestrator 拆分，多 Worker 並行 |
-| 實作期 | **autopilot** | `autopilot: enabled` | ROADMAP 驅動，持續執行至 token 耗盡 |
+| 想要的效果 | 設定 | 說明 |
+|-----------|------|------|
+| AI 自動判斷（預設） | 不需改 | 簡單任務單獨做，複雜任務自動拆分並行 |
+| AI 自主開發 | `autonomous: enabled` | 精確邊界內自主決策，關鍵點才暫停 |
+| 強制並行分工 | `mode: multi-agent` | 即使簡單任務也嘗試多角色並行 |
+| AI 持續執行 ROADMAP | `autopilot: enabled` | 讀 ROADMAP 零確認持續執行至完成 |
+| 多角色辯論 | `mode: committee` | 高風險決策前多角色辯論，輸出 ADR 草稿 |
+| 強制逐步確認 | `mode: single` | 每步都暫停確認（最保守） |
 
-> 📖 [完整模式說明、切換範例與限制](docs/development-modes.md)
+> 所有模式都繼承 ASP 鐵則（ADR 先於實作、測試先於代碼、部署必須確認）。
+> 📖 [完整模式說明與切換範例](docs/development-modes.md)
+
+---
+
+## Multi-Agent 協作
+
+`mode: auto`（預設）讓 AI 根據任務複雜度自動決定是否並行——你照常給任務，AI 處理分工。
+
+**你不需要**手動指定角色、管理交接單、或理解內部管線。
+
+**AI 會自動**：
+- 分析任務複雜度，簡單任務直接做，複雜任務自動拆分並行
+- 每個模組完成後即時驗證（不等全部做完才檢查）
+- 失敗時自動重試和重新分派（你只在真正無法解決時才會被打擾）
+
+搭配 `autonomous: enabled` 效果最佳——AI 在精確邊界內自主決策 + 自動並行加速。
+
+> 📖 內部如何運作（10 個專精角色、6 階段品質管線、交接協議）：[Multi-Agent 架構文件](docs/multi-agent-architecture.md)
 
 ---
 

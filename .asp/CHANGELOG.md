@@ -4,6 +4,224 @@
 
 ---
 
+## v3.3.0 — 穩定度強化
+
+### 新增 — Pipeline Gate 強化
+
+- **G3 測試品質檢查**：偵測空測試（無 assertion 的測試檔案）+ assertion 數 vs 場景數比例
+- **G4 TODO/FIXME 標記**：自動掃描修改的檔案，記錄為 tech-debt（不阻擋但強制記錄）
+- **G5 Warning 檢查**：lint warning 數量不可增加（與基線比對）
+- **G5 Side Effects 驗證**：SPEC 列出的每個副作用必須有對應的驗證方式
+- **G5 Rollback 測試**：架構/Schema 變更的 Rollback Plan 必須經過測試
+- **G6 Traceability 驗證**：SPEC Traceability 引用的檔案必須存在
+- **G2 Observability 驗證**：使用者面向功能必須定義可觀測性
+
+### 新增 — 回歸基線比對
+
+- execute_modification() 和 execute_bugfix() 實作前捕獲測試基線
+- 實作後比對：之前通過但現在失敗的測試 = 回歸（BLOCKER）
+- 偵測測試消失（可能被誤刪）
+
+### 新增 — SPEC 模板擴充
+
+- **Observability 區塊**：關鍵指標、日誌、告警、故障偵測方式（使用者面向功能必填）
+- **Side Effects 驗證列**：每個副作用必須說明驗證方式
+- **Rollback 測試欄位**：回滾步驟 + 資料影響 + 回滾驗證 + 回滾已測試
+
+### 新增 — 審計基線擴充
+
+- `lint_warning_count`：lint warning 數量追蹤
+- `todo_fixme_count`：技術債標記追蹤
+- `side_effects_unverified`：未驗證副作用數
+- `rollback_untested_count`：未測試回滾計劃數
+
+---
+
+## v3.2.0 — Gherkin BDD 驗收場景 + 正負向測試矩陣
+
+### 新增 — SPEC 模板強制擴充
+
+- **測試矩陣（Test Matrix）**：正向(P)/負向(N)/邊界(B) 三類測試案例表列
+  - 非 trivial 任務強制填寫（正向 ≥1 + 負向 ≥1）
+  - 每行對應一個 Gherkin 場景 ID
+- **驗收場景（Acceptance Scenarios）**：Gherkin Feature 格式
+  - Given-When-Then 結構化行為描述
+  - 非 trivial 任務強制撰寫（與 TDD 同等級）
+  - Scenario Outline + Examples 支援參數化測試
+
+### 新增 — 測試骨架自動產生
+
+- `generate_test_skeleton()`：從 Gherkin 場景產生測試檔案骨架
+- `verify_scenario_coverage()`：矩陣行 ↔ 場景 ↔ 測試三方覆蓋驗證
+
+### 新增 — 品質門強制執行
+
+- G2 Gate：場景完整性驗證（BLOCK 級）+ Reality Checker 場景品質檢查（攔截敷衍場景）
+- G3 Gate：場景 ↔ 測試映射驗證（每個場景有測試、測試數 ≥ 場景數）
+
+### 新增 — Bug 修復場景矩陣
+
+- execute_bugfix() Phase 4.5：Bug 必須有重現場景（N1）
+- 根據根因領域自動追加典型負向案例
+
+### 新增 — CLAUDE.md 預設行為
+
+- 「Gherkin 場景先於測試」列入預設行為表（與 TDD 同等級）
+- 豁免條件：trivial 或 config-only
+
+### 新增 — 場景自動維護（MODIFICATION 流程）
+
+- `execute_modification()` Phase 4.5：自動偵測與新行為矛盾的既有場景並更新
+  - `scenario_conflicts_with()`：比對場景的 Given/When/Then 與修改請求
+  - `sync_test_matrix()`：矩陣行與場景 ID 同步（移除過時行、新增缺失行）
+  - `regenerate_test_skeleton()`：增量更新測試骨架（更新註解、保留 assertion body、標記 DEPRECATED）
+- 解決「場景維護負擔」問題：AI 在 MODIFICATION 流程中自動維護場景，不需人工同步
+
+---
+
+## v3.1.0 — 根因領域偵測 + Agent Memory 主動檢查
+
+### 新增 — 根因領域偵測
+
+- **`detect_bug_domain()`**：Bug 修復時自動偵測問題的根因領域
+  - 7 個領域規則：auth, concurrency, data_integrity, api_contract, state_machine, boundary, null_safety
+  - 根據領域自動追加專精角色（如 auth → +sec, concurrency → +dep-analyst）
+  - 領域增強掃描：根據 domain 擴大 grep 範圍
+  - 資料層 bug 強制全量測試，狀態機 bug 強制 state scan
+  - 插入點：execute_bugfix() Phase 2.5
+
+### 新增 — Agent Memory 主動檢查
+
+- **`proactive_memory_check()`**：任務開始**之前**查詢歷史記憶
+  - 模組歷史查詢：「這個 module 常出什麼問題？」
+  - 領域策略查詢：「這類 bug 怎麼修最有效？」（含成功率）
+  - 團隊有效性查詢：「什麼團隊組成對這個領域最有效？」
+  - 修復前預掃描：自動 grep 歷史高頻問題
+  - 低成功率警告：領域歷史成功率 <50% 時主動警告
+  - 插入點：execute_bugfix() Phase 2.7
+
+### 升級 — Agent Memory 記錄格式
+
+- `fix_strategies` 新增欄位：`domain`、`root_cause_class`、`recommended_agents`
+- `common_failures` 新增欄位：`domain`
+- `team_effectiveness` 新增欄位：`domains_encountered`
+- `update_memory()` 升級：所有事件記錄包含 domain 資訊
+
+### 升級 — 團隊組成
+
+- `team_compositions.yaml` 新增 `domain_adjustments` 區塊（7 個領域規則）
+
+---
+
+## v3.0.0 — Multi-Agent 協作系統升級
+
+> 借鏡 spec-kit、agent-teams、agency-agents、apify/agent-skills、Schoger design workflow 五個外部專案，
+> 全面升級 multi-agent 系統的角色分工、交接協議、品質管線、即時驗證、升級路由、Agent 記憶。
+
+### 新增 — Agent 角色目錄
+
+- **10 個專精角色**（4 部門）取代通用 Worker-a/Worker-b
+  - 架構與規劃：Architect (`arch`), Spec Writer (`spec`), Dependency Analyst (`dep-analyst`)
+  - 實作：Test Author (`tdd`), Implementer (`impl`), Integrator (`integ`)
+  - 品質與驗證：QA Verifier (`qa`), Security Reviewer (`sec`), Reality Checker (`reality`)
+  - 文件：Doc Writer (`doc`)
+- **角色定義檔案**：`.asp/agents/*.yaml`（含職責、輸入/輸出、成功指標、scope 約束）
+- **場景化團隊組成表**：`.asp/agents/team_compositions.yaml`（8 種場景 + 動態調整規則）
+
+### 新增 — 交接協議
+
+- **5 種結構化交接模板**：`.asp/templates/handoff/`
+  - `TASK_COMPLETE`：Worker → Orchestrator，含完整 context（取代 completed.jsonl 3 欄位）
+  - `REASSIGNMENT`：Orchestrator → 新 Worker，含前任完整診斷 + Agent Memory hint
+  - `ESCALATION`：P0-P3 嚴重度分級升級
+  - `PHASE_GATE`：管線階段品質門結果
+  - `SESSION_BRIDGE`：跨 session 交接（含 agent 協調狀態）
+- **Context 全量傳遞**：交接單包含完整測試輸出、完整 diff、完整 SPEC 引用（不摘要）
+
+### 新增 — 6 階段品質管線
+
+- **管線 Profile**：`.asp/profiles/pipeline.md`
+  - SPECIFY → G1 → PLAN → G2 → FOUNDATION → G3 → BUILD → G4 → HARDEN → G5 → DELIVER → G6 → DONE
+  - 6 道品質門 `evaluate_gate()`，門檻失敗最多重試 2 次
+  - 階段可跳過規則（trivial bugfix 只走 BUILD → HARDEN）
+- **Reality Checker**：`.asp/profiles/reality_checker.md`
+  - 預設 NEEDS_WORK，需 ≥3 正面證據 + 0 反面證據才放行
+  - 參與 G2、G5、G6，擁有否決權
+  - 獨立執行 `make test`（不信任任何 agent 自我回報）
+- **品質門報告模板**：`.asp/templates/gate_report.md`
+
+### 新增 — Dev↔QA 即時迴路
+
+- **Dev↔QA Loop Profile**：`.asp/profiles/dev_qa_loop.md`
+  - 從「做完再驗」→「邊做邊驗」（逐模組 QA 驗證）
+  - 與 `auto_fix_loop()` 互補：低層（impl 內部自修） + 高層（qa 獨立驗證）
+  - 每模組最多 3 次修復迴路，超過走升級協議
+
+### 新增 — P0-P3 升級協議
+
+- **升級 Profile**：`.asp/profiles/escalation.md`
+  - P0（緊急：安全/資料遺失） → 暫停所有軌道
+  - P1（高：重試耗盡/不可解衝突） → 暫停當前軌道
+  - P2（中：QA fail 3x/scope 超出） → 重新分派
+  - P3（低：tech debt/文件過期） → backlog
+  - 取代散佈各 profile 的 `PAUSE_AND_REPORT()`，統一路由
+
+### 新增 — Agent 學習記憶
+
+- **記憶 Profile**：`.asp/profiles/agent_memory.md`
+  - Session Memory（`.asp-agent-session.json`）：agent 分派、軌道、交接單
+  - Project Memory（`.asp-agent-memory.yaml`）：修復策略成功率、團隊效能、失敗模式
+  - Reassignment 時自動查詢相似修復策略，提供 memory hint
+  - 90 天自動修剪
+
+### 新增 — 5 個 Claude Code Skill
+
+- `asp-dispatch`：多 Agent 任務分派（分類 + 團隊推薦 + 並行規劃）
+- `asp-qa`：獨立品質驗證（偷渡偵測 + 覆蓋率 + 獨立測試）
+- `asp-security`：安全審查（OWASP Top 10 + 憑證掃描 + 攻擊面分析）
+- `asp-reality-check`：懷疑主義驗收（預設 NEEDS_WORK）
+- `asp-impact`：依賴影響分析（依賴圖 + 並行標記 + 風險評分）
+
+### 新增 — 架構文件
+
+- `docs/multi-agent-architecture.md`：含 6 張 Mermaid 流程圖
+  - 系統總覽圖、交接協議序列圖、Dev↔QA 對比圖、升級路由圖、並行拓撲圖
+  - 10 角色部門表、8 場景團隊推薦表、檔案結構參考
+
+### 新增 — mode: auto（預設模式）
+
+- **`mode: auto`** 取代 `mode: single` 成為預設值
+  - AI 根據 `decompose()` 結果自動判斷是否啟動 multi-agent 並行
+  - 2+ 個獨立子任務 → 自動切換 multi-agent
+  - 否則 → 等同 single mode
+  - 使用者零配置：安裝後無需修改 .ai_profile 即享有自動並行能力
+- `mode: single` 保留為「強制單 agent」選項
+
+### 升級 — 既有 Profile
+
+- **multi_agent.md**：通用 Worker → 角色制；flat lock → track/level lock；agent-done → 結構化交接單；plan_parallel_execution() + converge_tracks()
+- **task_orchestrator.md**：新增 Part I recommend_team() + Part J execute_with_pipeline()
+- **autonomous_dev.md**：auto_fix_loop 防護觸發改走 escalate()；新增 Dev↔QA 迴路整合
+- **autopilot.md**：Phase 0.5 載入 Agent Memory
+- **SKILL.md**：路由表 5 → 10 個 skill
+
+### 升級 — 基礎設施
+
+- **Makefile.inc**：新增 8 個 agent 管理目標（handoff-list/view, tracks, escalation-log, memory-show/prune, team-recommend）
+- **CLAUDE.md**：Profile 對應表新增 multi-agent v3.0 條目；Makefile 速查新增 7 行
+- **README.md**：核心能力表新增 5 行；新增「Multi-Agent 協作架構」段落；常用指令新增 4 行
+
+### 向後相容
+
+- `mode: single` 時所有角色由同一 agent 扮演，管線仍執行，無交接單
+- `.agent-lock.yaml` 新增欄位為 optional，v2.x 格式繼續可用
+- 無 `escalation.md` 時 fallback 到 PAUSE_AND_REPORT
+- 無 `team_compositions.yaml` 時 fallback 到通用 Worker 分派
+- `mode: single` 仍有效——已安裝使用者的 `.ai_profile` 不受影響
+- `mode: auto` 是新安裝的預設值
+
+---
+
 ## v2.7.0
 
 - **CLAUDE.md 專案描述自動產生**：autopilot 從 ROADMAP.yaml + `.ai_profile` + SRS 自動產生 CLAUDE.md 的「專案概覽」區塊

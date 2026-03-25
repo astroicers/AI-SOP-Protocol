@@ -1,6 +1,6 @@
 # AI-SOP-Protocol — ASP Targets (included by project Makefile)
 # 勿直接編輯此檔案，升級 ASP 時會自動覆蓋
-# ASP_MAKEFILE_VERSION=2.5.0
+# ASP_MAKEFILE_VERSION=3.0.0
 
 # --- 條件載入：讀取 .ai_profile 的 type 欄位 ---
 # content 類型專案隱藏 Docker/Test/Lint/Deploy targets
@@ -277,6 +277,104 @@ agent-locks:
 	@if [ -f .agent-lock.yaml ]; then \
 		echo "🔒 文件鎖定清單："; cat .agent-lock.yaml; \
 	else echo "  (無文件鎖定)"; fi
+
+# ─── Agent Handoff（v3.0）───────────────────────────────────────────
+.PHONY: agent-handoff-list agent-handoff-view agent-tracks agent-track-status agent-escalation-log agent-memory-show agent-memory-prune agent-team-recommend
+
+agent-handoff-list: ## 列出所有交接單
+	@echo "═══ Agent Handoffs ═══"
+	@if [ -f .agent-events/handoffs/index.jsonl ]; then \
+		cat .agent-events/handoffs/index.jsonl | tail -20; \
+	else \
+		echo "  (無交接單)"; \
+	fi
+
+agent-handoff-view: ## 檢視交接單 (ID=HANDOFF-xxx)
+	@if [ -z "$(ID)" ]; then echo "用法: make agent-handoff-view ID=HANDOFF-xxx"; exit 1; fi
+	@if [ -f ".agent-events/handoffs/$(ID).yaml" ]; then \
+		cat ".agent-events/handoffs/$(ID).yaml"; \
+	else \
+		echo "交接單不存在: $(ID)"; exit 1; \
+	fi
+
+agent-tracks: ## 顯示當前並行軌道狀態
+	@echo "═══ Parallel Tracks ═══"
+	@if [ -f .asp-agent-session.json ]; then \
+		python3 -c "import json; d=json.load(open('.asp-agent-session.json')); \
+		[print(f\"  Track {t['id']}: {t['status']} (task: {t['task']}, agent: {t['agent']})\") for t in d.get('active_tracks',[])]" 2>/dev/null \
+		|| echo "  (無法讀取 session 狀態)"; \
+	else \
+		echo "  (無活躍 session)"; \
+	fi
+
+agent-track-status: ## 特定軌道詳情 (TRACK=A)
+	@if [ -z "$(TRACK)" ]; then echo "用法: make agent-track-status TRACK=A"; exit 1; fi
+	@if [ -f .asp-agent-session.json ]; then \
+		python3 -c "import json; d=json.load(open('.asp-agent-session.json')); \
+		tracks=[t for t in d.get('active_tracks',[]) if t['id']=='$(TRACK)']; \
+		print(json.dumps(tracks[0],indent=2,ensure_ascii=False)) if tracks else print('Track $(TRACK) 不存在')" 2>/dev/null; \
+	else \
+		echo "  (無活躍 session)"; \
+	fi
+
+agent-escalation-log: ## 顯示升級歷史
+	@echo "═══ Escalation Log ═══"
+	@find .agent-events/handoffs/ -name "*.yaml" -exec grep -l "handoff_type: ESCALATION" {} \; 2>/dev/null \
+		| while read f; do \
+			echo "---"; \
+			grep -E "^(severity|task_id|reason|timestamp):" "$$f"; \
+		done || echo "  (無升級記錄)"
+
+agent-memory-show: ## 顯示 Agent 學習記憶
+	@echo "═══ Agent Memory ═══"
+	@if [ -f .asp-agent-memory.yaml ]; then \
+		cat .asp-agent-memory.yaml; \
+	else \
+		echo "  (無記憶——首次執行)"; \
+	fi
+
+agent-memory-prune: ## 修剪過期記憶 (AGE=90 天)
+	@echo "修剪超過 $(or $(AGE),90) 天的記憶..."
+	@if [ -f .asp-agent-memory.yaml ]; then \
+		python3 -c " \
+import sys, yaml, datetime; \
+age = int(sys.argv[1]); \
+d = yaml.safe_load(open('.asp-agent-memory.yaml')) or {}; \
+now = datetime.datetime.now(); \
+cutoff = now - datetime.timedelta(days=age); \
+for key in ['fix_strategies', 'common_failures']: \
+    if key in d: \
+        before = len(d[key]); \
+        d[key] = [x for x in d[key] if datetime.datetime.fromisoformat(x.get('last_used', x.get('last_occurrence', now.isoformat()))[:10]) >= cutoff]; \
+        print(f'  {key}: {before} → {len(d[key])}'); \
+yaml.dump(d, open('.asp-agent-memory.yaml', 'w'), allow_unicode=True)" "$(or $(AGE),90)" 2>/dev/null \
+		|| echo "  (修剪失敗——需要 PyYAML)"; \
+	else \
+		echo "  (無記憶可修剪)"; \
+	fi
+
+agent-team-recommend: ## 推薦團隊組成 (TYPE=NEW_FEATURE COMPLEXITY=simple|complex)
+	@if [ -z "$(TYPE)" ]; then echo "用法: make agent-team-recommend TYPE=NEW_FEATURE COMPLEXITY=simple"; exit 1; fi
+	@SCENARIO="$(TYPE)_$(COMPLEXITY)"; \
+	if [ -f .asp/agents/team_compositions.yaml ]; then \
+		echo "═══ Team Recommendation: $$SCENARIO ═══"; \
+		python3 -c " \
+import yaml; \
+d = yaml.safe_load(open('.asp/agents/team_compositions.yaml')); \
+s = d.get('scenarios',{}).get('$$SCENARIO'); \
+if s: \
+    print(f\"  場景: $$SCENARIO\"); \
+    print(f\"  說明: {s.get('description','')}\"); \
+    print(f\"  角色: {', '.join(s.get('agents',[]))}\"); \
+    print(f\"  管線: {', '.join(s.get('pipeline_phases',[]))}\"); \
+    print(f\"  並行: {'是' if s.get('parallel') else '否'}\"); \
+else: \
+    print(f'場景 $$SCENARIO 不存在。可用場景:'); \
+    [print(f'  - {k}') for k in d.get('scenarios',{}).keys()]" 2>/dev/null \
+		|| echo "  (需要 PyYAML)"; \
+	else \
+		echo "  (team_compositions.yaml 不存在)"; \
+	fi
 
 #---------------------------------------------------------------------------
 # Session 管理
