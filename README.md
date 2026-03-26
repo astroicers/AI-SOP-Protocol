@@ -31,6 +31,11 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 | **Autopilot 持續執行** | ROADMAP 驅動，跨 session 自動續接，自動建立 SPEC + 評估 ADR | v2.11 |
 | **Deny-list 權限模型** | 預設允許所有 Bash，僅禁止危險指令（git push/rebase、rm -rf 等） | v2.9 |
 | **E2E 強制閘門** | 全端專案（frontend/ + backend/）必須使用 Playwright，BLOCKER 級 | v2.15 |
+| **4 層強制力架構** | Smart SessionStart 審計 + 動態 deny list + Skill-enforced gates + Subagent 交叉驗證 | v3.4 |
+| **動態 Deny List** | Draft ADR 自動阻擋 git commit（VSCode deny dialog），`make asp-unlock-commit` 解除 | v3.4 |
+| **Pipeline Gate Skill** | `asp-gate` 評估 G1-G6 品質門檻，結果寫入 `.asp-gate-state.json` | v3.4 |
+| **Reality Checker Subagent** | 獨立 context 懷疑論者，預設 NEEDS_WORK，偵測測試竄改 | v3.4 |
+| **asp-ship 10 步驟** | 提交前檢查從 7 步擴展為 10 步（+briefing +lint +security scan +記錄） | v3.4 |
 | **Multi-Agent 自動分工** | `mode: auto` 預設啟用，AI 自動判斷是否並行、分派角色、即時驗證 | |
 | **自動升級協議** | 失敗自動重試 → 重新分派 → 僅在無法解決時通知人類 | |
 | **根因領域偵測** | Bug 修復時自動偵測 auth/concurrency/API 等 7 個根因領域，追加專精角色 + 歷史記憶主動檢查 | |

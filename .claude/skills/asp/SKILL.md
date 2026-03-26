@@ -4,9 +4,10 @@ description: |
   Use when working with AI-SOP-Protocol (ASP) framework workflows.
   Handles: planning new features, architecture decisions, ADR creation, SPEC writing,
   pre-commit checklists, code review, project health audits, autopilot execution,
-  multi-agent dispatch, QA verification, security review, reality checks, impact analysis.
+  multi-agent dispatch, QA verification, security review, reality checks, impact analysis,
+  pipeline gate evaluation, enforcement status.
   Triggers: asp-plan, asp-ship, asp-audit, asp-review, asp-autopilot,
-  asp-dispatch, asp-qa, asp-security, asp-reality-check, asp-impact,
+  asp-dispatch, asp-qa, asp-security, asp-reality-check, asp-impact, asp-gate,
   plan feature, new feature, create ADR, write SPEC, pre-commit check, ready to commit,
   code review, health audit, check project health, autopilot, run roadmap,
   dispatch, assign, verify, qa, security, reality check, impact analysis,
@@ -40,6 +41,12 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | 安全審查 | security, security review, 安全, 安全審查, 資安 | asp-security |
 | 懷疑主義驗收 | reality check, 夠了嗎, is this ready, 能交了嗎, final check | asp-reality-check |
 | 依賴影響分析 | impact, impact analysis, 影響, 影響分析, what does this affect | asp-impact |
+
+### 強制力與品質門檻（v3.4）
+
+| 用戶意圖 | 觸發詞 | 載入的 Skill |
+|---------|--------|------------|
+| Pipeline 品質門檻評估 | gate, G1-G6, quality gate, 品質門檻, 關卡 | asp-gate |
 
 ## 如何使用
 

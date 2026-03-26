@@ -11,6 +11,15 @@
 # Autopilot 狀態（跨 session 續接，本地生成）
 .asp-autopilot-state.json
 
+# Session 審計 briefing（每次 session 自動生成）
+.asp-session-briefing.json
+
+# Gate 狀態（session 內追蹤）
+.asp-gate-state.json
+
+# 測試結果（asp-ship 寫入，session-audit 讀取）
+.asp-test-result.json
+
 # Session 紀錄（本地）
 docs/session-log.md
 

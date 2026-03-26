@@ -1,6 +1,6 @@
 # AI-SOP-Protocol — ASP Targets (included by project Makefile)
 # 勿直接編輯此檔案，升級 ASP 時會自動覆蓋
-# ASP_MAKEFILE_VERSION=3.3.0
+# ASP_MAKEFILE_VERSION=3.4.0
 
 # --- 條件載入：讀取 .ai_profile 的 type 欄位 ---
 # content 類型專案隱藏 Docker/Test/Lint/Deploy targets
@@ -20,7 +20,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         audit-health audit-quick doc-audit tech-debt-list \
         task-start task-status task-report \
         profile-validate \
-        agent-memory-init agent-session-init audit-baseline-init
+        agent-memory-init agent-session-init audit-baseline-init \
+        asp-unlock-commit asp-refresh asp-enforcement-status
 
 #---------------------------------------------------------------------------
 # Help
@@ -47,6 +48,7 @@ endif
 	@echo "🧠 RAG:         rag-index | rag-search Q=... | rag-stats | rag-rebuild"
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
+	@echo "🔒 Enforce:     asp-unlock-commit | asp-refresh | asp-enforcement-status"
 	@echo "📌 Task:        task-start DESC=... | task-status | task-report"
 	@echo "🔍 Profile:     profile-validate"
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
@@ -465,6 +467,62 @@ for l in (json.loads(x) for x in open('.guardrail/rejected.jsonl'))]" 2>/dev/nul
 guardrail-reset:
 	@rm -f .guardrail/rejected.jsonl
 	@echo "🧹 護欄紀錄已清除"
+
+#---------------------------------------------------------------------------
+# 強制力管理（Enforcement）
+#---------------------------------------------------------------------------
+
+asp-unlock-commit: ## 解除動態 commit 阻擋（修復 ADR/測試問題後使用）
+	@SETTINGS=".claude/settings.json"; \
+	if [ ! -f "$$SETTINGS" ]; then echo "❌ $$SETTINGS 不存在"; exit 1; fi; \
+	BEFORE=$$(jq '.permissions.deny | length' "$$SETTINGS"); \
+	jq '.permissions.deny = [.permissions.deny[]? | select(test("git commit") | not)]' \
+		"$$SETTINGS" > "$${SETTINGS}.tmp" && mv "$${SETTINGS}.tmp" "$$SETTINGS"; \
+	AFTER=$$(jq '.permissions.deny | length' "$$SETTINGS"); \
+	echo "🔓 動態 deny 已解除（deny rules: $$BEFORE → $$AFTER）"; \
+	echo "   ⚠️  下次 session 啟動時會重新評估"
+
+asp-refresh: ## 重新執行 session 審計（修復問題後使用）
+	@echo "🔄 重新執行 session 審計..."; \
+	CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/hooks/clean-allow-list.sh 2>&1; \
+	CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/hooks/session-audit.sh 2>&1; \
+	echo ""; \
+	echo "✅ 審計完成，briefing 已更新"
+
+asp-enforcement-status: ## 顯示當前強制力狀態
+	@echo ""; \
+	echo "🔒 ASP 強制力狀態"; \
+	echo "================================="; \
+	echo ""; \
+	echo "── Deny List（硬性阻擋）──"; \
+	if [ -f ".claude/settings.json" ]; then \
+		jq -r '.permissions.deny[]?' ".claude/settings.json" | while read -r rule; do \
+			echo "  🚫 $$rule"; \
+		done; \
+	fi; \
+	echo ""; \
+	echo "── Session Briefing ──"; \
+	if [ -f ".asp-session-briefing.json" ]; then \
+		BLOCKERS=$$(jq '.blockers | length' ".asp-session-briefing.json"); \
+		WARNS=$$(jq '.warnings | length' ".asp-session-briefing.json"); \
+		DYNCOUNT=$$(jq '.dynamic_deny | length' ".asp-session-briefing.json"); \
+		echo "  Blockers: $$BLOCKERS | Warnings: $$WARNS | Dynamic deny: $$DYNCOUNT patterns"; \
+		if [ "$$BLOCKERS" -gt 0 ]; then \
+			jq -r '.blockers[]' ".asp-session-briefing.json" | while read -r b; do \
+				echo "  🔴 $$b"; \
+			done; \
+		fi; \
+	else \
+		echo "  (尚未執行 session 審計)"; \
+	fi; \
+	echo ""; \
+	echo "── Gate State ──"; \
+	if [ -f ".asp-gate-state.json" ]; then \
+		jq -r '.gates | to_entries[] | "  \(.key): \(.value.status)"' ".asp-gate-state.json"; \
+	else \
+		echo "  (尚未初始化)"; \
+	fi; \
+	echo ""
 
 #---------------------------------------------------------------------------
 # 專案健康審計

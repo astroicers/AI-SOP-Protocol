@@ -2,20 +2,31 @@
 name: asp-ship
 description: |
   Use before every git commit to run the pre-commit checklist.
-  Executes 7 ordered checks and outputs a Go/No-Go report.
+  Executes 10 ordered checks and outputs a Go/No-Go report.
   Triggers: ship, commit, pre-commit, ready to commit, 提交, 準備提交, 提交前, 送出,
   commit check, before commit, 我要提交, 可以 commit 了嗎.
 ---
 
-# ASP Ship — 提交前檢查
+# ASP Ship — 提交前檢查（v3.4 Enforcement 強化版）
 
 ## 適用場景
 
-用戶準備提交代碼（git commit）前，執行完整的 7 步驟驗證。任何一步失敗即 **BLOCK**，禁止提交。
+用戶準備提交代碼（git commit）前，執行完整的 10 步驟驗證。任何一步失敗即 **BLOCK**，禁止提交。
 
 ---
 
-## 7 步驟有序檢查
+## 10 步驟有序檢查
+
+### Step 0：Session Briefing 檢查（v3.4 新增）
+
+讀取 `.asp-session-briefing.json`（由 SessionStart hook 產生）：
+
+**判斷：**
+- 檔案存在且 `blockers` 不為空 → 🔴 **BLOCK** — 列出所有 BLOCKER，必須先解決
+- 檔案不存在 → 🟡 **WARN** — 建議執行 `make asp-refresh` 產生 briefing
+- 無 BLOCKER → 繼續
+
+---
 
 ### Step 1：執行全量測試
 
@@ -113,19 +124,68 @@ make adr-list
 
 ---
 
+### Step 8：程式碼品質檢查（v3.4 新增）
+
+```bash
+make lint
+```
+
+**判斷：**
+- PASS（或無 lint target）→ 繼續
+- FAIL → 🔴 **BLOCK** — 列出 lint 錯誤
+
+同時掃描 `git diff --cached` 中是否包含：
+- `console.log(` / `fmt.Print(` / `print(` — debug 語句 → 🟡 **WARN**
+- 未使用的 import → 🟡 **WARN**
+
+---
+
+### Step 9：安全掃描（v3.4 新增）
+
+掃描 `git diff --cached` 中是否包含：
+
+| 模式 | 嚴重度 |
+|------|--------|
+| `password=`, `api_key=`, `secret=`（硬編碼值） | 🔴 **BLOCK** |
+| `*.pem`, `*.key`, `.env` 被 staged | 🔴 **BLOCK** |
+| SQL 字串拼接（`"SELECT * FROM " +`） | 🔴 **BLOCK** |
+| `dangerouslySetInnerHTML`, `v-html` 無 sanitize 註解 | 🟡 **WARN** |
+
+---
+
+### Step 10：記錄測試結果（v3.4 新增）
+
+如果 Step 1 測試通過，寫入 `.asp-test-result.json`：
+
+```json
+{
+  "passed": true,
+  "timestamp": "<ISO 8601>",
+  "test_command": "make test"
+}
+```
+
+此檔案供 `session-audit.sh` 讀取，用於判斷是否需要動態阻擋 `git commit`。
+
+---
+
 ## 輸出：Go / No-Go 報告
 
 ```
 📋 Pre-Commit Checklist 結果
 ================================
 
-Step 1 測試          ✅ PASS（或 🔴 FAIL）
-Step 2 變更範圍      ✅ 確認（或 ⚠️  警告）
-Step 3 CHANGELOG     ✅ 已更新（或 ⚠️  未更新）
-Step 4 README        ✅ 無需更新（或 ⚠️  建議更新）
-Step 5 SPEC 追蹤     ✅ 已記錄（或 ⚠️  待補）
-Step 6 Tech Debt     ✅ 格式正確（或 ⚠️  警告）
-Step 7 ADR 合規      ✅ 無違反（或 🔴 BLOCK）
+Step 0  Session 審計   ✅ 無 BLOCKER（或 🔴 BLOCK）
+Step 1  測試           ✅ PASS（或 🔴 FAIL）
+Step 2  變更範圍       ✅ 確認（或 ⚠️  警告）
+Step 3  CHANGELOG      ✅ 已更新（或 ⚠️  未更新）
+Step 4  README         ✅ 無需更新（或 ⚠️  建議更新）
+Step 5  SPEC 追蹤      ✅ 已記錄（或 ⚠️  待補）
+Step 6  Tech Debt      ✅ 格式正確（或 ⚠️  警告）
+Step 7  ADR 合規       ✅ 無違反（或 🔴 BLOCK）
+Step 8  程式碼品質     ✅ lint PASS（或 🔴 FAIL）
+Step 9  安全掃描       ✅ 無風險（或 🔴 BLOCK）
+Step 10 記錄結果       ✅ .asp-test-result.json 已更新
 
 ================================
 結論：✅ GO — 可以提交

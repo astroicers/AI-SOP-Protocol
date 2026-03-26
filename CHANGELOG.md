@@ -2,6 +2,30 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [3.4.0] - 2026-03-26
+
+### Added
+- **4-layer enforcement architecture**: 借鏡 sd0x-dev-flow 的 hook 強制力設計，在 VSCode 插件限制下實現最大規則覆蓋
+- **Smart SessionStart audit** (`session-audit.sh`): Session 啟動時自動執行 7 維度專案審計，產生 `.asp-session-briefing.json`
+- **Dynamic deny list**: 根據專案狀態（Draft ADR、測試未通過）動態注入 `git commit` deny pattern，VSCode 彈出阻擋對話框
+- **`asp-gate` skill**: Pipeline G1-G6 品質門檻評估器，結果寫入 `.asp-gate-state.json`
+- **`reality-checker` subagent** (`.claude/agents/reality-checker.md`): 獨立 context 的懷疑論者，預設 NEEDS_WORK，用於 G5 交叉驗證
+- **`asp-verify.sh` script**: 獨立驗證腳本（test + lint + credential scan + debug scan）
+- **Mandatory skill invocation table**: CLAUDE.md 新增強制 skill 調用點表，含繞過警告格式
+- **`asp-ship` v3.4**: 從 7 步驟擴展為 10 步驟（+Session briefing +Lint +Security scan +記錄結果）
+- **Makefile targets**: `asp-unlock-commit`、`asp-refresh`、`asp-enforcement-status`
+
+### Changed
+- **`clean-allow-list.sh`**: 新增動態 deny 清理邏輯（每次 session 先清理再重新評估）
+- **`settings.json`**: 註冊 `session-audit.sh` 為第二個 SessionStart hook
+- **CLAUDE.md 鐵則**: ADR 禁止實作規則標記為「v3.4 硬性執行」
+- **SKILL.md router**: 新增 asp-gate 路由
+
+### Technical Notes
+- VSCode Claude Code 插件不支援 PreToolUse/PostToolUse/Stop hooks（GitHub #21736, #13744, #13339）
+- 強制力設計繞過此限制：使用 SessionStart + deny list（硬性）+ skill（結構化軟性）+ subagent（中等）
+- 規則覆蓋：78 條可強制規則中，18 條硬性阻擋 + 53 條結構化軟性 + 7 條 subagent 驗證
+
 ## [2.15.0] - 2026-03-22
 
 ### Added
