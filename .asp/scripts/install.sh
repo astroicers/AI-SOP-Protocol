@@ -221,6 +221,20 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
         echo "  ✅ .asp/agents/ (角色定義 + 團隊組成)"
     fi
 
+    # v3.4: Claude Code Skills（asp-* skills）
+    if [ -d "$PROTOCOL_DIR/.claude/skills" ]; then
+        mkdir -p .claude/skills
+        cp -r "$PROTOCOL_DIR/.claude/skills/asp" ./.claude/skills/asp
+        echo "  ✅ .claude/skills/asp/ (ASP skill layer)"
+    fi
+
+    # v3.4: Claude Code Subagents（reality-checker 等）
+    if [ -d "$PROTOCOL_DIR/.claude/agents" ]; then
+        mkdir -p .claude/agents
+        cp -r "$PROTOCOL_DIR/.claude/agents/"*.md ./.claude/agents/ 2>/dev/null || true
+        echo "  ✅ .claude/agents/ (subagent 定義)"
+    fi
+
     # 複製版本檔案
     if [ -f "$PROTOCOL_DIR/.asp/VERSION" ]; then
         cp "$PROTOCOL_DIR/.asp/VERSION" ./.asp/VERSION
@@ -366,7 +380,7 @@ if [ ! -f "docs/architecture.md" ]; then
     echo "✅ 已建立 docs/architecture.md"
 fi
 
-# 設定 Claude Code Hooks（SessionStart: 設定權限 — allow all + deny 危險指令）
+# 設定 Claude Code Hooks（SessionStart: 設定權限 + 專案審計）
 HOOKS_JSON='{
   "hooks": {
     "SessionStart": [
@@ -375,6 +389,10 @@ HOOKS_JSON='{
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/clean-allow-list.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/session-audit.sh"
           }
         ]
       }
@@ -404,16 +422,20 @@ if [ "$JQ_AVAILABLE" = true ]; then
             )] |
             # 如果 PreToolUse 為空則移除
             if (.hooks.PreToolUse | length) == 0 then del(.hooks.PreToolUse) else . end |
-            # 加入 SessionStart hook（移除舊的 ASP SessionStart hook 後加入）
+            # 加入 SessionStart hooks（移除舊的 ASP SessionStart hooks 後加入）
             .hooks.SessionStart = [
                 ((.hooks.SessionStart // [])[] | select(
-                    (.hooks // []) | all(.command | test("clean-allow-list\\.sh$") | not)
+                    (.hooks // []) | all(.command | test("(clean-allow-list|session-audit)\\.sh$") | not)
                 )),
                 {
                     "hooks": [
                         {
                             "type": "command",
                             "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/clean-allow-list.sh"
+                        },
+                        {
+                            "type": "command",
+                            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/session-audit.sh"
                         }
                     ]
                 }
@@ -448,6 +470,10 @@ else
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/clean-allow-list.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/session-audit.sh"
           }
         ]
       }
@@ -464,7 +490,7 @@ else
   }
 }
 HOOKJSON
-        echo "✅ 已建立 .claude/settings.json（含 ASP SessionStart Hook）"
+        echo "✅ 已建立 .claude/settings.json（含 ASP SessionStart Hooks）"
     else
         echo "⚠️  .claude/settings.json 已存在且無 jq 可用，請手動加入 hooks 設定"
         echo "   參考：.asp/hooks/ 目錄內的腳本"
