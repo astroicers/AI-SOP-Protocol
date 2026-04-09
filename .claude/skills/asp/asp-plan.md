@@ -124,6 +124,20 @@ SPEC：docs/specs/SPEC-NNN-[title].md
 
 ---
 
+## Common Rationalizations（AI 繞過時必讀）
+
+> **執行此 skill 時，AI 必須先檢視此表。** 若以下藉口出現，引用反駁，不可直接照辦。
+
+| 藉口 | 反駁 |
+|------|------|
+| 「這個變更很小，不需要 ADR」 | Step 2 有 5 個問題清單。任一 YES 就必須 ADR。不可用「感覺很小」代替清單判斷。若全部 NO，在回覆中明確列出 5 題各自的答案，留下審計軌跡。 |
+| 「先寫代碼確認可行，SPEC 之後補」 | 反了。SPEC 的 Done When 才是驗收條件，沒有 Done When 的代碼等於沒有驗收。先代碼後 SPEC = Trace post-hoc rationalization。 |
+| 「ADR 我自己改成 Accepted，這樣就可以繼續實作」 | 🔴 鐵則違反。ADR Status 由 Draft → Accepted **只能由人類執行**。AI 自行更改視為繞過治理。 |
+| 「Alternatives Considered 想不出來，寫一個就好」 | ADR 要求至少 2 個替代方案。若真的只有一個選項，那就不需要 ADR（不是決策而是強制約束）。寫 1 個代表偷懶。 |
+| 「Done When 寫『功能完成』就好」 | 不可。Done When 必須是二元可測試條件（「API 回傳 200 且 body.status == ok」）。「完成」不是驗收條件。 |
+| 「Rollback Plan 暫不填，之後補」 | 有 schema / migration / feature flag 的 SPEC，Rollback Plan 是必填。沒有回滾計畫就上線 = 單向門。 |
+| 「這個 ADR 影響的檔案很少，Consequences 留空」 | Consequences 不是檔案清單，是 trade-off 與引入風險。空白代表你沒有評估負面影響。 |
+
 ## 常用指令參考
 
 ```bash

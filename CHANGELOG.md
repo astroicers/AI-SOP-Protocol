@@ -2,6 +2,43 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [3.5.0] - 2026-04-10
+
+### Added
+- **Maturity Levels 系統（L1-L5）**: 借鑒 addyosmani/agent-skills 與 slavingia/skills 的 journey-based 設計。取代 20 個 profile 的扁平組合，使用者從 L1 Starter 開始逐級升級（L1→L2 Disciplined→L3 Test-First→L4 Collaborative→L5 Autonomous）
+  - 新增 `.asp/levels/level-1.yaml` ~ `level-5.yaml`（含 profile 組合、graduation_checklist、prerequisites）
+  - 新增 `asp-level` skill（評估 / 升級 / 降級）
+  - 新增 Makefile targets: `asp-level-check`、`asp-level-upgrade`、`asp-level-list`
+  - `.ai_profile` 新增 `level:` 欄位；legacy 專案支援 level 推斷規則
+  - `install.sh` 新增 L1-L5 選單（替代扁平 preset，保留 P 選項作向後相容）
+- **Anti-Rationalization Tables**: 借鑒 agent-skills 的反合理化設計。在 asp-ship、asp-plan、asp-gate、asp-reality-check、asp-level 五個 skill 新增 `## Common Rationalizations` 段落，系統性封堵 AI 常見繞過藉口
+- **Evidence-Based Gate Output**: Gate 與 Ship 輸出升級為結構化證據模式
+  - 每個檢查項目必須附 `command` + `exit_code` + `evidence_excerpt`
+  - Skip 事件必須寫入 `.asp-bypass-log.json`（append-only）
+  - 預設摘要模式 + verbose 詳情模式
+- **Bypass Log 系統**
+  - 新增 `.asp-bypass-log.json`（append-only 紀錄所有 skip 事件）
+  - 新增 Makefile targets: `asp-bypass-review`、`asp-bypass-record`
+  - `asp-enforcement-status` 顯示近 7 天 bypass 統計
+- **Specialist Subagent Personas**: 擴充 `reality-checker` 模式
+  - `.claude/agents/security-auditor.md`（OWASP Top 10 獨立審查，read-only）
+  - `.claude/agents/test-engineer.md`（測試品質與 TDD 紀律審查，read-only）
+  - 可透過 Agent tool 直接召喚，不需啟用 `multi_agent` profile
+- **Router Next-Step Suggestions**: SKILL.md router 新增「執行後主動提示下一步」規則，每個 skill 完成後提示 workflow 下一階段（只建議、不自動執行）
+
+### Changed
+- **CLAUDE.md**: 新增 `.ai_profile` `level:` 欄位、Maturity Levels 章節、新 Makefile targets 速查
+- **install.sh**: 互動式安裝新增 L1-L5 等級選單；`.ai_profile` 欄位補充 loop 納入 `level`
+- **asp-ship**: Step 10 分為 10a（測試結果）/ 10b（bypass 記錄）；新增 Evidence-Based Output 說明
+- **asp-gate**: 新增 Evidence-Based Output JSON 格式範例、skip 自動記錄規則
+
+### Design Origin
+本版本的演化方向來自分析兩個外部框架：
+- addyosmani/agent-skills — Anti-rationalization tables + evidence-based verification
+- slavingia/skills — Journey-based skill sequencing
+
+ASP 保留 4 層強制力架構（Hook + Dynamic Deny + Gate + Subagent）作為核心差異化，在此之上吸收兩者的新手友善設計。
+
 ## [3.4.0] - 2026-03-26
 
 ### Added

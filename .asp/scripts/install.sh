@@ -84,19 +84,23 @@ DEFAULT_NAME="$(basename "$(pwd)")"
 apply_preset() {
     MODE=auto  # 預設 mode，preset 4 會覆蓋
     case "$1" in
-        1) # 標準模式
+        1) # 標準模式 — 對應 L1 Starter
+            ASP_LEVEL=1
             ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=standard
             ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
             ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
-        2) # 高速自主模式
+        2) # 高速自主模式 — 對應 L3/L5（保留以向後相容）
+            ASP_LEVEL=3
             ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
             ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
             ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n; WORKFLOW=vibe-coding ;;
-        3) # 完整治理模式
+        3) # 完整治理模式 — 對應 L3 Test-First
+            ASP_LEVEL=3
             ENABLE_RAG=y; ENABLE_GUARDRAIL=y; HITL_LEVEL=strict
             ENABLE_DESIGN=y; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=y
             ENABLE_FRONTEND_QUALITY=y; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
-        4) # 高速自主+多Agent模式
+        4) # 高速自主+多Agent模式 — 對應 L4/L5
+            ASP_LEVEL=4
             ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
             ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
             ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n; WORKFLOW=vibe-coding; MODE=multi-agent ;;
@@ -120,16 +124,48 @@ if [ -t 0 ]; then
     esac
     PROJECT_NAME="$DEFAULT_NAME"
 
-    echo "開發風格：  [1] 標準  [2] 高速自主  [3] 完整治理  [4] 高速自主+多Agent"
-    read -rp "選擇 (1-4，Enter 使用 1): " PRESET_CHOICE
-    apply_preset "${PRESET_CHOICE:-1}"
+    echo ""
+    echo "ASP 成熟度等級（v3.5 新增 — 建議新專案從 L1 開始）："
+    echo "  [1] L1 Starter       — ADR + SPEC + 測試（最小治理）"
+    echo "  [2] L2 Disciplined   — + guardrail + coding_style"
+    echo "  [3] L3 Test-First    — + pipeline gates G1-G6"
+    echo "  [4] L4 Collaborative — + multi-agent"
+    echo "  [5] L5 Autonomous    — + autopilot + RAG"
+    echo "  [P] 使用傳統 preset（1-4）代替 level"
+    read -rp "選擇 level (1-5, P, 或 Enter = L1): " LEVEL_CHOICE
+    case "${LEVEL_CHOICE:-1}" in
+        1) ASP_LEVEL=1; apply_preset 1 ;;
+        2) ASP_LEVEL=2
+           ENABLE_RAG=n; ENABLE_GUARDRAIL=y; HITL_LEVEL=standard
+           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
+           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
+        3) ASP_LEVEL=3
+           ENABLE_RAG=n; ENABLE_GUARDRAIL=y; HITL_LEVEL=standard
+           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
+           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
+        4) ASP_LEVEL=4
+           ENABLE_RAG=n; ENABLE_GUARDRAIL=y; HITL_LEVEL=standard
+           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
+           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n; WORKFLOW=standard; MODE=multi-agent ;;
+        5) ASP_LEVEL=5
+           ENABLE_RAG=y; ENABLE_GUARDRAIL=y; HITL_LEVEL=minimal
+           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
+           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y; WORKFLOW=vibe-coding; MODE=multi-agent ;;
+        [Pp])
+           echo "開發風格：  [1] 標準  [2] 高速自主  [3] 完整治理  [4] 高速自主+多Agent"
+           read -rp "選擇 (1-4，Enter 使用 1): " PRESET_CHOICE
+           apply_preset "${PRESET_CHOICE:-1}" ;;
+        *) ASP_LEVEL=1; apply_preset 1 ;;
+    esac
 else
     echo ""
     echo "📋 非互動模式（可透過環境變數覆寫）"
     PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
     PROJECT_NAME="$DEFAULT_NAME"
     apply_preset "${ASP_PRESET:-1}"
-    echo "  type: $PROJECT_TYPE | preset: ${ASP_PRESET:-1} | hitl: $HITL_LEVEL"
+    # 若明確指定 ASP_LEVEL，覆寫 preset 推斷的等級
+    ASP_LEVEL="${ASP_LEVEL:-$ASP_LEVEL}"
+    echo "  type: $PROJECT_TYPE | preset: ${ASP_PRESET:-1} | level: L${ASP_LEVEL} | hitl: $HITL_LEVEL"
 fi
 
 echo ""
@@ -320,6 +356,7 @@ AUTOPILOT_VAL="disabled"
 [ "${ENABLE_AUTOPILOT,,}" = "y" ] && AUTOPILOT_VAL="enabled"
 
 NEW_PROFILE="type: ${PROJECT_TYPE}
+level: ${ASP_LEVEL:-1}
 mode: ${MODE:-auto}
 workflow: ${WORKFLOW:-standard}
 rag: ${RAG_VAL}
@@ -338,7 +375,7 @@ if [ -f ".ai_profile" ]; then
     echo "ℹ️  .ai_profile 已存在，保留現有設定"
     # 僅補充缺失欄位
     ADDED_FIELDS=0
-    for FIELD in type mode workflow rag guardrail hitl autonomous orchestrator autopilot design coding_style openapi frontend_quality name; do
+    for FIELD in type level mode workflow rag guardrail hitl autonomous orchestrator autopilot design coding_style openapi frontend_quality name; do
         if ! grep -q "^${FIELD}:" .ai_profile; then
             DEFAULT_VAL=$(echo "$NEW_PROFILE" | grep "^${FIELD}:" | head -1)
             if [ -n "$DEFAULT_VAL" ]; then

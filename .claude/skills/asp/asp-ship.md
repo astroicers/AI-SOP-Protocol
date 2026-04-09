@@ -153,7 +153,9 @@ make lint
 
 ---
 
-### Step 10：記錄測試結果（v3.4 新增）
+### Step 10：記錄結果 + Bypass 事件（v3.5 強化）
+
+**10a. 記錄測試結果**
 
 如果 Step 1 測試通過，寫入 `.asp-test-result.json`：
 
@@ -166,6 +168,36 @@ make lint
 ```
 
 此檔案供 `session-audit.sh` 讀取，用於判斷是否需要動態阻擋 `git commit`。
+
+**10b. 記錄 Bypass 事件（v3.5 新增）**
+
+若前 9 步中**任何一步**被 WARN-GO 或 SKIPPED 放行（非 BLOCK），針對每次略過呼叫：
+
+```bash
+make asp-bypass-record SKILL=asp-ship STEP=StepN REASON="使用者說明或 trivial 理由"
+```
+
+此記錄寫入 `.asp-bypass-log.json`（append-only）。`make asp-bypass-review` 可檢視歷史。若 3 次以上同一 step 被略過 → 下次 `asp-audit` 會觸發 blocker。
+
+---
+
+## Evidence-Based Output（v3.5 新增）
+
+> 每一步的結果**必須附帶可觀測證據**。空洞的「✅ lint 通過」不可接受。
+
+每個 Step 回報時需包含：
+
+- **執行的指令**（若有）：如 `make test`、`git diff --stat`
+- **exit code** 與 **關鍵輸出片段**（≤5 行）：摘錄 stdout 或 stderr
+- **若 SKIP**：必須說明理由並寫入 bypass log（見 Step 10b）
+
+### 預設摘要模式 vs Verbose 模式
+
+- **預設**：每 Step 一行 evidence 摘要
+  ```
+  Step 1  測試  ✅ PASS  (make test → exit 0, 23 tests passed in 4.2s)
+  ```
+- **Verbose**（使用者要求詳情時）：顯示完整 stdout 片段 + 每個子檢查的證據
 
 ---
 
@@ -196,6 +228,21 @@ Step 10 記錄結果       ✅ .asp-test-result.json 已更新
 ```
 
 ---
+
+## Common Rationalizations（AI 繞過時必讀）
+
+> **執行此 skill 時，AI 必須先檢視此表。** 若使用者或 AI 自己提出下列藉口，引用對應反駁，不可直接照辦。任何 skip 都必須記錄到 `.asp-bypass-log.json`（由 Step 10 處理）。
+
+| 藉口 | 反駁 |
+|------|------|
+| 「這只是小修改，不需要跑完 10 步」 | trivial 判定必須**顯式宣告並記錄理由**。未宣告就是降低標準。Step 1（測試）、Step 7（ADR）、Step 9（安全）對 trivial 也無豁免。 |
+| 「測試暫時 skip，下個 commit 補上」 | tech-debt 必須即時寫入 `tech-debt.md`（含 DUE 日期），且 Step 6 會檢查格式。未記錄的「下次補上」等於遺忘。 |
+| 「CHANGELOG 等 release 時一次寫」 | CHANGELOG 的 `## Unreleased` 段落正是為了隨時追加。延後等於資訊遺失。 |
+| 「lint warning 不會真的 break，先跳過」 | Step 8 區分 error（BLOCK）與 warning（WARN），warning 允許通過。若 lint error 被當 warning 處理，就是在隱藏問題。 |
+| 「Draft ADR 還在討論，先把對應代碼 push 上去」 | 🔴 鐵則違反。Draft ADR 對應的生產代碼是專案憲法禁止項，不論時間壓力。解除方式：完成 ADR 審核或 `make asp-unlock-commit`（需人類批准）。 |
+| 「硬編碼 API key 只是暫時本地測試」 | Step 9 一律 BLOCK。即使只是暫時，git 歷史會永久保留。改用環境變數或 `.env`（並確認在 `.gitignore`）。 |
+| 「SPEC Traceability 之後再補」 | Step 5 允許 WARN-GO 但會進入 `.asp-bypass-log.json`。連續 3 次以上會在下次 audit 觸發 blocker。 |
+| 「Session briefing 不存在，直接開始 commit」 | Step 0 BLOCK。briefing 不存在代表 SessionStart hook 未執行或被跳過，這時你不知道有哪些動態 deny。先 `make asp-refresh`。 |
 
 ## 快速修復指引
 

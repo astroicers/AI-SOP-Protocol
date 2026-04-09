@@ -48,6 +48,36 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 |---------|--------|------------|
 | Pipeline 品質門檻評估 | gate, G1-G6, quality gate, 品質門檻, 關卡 | asp-gate |
 
+### 成熟度等級（v3.5）
+
+| 用戶意圖 | 觸發詞 | 載入的 Skill |
+|---------|--------|------------|
+| ASP 成熟度評估與升級 | level, maturity, 成熟度, 等級, level check, 升級 ASP, 我該升到哪一級 | asp-level |
+
+## 執行後 — 主動提示下一步（v3.5）
+
+完成任一子 skill 後，**主動**在回覆末尾提供「建議的下一步」，協助使用者理解 workflow 的前後關係。**不可**自動執行下一步（違反 HITL 原則），只做提示：
+
+| 剛完成的 skill | 建議的下一步 |
+|---------------|------------|
+| `asp-plan`（建立 ADR/SPEC 後） | 👉 下一步：等 ADR Accepted → `/asp-gate G1,G2` → 寫測試（TDD）→ `/asp-gate G3` |
+| `asp-gate G1,G2`（PASS） | 👉 下一步：撰寫測試檔案（應 FAIL）→ `/asp-gate G3` |
+| `asp-gate G3`（PASS） | 👉 下一步：實作 production code → `/asp-gate G4` |
+| `asp-gate G4`（PASS） | 👉 下一步：`/asp-gate G5` → `/asp-reality-check` |
+| `asp-gate G5`（PASS） | 👉 下一步：`/asp-ship` → `/asp-gate G6` |
+| `asp-ship`（GO） | 👉 下一步：人類審查並 `git commit`；若有 bypass 記錄可跑 `make asp-bypass-review` |
+| `asp-audit`（有 blocker） | 👉 下一步：逐項修復 blocker → `make asp-refresh` |
+| `asp-review`（NEEDS_WORK） | 👉 下一步：根據 finding 修復 → 重跑 `/asp-review` |
+| `asp-reality-check`（NEEDS_WORK） | 👉 下一步：補足反面證據對應項目 → 重跑 `/asp-reality-check` |
+| `asp-level-check`（未達 graduation） | 👉 下一步：修復 checklist 未通過項目 → 重跑 `/asp-level` |
+| `asp-level-check`（通過） | 👉 下一步：`make asp-level-upgrade` 準備升級（需使用者確認） |
+
+### 原則
+
+- **只建議，不執行**：除非使用者明確說「繼續」或「下一步吧」
+- **預設顯示 1 個建議**，若使用者請求詳細才列出多選項
+- **若當前階段卡住**（gate fail、blocker 未解），只建議修復路徑，不建議跳級
+
 ## 如何使用
 
 每個子 skill 是自包含的——載入時不需要 `.ai_profile` 已設定，行為邏輯直接編碼在 skill 文件中。

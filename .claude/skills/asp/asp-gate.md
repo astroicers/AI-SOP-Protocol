@@ -150,6 +150,77 @@ make lint
 
 ---
 
+## Evidence-Based Output（v3.5 新增）
+
+> **每個檢查項目的結果必須附上「可觀測證據」**。不接受「✅ PASS」這種空洞宣告。
+
+### 檢查項目輸出格式
+
+每個 check 必須包含：
+
+| 欄位 | 內容 |
+|------|------|
+| `name` | 檢查項目名稱 |
+| `command` | 實際執行的指令（若適用） |
+| `exit_code` | 指令 exit code（0 = 成功） |
+| `evidence_excerpt` | stdout/stderr 的關鍵片段（≤5 行） |
+| `status` | PASS / FAIL / WARN / SKIPPED |
+| `skipped_reason` | 若 SKIPPED，填入理由（**非空則會寫入 bypass log**） |
+
+### 範例 JSON 片段（寫入 `.asp-gate-state.json` 的 `gates.GX.checks`）
+
+```json
+{
+  "gates": {
+    "G4_IMPL": {
+      "status": "PASSED",
+      "timestamp": "2026-04-09T12:34:56Z",
+      "evidence": "make test + make lint 均通過",
+      "checks": [
+        {
+          "name": "make test",
+          "command": "make test",
+          "exit_code": 0,
+          "evidence_excerpt": "23 tests passed in 4.2s",
+          "status": "PASS"
+        },
+        {
+          "name": "make lint",
+          "command": "make lint",
+          "exit_code": 0,
+          "evidence_excerpt": "0 errors, 2 warnings (non-blocking)",
+          "status": "PASS"
+        },
+        {
+          "name": "scope compliance",
+          "command": null,
+          "exit_code": null,
+          "evidence_excerpt": "3 files changed: src/auth/jwt.ts, src/auth/jwt_test.ts, docs/specs/SPEC-003.md — all within SPEC-003 scope",
+          "status": "PASS"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Skip 事件自動記錄
+
+若任何 check 的 `status == "SKIPPED"`，AI **必須**呼叫：
+
+```bash
+make asp-bypass-record SKILL=asp-gate STEP=<GX_name> REASON="<skipped_reason>"
+```
+
+此指令將事件寫入 `.asp-bypass-log.json`（append-only），供後續 `make asp-bypass-review` 檢視。
+
+### 顯示模式
+
+- **預設（摘要）**：只顯示 `name` + `status` + 一行 evidence
+- **`verbose` 參數**：顯示完整 command + exit_code + 完整 evidence_excerpt
+
+---
+
 ## Gate State 檔案
 
 評估結果寫入 `.asp-gate-state.json`：
@@ -174,6 +245,22 @@ make lint
   }
 }
 ```
+
+---
+
+## Common Rationalizations（AI 繞過時必讀）
+
+> **執行此 skill 時，AI 必須先檢視此表。**
+
+| 藉口 | 反駁 |
+|------|------|
+| 「G3 測試應該要 FAIL，但先寫通過的測試也可以」 | 不行。G3 的核心是「確認測試確實測試了新功能」。若測試一開始就通過，代表它沒測新東西。這是 TDD 鐵則。 |
+| 「G4 有 lint warning，升級為 error 太嚴格」 | G4 允許 warning。若出現 error 並試圖改為 warning 來通過 → 這是在修改判準而非修復問題。 |
+| 「Gate state 不需要寫入檔案，口頭回報就好」 | `.asp-gate-state.json` 是 cross-skill coordination 的唯一真相來源。asp-ship、session-audit 都會讀取。不寫入 = 下游 skill 拿不到你的驗證結果。 |
+| 「G5 smuggling_risk 我看過沒問題，跳過 reality-checker」 | smuggling_risk == true 時，**必須**召喚 reality-checker subagent。「我看過」屬於自我回報，reality check 的本質是獨立驗證。 |
+| 「SPEC scope 稍微超出一點，順便修一下鄰近 bug」 | G4 的 scope compliance 會 FAIL。鄰近 bug 應該另開 SPEC。scope creep 是 bug 回歸的主要來源。 |
+| 「沒有 ADR 但這個變更不跨模組，G1 直接 PASS」 | 可以 PASS 但必須明確記錄理由（evidence 欄位填「不需要 ADR：trivial，無架構影響，單檔修改」）。空白 evidence 等於未評估。 |
+| 「G6 health score 降了一點點，但其他都通過」 | G6 明確要求 health score 不退步。退步就是退步，無論幅度。先修復讓 score 回到 baseline。 |
 
 ---
 

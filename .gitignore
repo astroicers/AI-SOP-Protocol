@@ -20,6 +20,14 @@
 # 測試結果（asp-ship 寫入，session-audit 讀取）
 .asp-test-result.json
 
+# Bypass log（v3.5 新增，append-only skip 事件）
+.asp-bypass-log.json
+
+# 測試覆蓋率
+.coverage
+.coverage.*
+htmlcov/
+
 # Session 紀錄（本地）
 docs/session-log.md
 
