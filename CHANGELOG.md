@@ -2,6 +2,16 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [3.5.1] - 2026-04-10
+
+### Added
+- **`global_core.md` 工作目錄紀律**: 新增「工作目錄紀律」段落，要求 AI 在多 root / subagent 接手 / 相對路徑情境下明確確認 cwd，存取專案外路徑必須等待使用者確認
+- **`global_core.md` 外部資料校對**: 新增「外部資料校對」段落，要求 API / 函式簽章等資訊必須透過 RAG / context7 / WebFetch 查證，以「人事時地物 5 元素」對齊
+- 兩個段落皆含 Common Rationalizations 藉口反駁表
+
+### Rationale
+差距分析發現使用者個人全域 CLAUDE.md 有 2 條通用紀律 ASP 尚未涵蓋（工作目錄確認、外部資料校對）。這兩條是語言/技術棧中立的通用紀律，適合納入 `global_core.md`。其他個人偏好（繁體中文、套件管理工具、硬體環境）刻意保留在使用者個人全域，不進入框架層。
+
 ## [3.5.0] - 2026-04-10
 
 ### Added
