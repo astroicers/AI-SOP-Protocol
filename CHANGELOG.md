@@ -2,6 +2,16 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [3.6.0] - 2026-04-22
+
+### Added
+- **G5.5 Cross-Component Parity Gate**: 新 gate 在 G5 與 G6 之間，驗證跨 module / 跨 service 契約對齊。檢查 SPEC 是否含 Cross-Component Invariants section、grep 全 repo callsite、mock 對稱檢查、round-trip test 是否存在。
+- **G6.5 Post-Deploy SIT Gate**: 新 gate 在 G6 之後，要求 deploy 完 + ArgoCD synced 後跑 SIT round-trip 才算「完成」；FAIL 時 AI 提議 rollback infra image tag PR。請求使用者 UI 驗證**之前**必過此 gate。
+- **`docs/spec-driven-dev.md` Cross-Component Invariants section**: SPEC 模板必填欄位（涉及跨 module 契約時），明示 invariant、SSOT、consumer、現有格式的 grep 證據。
+
+### Rationale
+2026-04-21/22 PoC 出現連續 21 小時、6+ deploy 才穩住的 incident（PM-002）：兩個 cross-component invariant violation（shard key padding asymmetry + envelope decrypt asymmetry）存活 ≥ 3.5 月。原因是 ASP G1-G6 流程每層自洽通過，但**沒有任何一道 gate 檢查「跨 module 真的能合作」**。G5.5 + G6.5 補上這層。詳見 `backup-infrastructure/docs/postmortems/PM-002-shard-key-and-decrypt-cross-component-asymmetries.md`。
+
 ## [3.5.1] - 2026-04-10
 
 ### Added

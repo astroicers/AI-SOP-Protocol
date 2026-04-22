@@ -106,6 +106,60 @@ make lint
 
 ---
 
+### G5.5: Cross-Component Parity Gate（HARDEN → DELIVER，G5 之後）
+
+> **新增於 v3.6（PM-002 retrospective action B1）**：避免「我這 module 過了 G5
+> 但下游 consumer 行為不一致」的 cross-component invariant violation
+> （PoC 2026-04-21 的 padding key bug 與 envelope decrypt bug 都屬此類）。
+
+**何時跑：**
+- 本 PR 修改了 exported function、API response shape、DB column / enum、cloud key 格式、error code，或任何形式的「跨 module / 跨 service 契約」。
+- 即使 G5 全綠也必跑（不像 G3/G4 是「碰測試才需要」）。
+
+**檢查項目：**
+
+1. **SPEC 含 Cross-Component Invariants section**（spec-driven-dev.md v2 模板）
+   - 每個 invariant 列出：上游 SSOT 函式 / 常數、下游 consumer、現有格式（grep 證據）
+2. **Grep 跨 repo 確認 consumer 對齊**
+   - 對 SPEC 列的每個 symbol：`grep -rn <symbol> <all repos in scope>`
+   - 列出所有 callsite，逐一檢查是否相容於本 PR 的新行為
+   - **任何 callsite 不相容 → 同 PR 一起改 OR 開 tech-debt issue 標明 risk + owner**
+3. **Mock 對稱檢查**
+   - 對本 PR 修改的任何 interface，檢查既有 mock 是否「對稱地」抹平 production 不對稱
+   - 範例：`vault.Decrypt` vs `vault.DecryptChunked` 是兩個不同 method，mock 不能 delegate 一個給另一個（會掩蓋 invariant）
+4. **「真 round-trip」test 存在**
+   - 本 PR 改的 path 必須有至少 1 支 test 跑「寫進去 → 拿出來 → byte equal」整鏈
+   - 純 unit test（單一 function 對單一輸入）不算
+5. **Worker / API 修改 → 對應 SIT script 必須包含 round-trip check**
+   - `tests/sit/sit-roundtrip.sh` 或 PR-specific SIT
+   - script 在 PR 描述中註記「將在 G6.5 對 staging/prod 重跑」
+
+**通過條件：** SPEC 列出 invariant + grep 全清 + mock 對稱檢查通過 + round-trip test 存在
+
+```bash
+# 範例自動化片段（asp-gate skill 跑）
+grep -rn "<symbol>" /home/ubuntu/<repo1> /home/ubuntu/<repo2> | grep -v _test.go > /tmp/callsites
+# 人工 review /tmp/callsites
+```
+
+**Gate FAIL 範例：**
+
+```
+🚦 Gate G5.5 (Cross-Component Parity) 評估
+================================
+[1] SPEC has Cross-Component Invariants section  ✅ 3 invariants listed
+[2] Grep cross-repo callsites                    🔴 FAIL
+    Symbol "GenerateStoragePath" has 7 callsites in worker/multicloud.go
+    but PR only modified 1 of them. Others may produce inconsistent keys.
+[3] Mock symmetry check                          ✅ no offending mocks
+[4] Round-trip test exists                       ⚠️  WARN — only unit tests found
+================================
+結果：🔴 GATE_FAIL
+原因：跨 module 呼叫點未全部對齊；補完或開 tech-debt issue 後重跑。
+```
+
+---
+
 ### G6: Delivery Gate（DELIVER → DONE）
 
 **檢查項目：**
@@ -116,6 +170,53 @@ make lint
 5. Health score 未退步（與 `.asp-audit-baseline.json` 比對）
 
 **通過條件：** asp-ship GO + traceability 完整 + health score 不退步
+
+---
+
+### G6.5: Post-Deploy SIT Round-Trip Gate（DONE → VERIFIED）
+
+> **新增於 v3.6（PM-002 retrospective action B2）**：unit test 過 + ArgoCD synced
+> 不等於系統真的能用。任何改動 worker / api / cloud / db schema 的 PR 部署後
+> 必須先跑端到端 round-trip SIT 才算 deploy 完成；通過後才能發出「請使用者
+> UI 驗證」的請求。
+
+**何時跑：**
+- 本 PR 影響 worker、API、storage layer、DB migration、frontend 影響資料 path 的任何 commit
+- 在 ArgoCD 同步 + 新 pod ready 之後立即執行
+- **在請使用者手動 UI 驗證之前**（避免使用者撞到本來該被 SIT 攔下的問題）
+
+**檢查項目：**
+
+1. 所有相關 deployment 的 `READY` 副本數 = `desired`
+2. 新 pod 的 image tag 是 PR 對應的 commit
+3. `tests/sit/sit-roundtrip.sh` 對 staging/prod 全綠（8/8 PASS 或對應檢查）
+4. 可選：synthetic probe（PR-J）連續 N 分鐘無 `event=*_failed`
+
+**通過條件：** 所有 SIT step PASS + 無新 alert
+
+```bash
+# 對 jumpvm 跑（或本機 kubectl exec 到 jumpvm-equivalent pod）
+ssh jumpvm 'bash /tmp/sit-roundtrip.sh admin "$ADMIN_PASS"'
+# 預期 "Pass: 8  Fail: 0"
+```
+
+**Gate FAIL 範例：**
+
+```
+🚦 Gate G6.5 (Post-Deploy SIT) 評估
+================================
+[1] Deployment ready                ✅ backup-api 2/2, backup-worker 3/3
+[2] Image tag matches commit        ✅ all pods on main-<commit>
+[3] SIT round-trip (jumpvm)         🔴 FAIL — 6/8 PASS (download HTTP 500)
+[4] Recent prod logs                🔴 event=upload_e2e_readback_failed × 2
+================================
+結果：🔴 GATE_FAIL
+動作：rollback image tag bump（infra commit revert）+ 開 incident 記錄
+```
+
+**rollback 預設行為：** 若 G6.5 FAIL 且使用者沒在 5 min 內介入，AI 自動把 infra
+chart 的 image tag 還原到上一個 commit（即觸發 ArgoCD 反向 rollback）。
+（注意：仍歸 ASP「破壞性操作確認」鐵則 — 預設 AI 只**提議** rollback PR、由使用者 push）
 
 ---
 
