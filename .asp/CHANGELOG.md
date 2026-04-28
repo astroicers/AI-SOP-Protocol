@@ -4,6 +4,147 @@
 
 ---
 
+## v3.7.0 — huashu-design 借鑒：假設確認 + 事實驗證 + 量化閘門
+
+### Bug 修復（post-review）
+
+- **[bug:contract] `pipeline.md` `evaluate_G2()` 補入 Done When 數量下限檢查**：量化閾值表宣告 `G2_specification.min_acceptance_criteria: 3`，但函數本體未驗證數量，現補入 `LEN(done_when) ≥ min_ac` 邏輯，閾值從 `quality-thresholds.yaml` 動態讀取
+- **[bug:contract] `pipeline.md` `evaluate_G2()` 補入 [UNVERIFIED] 掃描**：快速參考表與 `reality_checker.md` 均宣告 G2 要求 `[UNVERIFIED] = 0`，但函數本體缺失對應邏輯，現補入 `count_pattern("[UNVERIFIED]")` 掃描，發現時 GATE_FAIL
+- **[bug:logic] `CLAUDE.md` 強制 Skill 調用點補入 Assumption Checkpoint 與 Fact Verification Gate**：兩個 v3.7 新協議已寫入 `global_core.md` 但未掛入強制調用表，現補入為 framework 強制執行點
+
+
+
+> 借鑒來源：[huashu-design](https://github.com/alchaincyf/huashu-design)（8.5k stars AI 設計 skill 框架）
+
+### 新增 — Assumption Checkpoint Protocol（`global_core.md`）
+- 實作非 trivial 任務前，必須輸出假設清單並等待確認
+- 觸發條件：任務涉及 2+ 模組、需要 ADR/SPEC、使用者要求設計/規劃/架構
+- 借鑒 huashu Checkpoint #3 "Early show" 模式：🛑 不可靜默推進
+
+### 新增 — Fact Verification Gate（`global_core.md` 升級）
+- 原「外部資料校對（v3.5.1）」升級為結構化閘門
+- 新增 `.asp-fact-check.md` 驗證日誌格式（表格化：事實點/聲稱值/驗證來源/結果/日期）
+- 觸發條件擴展：新增「外部服務存在性/定價/功能集」、「法規條文/標準規範編號」
+- 借鑒 huashu Checkpoint #0 "Fact-Checking First" 模式
+
+### 新增 — Quality Thresholds（`.asp/config/quality-thresholds.yaml`）
+- 新建量化閾值配置檔，G1–G6 全 Gate 數字化
+- 核心閾值：覆蓋率 ≥80%、認知複雜度 ≤10、文件新鮮度 ≤7 天、Draft ADR = 0
+- 外部解方採用標準：≥5 來源、≥2 候選方案、≥8/10 分才採用
+- 借鑒 huashu 5-10-2-8 量化閘門模式
+
+### 新增 — 量化驗收報告格式（`reality_checker.md`）
+- Reality Checker 輸出格式強制要求：閾值 vs 實際值表格
+- 禁止使用主觀描述（「基本達標」），必須給出具體數字比對
+
+### 更新 — `pipeline.md`
+- 新增「量化閾值」節，引用 `quality-thresholds.yaml`
+- Gate 評分快速參考表
+
+### 更新 — `system_dev.md`
+- Pre-Implementation Gate 前加入 Assumption Checkpoint 提示
+- ADR 撰寫步驟前加入 🛑 ADR Checkpoint
+
+### 更新 — `rag_context.md`
+- 新增 `.asp-fact-check.md` RAG 整合說明
+- 過期清理策略（30 天重新查證、90 天標注 [STALE]）
+
+### 更新 — `CLAUDE.md`
+- 鐵則表新增「外部事實驗證防護（v3.7）」
+
+---
+
+## v3.6.2 — Claude Code 架構洞察整合
+
+### 新增 — Sub-Agent 深度限制
+- `max_spawn_depth: 1` 欄位加入所有 10 個 agent YAML
+- `multi_agent.md` 新增「Sub-Agent 深度限制」區塊，含 `enforce_spawn_depth()` 偽碼與 `current_depth` 傳遞規則
+- `assign_roles()` 函數加入 `current_depth` 參數與 `enforce_spawn_depth` 呼叫點（修復孤立函數問題）
+
+### 新增 — Worker 飛行中 Todo 追蹤
+- `impl.yaml`、`tdd.yaml`、`qa.yaml`、`integ.yaml` 新增 `inflight_todo` 欄位
+- 要求接收任務後立即建立 TodoWrite 清單，逐條對應 Done When，防止 context rot
+
+### 新增 — Good/Bad Example 對比
+- `impl.yaml`：scope 邊界判斷 + 完成聲明的正反案例
+- `qa.yaml`：smuggling 檢查流程 + verdict 門檻的正反案例
+- `reality.yaml`：證據要求 + gate veto 的正反案例
+
+---
+
+## v3.6.1 — Agent Persona 人格化 + Runbooks
+
+### 新增 — Agent Persona
+- 10 個 agent YAML 新增 `communication_style` + `red_flags` 欄位
+- 強化 AI 角色扮演一致性，防止 stance 漂移
+
+### 新增 — Runbook 場景劇本
+- `docs/runbooks/startup-mvp.md`：4–6 週 MVP 執行場景
+- `docs/runbooks/enterprise-feature.md`：大型複雜功能並行執行場景
+- `docs/runbooks/incident-response.md`：P0 事故應急處理場景
+- `make runbook-list` / `make runbook-view SCENARIO=...` 命令
+
+### 新增 — SPRINT_SUMMARY 交接單
+- 新增 `SPRINT_SUMMARY` handoff 類型，供 autopilot 跨 sprint 傳遞指標
+
+---
+
+## v3.6.0 — G5.5/G6.5 跨元件同位門檻
+
+### 新增 — G5.5 Cross-Component Parity Gate
+- SPEC 必須列出跨元件不變量（SSOT、消費者、當前格式）
+- grep 跨儲存庫 callsite；所有未對齊項目必須登記 tech-debt
+- Mock 對稱性檢查（攔截「委派 Decrypt 給 DecryptChunked」反模式）
+- 跨模組變更必須有 round-trip 測試
+
+### 新增 — G6.5 Post-Deploy SIT Gate
+- 部署後整合驗收階段，確認生產環境行為符合 SPEC
+- 背景：PoC 2026-04-21/22 事故（21h、6+ 次部署；PM-002 事後分析）
+
+---
+
+## v3.5.1 — global_core 工作目錄紀律與外部資料校對
+
+### 新增 — 工作目錄紀律
+- 禁止 `cd` 配合指令執行，強制使用絕對路徑
+- 外部資料（API 簽名、框架預設值、版本相容性）必須先校對再使用
+
+---
+
+## v3.5.0 — Maturity Levels + Anti-Rationalization + Evidence-Based Gates
+
+### 新增 — 成熟度等級模型 L1–L5
+- `.asp/levels/level-N.yaml` 定義 5 個等級的能力邊界
+- `.ai_profile` 新增 `level:` 欄位，`install.sh` 提供 L1–L5 選單
+- `make asp-level-{check,upgrade,list}` 命令
+- `asp-level` skill：逐項驗證 graduation 條件
+
+### 新增 — Anti-Rationalization 防護
+- `asp-ship`/`asp-plan`/`asp-gate`/`asp-reality-check`/`asp-level` 加入反理由化表格
+- 常見繞過理由 → 對應正確回應的對照表
+
+### 新增 — Evidence-Based Gate 輸出
+- Gate 輸出格式標準化：`command / exit_code / evidence_excerpt`
+- `.asp-bypass-log.json`（append-only）+ `make asp-bypass-{review,record}`
+- 安全審計員、測試工程師唯讀 subagent 人格
+
+---
+
+## v3.4.0 — 4 層強制力架構
+
+### 新增 — 強制力架構（L1–L4）
+- **Layer 1**：`session-audit.sh` Smart SessionStart — 7 維度審計 + `.asp-session-briefing.json`
+- **Layer 2**：動態 Deny List — Draft ADR 自動阻擋 `git commit`（VSCode 對話框），`make asp-unlock-commit` 解除
+- **Layer 3**：Skill-Enforced Gates — `asp-ship` 擴展至 10 步驟，新增 `asp-gate` (G1–G6)
+- **Layer 4**：Subagent Reality-Checker — 獨立上下文，預設 NEEDS_WORK
+
+### 覆蓋率提升
+- 硬性執行規則：6 → 18 條
+- Skill 執行規則：0 → 53 條
+- Subagent 驗證：0 → 7 條
+
+---
+
 ## v3.3.0 — 穩定度強化
 
 ### 新增 — Pipeline Gate 強化

@@ -26,13 +26,18 @@
 Orchestrator 根據 `team_compositions.yaml` 選擇角色，取代通用 Worker-a/Worker-b：
 
 ```
-FUNCTION assign_roles(task_type, complexity):
+FUNCTION assign_roles(task_type, complexity, current_depth=0):
   scenario = match_scenario(task_type, complexity)  // from team_compositions.yaml
   team = scenario.agents
   FOR role IN team:
     role_def = LOAD(".asp/agents/{role}.yaml")
     VALIDATE role_def.scope_constraints
+    enforce_spawn_depth(role_def, current_depth)  // 深度超限時拋出 STOP
   RETURN team
+
+// Workers 呼叫 assign_roles 時必須傳入 current_depth + 1
+// Orchestrator 頂層呼叫傳 current_depth=0（不受限制）
+// Worker 頂層呼叫傳 current_depth=1 → enforce_spawn_depth 攔截再次派生
 ```
 
 ---
@@ -46,8 +51,12 @@ FUNCTION assign_roles(task_type, complexity):
 2. 將需求拆解為低耦合子任務
 3. 為每個子任務定義 Task Manifest（見下）
 4. 建立 .agent-lock.yaml 登記文件鎖定
-5. 指派 Worker，設定 Done Definition
+5. 指派 Worker，設定 Done Definition（呼叫 assign_roles(type, complexity, current_depth=0)）
 ```
+
+> **深度追蹤規則**：Orchestrator 是唯一以 `current_depth=0` 呼叫 `assign_roles` 的角色。
+> Worker 若需派生子 agent（如 impl 呼叫 Task 工具），必須以 `current_depth=1` 呼叫，
+> `enforce_spawn_depth` 會在此層攔截並要求上報 Orchestrator，而非繼續遞迴。
 
 ### Task Manifest 格式
 
@@ -281,6 +290,28 @@ FUNCTION converge_tracks(completed_tracks, integ_agent):
   IF result.failed:
     dev_qa_loop(integration_task, integ_agent, qa_agent)
 ```
+
+---
+
+## Sub-Agent 深度限制（max_spawn_depth）
+
+> **設計原則**（來自 Claude Code 架構分析）：控制迴圈越簡單，Debug 越容易。多層 agent 遞迴是最常見的「可運作但無法除錯」陷阱。
+
+**規則：所有 Worker agent 的 `max_spawn_depth: 1`**
+
+```
+FUNCTION enforce_spawn_depth(agent, current_depth):
+  IF current_depth >= agent.max_spawn_depth:
+    STOP — 不得再派生子 agent
+    改為：上報 Orchestrator（escalation_target）
+  ELSE:
+    可產生最多一層子 agent（Task 工具呼叫）
+    子 agent 繼承 max_spawn_depth = 0（不可再派生）
+```
+
+- Orchestrator 本身不受此限制（負責分派整個 DAG）
+- Worker 遇到超出能力的子問題 → 上報 escalation_target，由 Orchestrator 重新分派
+- 子 agent 的結果注入主迴圈為 tool response，不建立新的 message history 分支
 
 ---
 

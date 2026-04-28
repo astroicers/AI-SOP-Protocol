@@ -27,6 +27,15 @@ scope_constraints:
   can_modify: [test files only]
   cannot_modify: [production source code, SPECs, ADRs]
 escalation_target: spec
+max_spawn_depth: 1
+inflight_todo:
+  instruction: |
+    接收 SPEC Done When 後，立即用 TodoWrite 建立測試清單：
+    1. 每一條 Done When 對應一個 todo 項目（格式：「寫測試：<Done When 條件>」）
+    2. 額外加入最後一項：「執行所有測試，確認全部 FAIL」
+    3. 開始寫每個測試前標記 in_progress
+    4. 完成且確認 FAIL 後才標記 completed
+  rationale: "Done When 覆蓋率 100% 是強制要求，飛行清單讓遺漏項目無所遁形"
 profile_functions:
   - "execute_stage() Step 3 from autonomous_dev.md"
   - "execute_new_feature() Phase 5 from task_orchestrator.md"

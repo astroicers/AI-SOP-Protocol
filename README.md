@@ -258,6 +258,23 @@ make audit-quick     # 只檢查 blocker
 
 ---
 
+## 場景 Runbook
+
+不知道從哪下手？ASP 提供 3 個開箱即用的場景劇本，涵蓋從 MVP 到事故應急的完整步驟：
+
+| Runbook | 適用場景 |
+|---------|---------|
+| [startup-mvp](docs/runbooks/startup-mvp.md) | 4–6 週 MVP，個人或小型團隊，從零建立 ASP 治理 |
+| [enterprise-feature](docs/runbooks/enterprise-feature.md) | 大型複雜功能，多模組並行，需要完整 SPECIFY→DELIVER 管線 |
+| [incident-response](docs/runbooks/incident-response.md) | P0/P1 生產事故，快速修復 + 事後分析 + 技術債回填 |
+
+```bash
+make runbook-list                      # 列出所有可用 Runbook
+make runbook-view SCENARIO=startup-mvp # 閱讀特定場景劇本
+```
+
+---
+
 ## Autopilot 模式
 
 `autopilot: enabled` 讓 AI 讀取 `ROADMAP.yaml`，零確認持續執行所有任務，直到完成或 token 耗盡。支援跨 session 自動續接。

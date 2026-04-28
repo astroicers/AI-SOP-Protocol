@@ -30,5 +30,6 @@ scope_constraints:
   can_modify: [CHANGELOG.md, README.md, docs/architecture.md, "docs/specs/ (traceability fields only)"]
   cannot_modify: [source code, test files, ADR status]
 escalation_target: orchestrator
+max_spawn_depth: 1
 profile_functions:
   - "documentation_pipeline() from task_orchestrator.md"

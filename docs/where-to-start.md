@@ -178,3 +178,20 @@ make profile-validate
 
 > 有疑問？執行 `make help` 查看完整指令列表。
 > 想了解 ASP 架構？閱讀 `docs/development-modes.md` 和 `.asp/profiles/`。
+
+---
+
+## 場景 Runbook（完整步驟劇本）
+
+複雜情境需要端到端的步驟指引時，使用 Runbook：
+
+| 場景 | Runbook |
+|------|---------|
+| 從零建立 MVP（4–6 週） | [startup-mvp](runbooks/startup-mvp.md) |
+| 大型功能多模組並行 | [enterprise-feature](runbooks/enterprise-feature.md) |
+| P0/P1 生產事故應急 | [incident-response](runbooks/incident-response.md) |
+
+```bash
+make runbook-list                             # 列出所有 Runbook
+make runbook-view SCENARIO=incident-response  # 閱讀特定場景
+```
