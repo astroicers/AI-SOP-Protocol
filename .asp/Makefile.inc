@@ -21,7 +21,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         task-start task-status task-report \
         profile-validate \
         agent-memory-init agent-session-init audit-baseline-init \
-        asp-unlock-commit asp-refresh asp-enforcement-status
+        asp-unlock-commit asp-refresh asp-enforcement-status \
+        runbook-list runbook-view
 
 #---------------------------------------------------------------------------
 # Help
@@ -53,6 +54,7 @@ endif
 	@echo "🔍 Profile:     profile-validate"
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
 	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
+	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -240,6 +242,24 @@ postmortem-list:
 		TITLE=$$(head -1 $$f | sed 's/# //'); \
 		echo "  $$TITLE [$$SEVERITY]"; \
 	done || echo "  (無 Postmortem)"
+
+#---------------------------------------------------------------------------
+# Runbooks
+#---------------------------------------------------------------------------
+
+runbook-list: ## 列出可用的場景 Runbook
+	@echo "📚 Runbook 列表（docs/runbooks/）："; \
+	ls docs/runbooks/*.md 2>/dev/null | while read f; do \
+		TITLE=$$(head -1 $$f | sed 's/# //'); \
+		MODE=$$(grep -m1 '^\*\*模式\*\*' $$f | sed 's/.*：//;s/ |.*//' | tr -d ' '); \
+		echo "  $$(basename $$f .md)  $$TITLE"; \
+	done || echo "  (無 Runbook)"
+
+runbook-view: ## 檢視 Runbook (SCENARIO=startup-mvp|incident-response|enterprise-feature)
+	@if [ -z "$(SCENARIO)" ]; then echo "用法: make runbook-view SCENARIO=startup-mvp"; exit 1; fi
+	@FILE="docs/runbooks/$(SCENARIO).md"; \
+	if [ ! -f "$$FILE" ]; then echo "❌ 找不到 $$FILE。可用場景："; make runbook-list; exit 1; fi; \
+	cat "$$FILE"
 
 #---------------------------------------------------------------------------
 # Multi-Agent

@@ -345,6 +345,60 @@ FUNCTION on_worker_auto_fix_exhausted_v3(worker, task, failures):
 
 ---
 
+## 交接單類型參考（v3.1）
+
+五種既有類型 + 一種新增的 Sprint 層級彙總：
+
+| 類型 | 用途 | 產生方 |
+|------|------|--------|
+| `TASK_COMPLETE` | Worker 完成單一任務 | Worker |
+| `REASSIGNMENT` | Orchestrator 重派任務（含 memory hint） | Orchestrator |
+| `PHASE_GATE` | Pipeline 階段轉換（G1-G6 通過） | Orchestrator |
+| `ESCALATION` | 重試耗盡，升級至人類 | Orchestrator |
+| `SESSION_BRIDGE` | 跨 session 上下文保留 | Orchestrator |
+| `SPRINT_SUMMARY` | Sprint 邊界彙總（autopilot 跨 session 用） | Orchestrator |
+
+### SPRINT_SUMMARY 交接單格式
+
+autopilot 模式下，每個 sprint 結束時 Orchestrator 產生此交接單，供下個 session 量化續接：
+
+```yaml
+handoff_type: SPRINT_SUMMARY
+sprint_id: "SPRINT-{N}"
+timestamp: "{ISO8601}"
+from_agent: orchestrator
+to_agent: orchestrator
+
+velocity:
+  planned: {int}          # 計劃完成的任務數
+  actual: {int}           # 實際完成的任務數
+
+quality_metrics:
+  first_pass_qa_rate: {percentage}   # 首次 QA 通過率（反映 impl 品質）
+  avg_retries: {float}               # 平均重派次數（< 1.0 為健康）
+  escalations: {int}                 # 升級至人類的次數
+
+completed:
+  - task_id: "{TASK-XXX}"
+    done_when_verified: true         # Done When 是否全數通過
+    qa_attempts: {int}
+
+carried_over:
+  - task_id: "{TASK-XXX}"
+    reason: "{未完成原因}"
+    priority: "HIGH|MED|LOW"
+
+retrospective:
+  went_well: "{本 sprint 成功之處}"
+  improve: "{下個 sprint 改進方向}"
+
+next_sprint_goal: "{下個 sprint 的核心目標}"
+```
+
+> SPRINT_SUMMARY 存入 `.agent-events/handoffs/SPRINT-{N}-SUMMARY.yaml`，供 `make session-checkpoint` 讀取。
+
+---
+
 ## Done Definition（完成標準）
 
 Worker 自我驗收清單：
