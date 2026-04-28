@@ -233,7 +233,7 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
     fi
 
     # 清理舊的 .asp/ 子目錄避免 cp -r 嵌套
-    rm -rf .asp/profiles .asp/templates .asp/scripts .asp/advanced .asp/hooks
+    rm -rf .asp/profiles .asp/templates .asp/scripts .asp/advanced .asp/hooks .asp/config .asp/levels
     mkdir -p .asp
 
     # 支援新結構（.asp/）和舊結構（根目錄）
@@ -249,6 +249,16 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
     if [ -d "$SRC/hooks" ]; then
         cp -r "$SRC/hooks" ./.asp/hooks
         chmod +x .asp/hooks/*.sh 2>/dev/null || true
+    fi
+    # v3.7: 量化閾值設定（quality-thresholds.yaml）
+    if [ -d "$SRC/config" ]; then
+        cp -r "$SRC/config" ./.asp/config
+        echo "  ✅ .asp/config/ (量化品質閾值 v3.7)"
+    fi
+    # v3.5: 成熟度等級定義
+    if [ -d "$SRC/levels" ]; then
+        cp -r "$SRC/levels" ./.asp/levels
+        echo "  ✅ .asp/levels/ (成熟度等級 L1-L5)"
     fi
 
     # v3.0: Agent 角色定義
