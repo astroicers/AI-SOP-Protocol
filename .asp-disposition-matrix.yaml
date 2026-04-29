@@ -1,0 +1,432 @@
+version: "4.0"
+created_at: "2026-04-29"
+description: "ASP v3.7 元件分類矩陣 — 決定每個元件在 v4.0 的去向"
+
+# Disposition 定義：
+# KEEP          : 留在 CLAUDE.md，保持原位（不可移除的鐵則或視覺錨點）
+# COMPRESS      : 留在 CLAUDE.md，但大幅縮短
+# REFERENCE     : 從 CLAUDE.md 移除，改為指向 profile/docs 的單行連結
+# ELIMINATE     : 完全刪除（重複資訊或已有其他入口）
+# KEEP_IN_PROFILE : 留在 .asp/profiles/ 不動
+# CONVERT_TO_SKILL: 轉為 Claude Code skill（顯式觸發、capability）
+# CONVERT_TO_MCP  : 未來轉為 MCP tool（stateful 或需持久記憶）
+
+entries:
+
+  # ══════════════════════════════════════════════════════════════
+  # CLAUDE.md Sections
+  # ══════════════════════════════════════════════════════════════
+
+  - id: claude_md.header_and_reading_order
+    current: "CLAUDE.md lines 1-5"
+    lines: 5
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP
+    target: "CLAUDE.md (保留 3 行)"
+    rationale: "讀取順序是 session 啟動的第一個指令，必須在 constitution 可見"
+    red_team_question: "如果移除，AI 還會讀 .ai_profile 嗎？"
+    red_team_answer: "不確定。啟動程序的存在就是提醒 AI 要執行這個動作，移除等於隱式依賴 AI 訓練資料。KEEP。"
+
+  - id: claude_md.startup_procedure
+    current: "CLAUDE.md lines 18-28"
+    lines: 11
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (≤6 行，移除 4a/4b 細節，改為指向 profiles)"
+    rationale: "核心啟動邏輯必須可見，但細節（autonomous/orchestrator/autopilot 的互鎖規則）屬於 profile 責任"
+    red_team_question: "壓縮後新使用者還能正確載入 multi-agent profile 嗎？"
+    red_team_answer: "只要保留 'type/mode/workflow → profile' 的映射表，使用者有足夠資訊。細節進 profile。ACCEPT。"
+
+  - id: claude_md.validate_profile_config_function
+    current: "CLAUDE.md lines 29-60"
+    lines: 32
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: REFERENCE
+    target: "一行：Profile 驗證邏輯見 .asp/profiles/global_core.md 或由 session-audit.sh 執行"
+    rationale: "30 行 pseudocode 已在 session-audit.sh 的 bash 層實作；CLAUDE.md 重複"
+    red_team_question: "如果 AI 不看 pseudocode，它還會驗證 profile 依賴和衝突嗎？"
+    red_team_answer: "session-audit.sh 在 SessionStart hook 已做這件事。AI 不需要 runtime 執行 pseudocode。ACCEPT REFERENCE。"
+
+  - id: claude_md.ai_profile_schema
+    current: "CLAUDE.md lines 62-75"
+    lines: 14
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (≤8 行：type/level/mode/workflow/hitl 五個關鍵欄位 + 範例)"
+    rationale: "完整 schema 在 .asp/templates/example-profile-*.yaml；CLAUDE.md 只給快速參考"
+    red_team_question: "使用者不知道 autonomous/rag/guardrail 等欄位還可以設定嗎？"
+    red_team_answer: "加一行連結到 example-profile-full.yaml 即可。ACCEPT。"
+
+  - id: claude_md.profile_mapping_table
+    current: "CLAUDE.md lines 77-105"
+    lines: 29
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (≤10 行：type/mode/key-flags → profiles，最重要的映射)"
+    rationale: "完整映射表對 AI 有用，但 29 行太長；optional flag 細節移到 level files"
+    red_team_question: "AI 會不會因為看不到完整表格而漏載某個 profile？"
+    red_team_answer: "只要 type/mode 的主要映射可見，AI 可以從 .ai_profile 推斷其餘。ACCEPT COMPRESS。"
+
+  - id: claude_md.maturity_levels_detailed
+    current: "CLAUDE.md lines 107-138"
+    lines: 32
+    dimensions:
+      nature: Constraint
+      state: Stateful
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (≤8 行：L0-L5 表格，每行：等級/名稱/適用場景，link to .asp/levels/)"
+    rationale: "詳細描述在 .asp/levels/level-N.yaml；CLAUDE.md 只需一行 per level 的快速參考"
+    red_team_question: "AI 會在沒有 level 細節的情況下正確推薦 graduation 嗎？"
+    red_team_answer: "graduation 邏輯在 level-N.yaml 的 graduation_checklist；AI 應讀 level files，不是 CLAUDE.md。ACCEPT。"
+
+  - id: claude_md.maturity_management_commands
+    current: "CLAUDE.md lines 140-155"
+    lines: 16
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: REFERENCE
+    target: "一行：等級管理見 make asp-level-* 或 asp-level skill"
+    rationale: "操作指令已在 Makefile 和 asp-level skill；不需要在 CLAUDE.md 重複"
+    red_team_question: "使用者找不到 asp-level-upgrade 指令怎麼辦？"
+    red_team_answer: "`make help` 和 asp-level skill 都可以找到。ACCEPT REFERENCE。"
+
+  - id: claude_md.maturity_legacy_inference
+    current: "CLAUDE.md lines 156-172"
+    lines: 17
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: ELIMINATE
+    target: "刪除"
+    rationale: "Legacy 相容規則在所有新專案設定 level: 欄位後不再需要；session-audit.sh 已有 fallback"
+    red_team_question: "舊有不含 level 欄位的 .ai_profile 怎麼辦？"
+    red_team_answer: "session-audit.sh A1 check 會提示缺少 level 欄位。舊使用者可從 A1 警告中得知。ACCEPT ELIMINATE。"
+
+  - id: claude_md.iron_rules
+    current: "CLAUDE.md lines 174-186"
+    lines: 13
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP
+    target: "CLAUDE.md (保留，每條精簡到 2 行：rule name + 1 行說明)"
+    rationale: "4 條鐵則是 ASP 的核心不可繞過約束，必須在每次 session 的第一個讀取文件中可見"
+    red_team_question: "如果鐵則只出現在 profile 而不在 CLAUDE.md 會怎樣？"
+    red_team_answer: "使用者可能不載入特定 profile，但鐵則必須無條件套用。CLAUDE.md 是唯一可靠的位置。KEEP 是正確決策。"
+
+  - id: claude_md.enforcement_architecture
+    current: "CLAUDE.md lines 188-200"
+    lines: 13
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (4 行 table：Layer/Mechanism/強制力等級/覆蓋範圍；移除文字展開段落)"
+    rationale: "4 層架構的存在感對 AI 理解框架有用，但文字展開段落是重複資訊"
+    red_team_question: "壓縮後 AI 還會知道動態 deny list 是怎麼運作的嗎？"
+    red_team_answer: "session-audit.sh 和 .asp/hooks/README.md 有完整說明。ACCEPT COMPRESS。"
+
+  - id: claude_md.mandatory_skill_invocations
+    current: "CLAUDE.md lines 202-225"
+    lines: 24
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (≤8 行：保留最關鍵的 G1/G4/G6 三個觸發點 + 繞過警告格式一行)"
+    rationale: "完整觸發表 24 行偏長；G2/G3/G5 已在 asp-gate skill 內有完整說明"
+    red_team_question: "壓縮後 AI 會忘記在 G2/G3 前呼叫對應 skill 嗎？"
+    red_team_answer: "asp-gate skill 本身包含 G1-G6 完整邏輯；CLAUDE.md 只需指向入口。ACCEPT。"
+
+  - id: claude_md.bypass_warning_format
+    current: "CLAUDE.md lines 227-237"
+    lines: 11
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Cross
+    disposition: REFERENCE
+    target: "一行：Bypass 警告格式見 asp-ship skill Step 10"
+    rationale: "已在 asp-ship.md Step 10 有完整 bypass 記錄邏輯，CLAUDE.md 重複"
+    red_team_question: "使用者繞過時看不到警告格式，會不會漏記？"
+    red_team_answer: "asp-ship 每次提交前必須執行，Step 10 會出現。ACCEPT REFERENCE。"
+
+  - id: claude_md.default_behaviors_table
+    current: "CLAUDE.md lines 239-261"
+    lines: 23
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: REFERENCE
+    target: "一行：預設行為表移至 .asp/profiles/global_core.md「預設行為」section"
+    rationale: "預設行為已在 global_core.md；CLAUDE.md 重複且佔 23 行"
+    red_team_question: "沒有載入 global_core 的場景會不會漏掉預設行為？"
+    red_team_answer: "global_core 是所有 type 的必載 profile，不存在不載入的情況。ACCEPT。"
+
+  - id: claude_md.standard_workflow_diagram
+    current: "CLAUDE.md lines 263-269"
+    lines: 7
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP
+    target: "CLAUDE.md (保留 ASCII diagram + 1 行說明)"
+    rationale: "標準工作流程圖是最有效的 onboarding 視覺錨點，對新使用者價值最高"
+    red_team_question: "7 行 diagram 有多少 v4.0 使用者真的會看？"
+    red_team_answer: "即使 AI 使用者不需要，人類 onboarding 時這是最重要的 1 頁紙摘要。KEEP。"
+
+  - id: claude_md.makefile_full_table
+    current: "CLAUDE.md lines 271-335"
+    lines: 65
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: ELIMINATE
+    target: "完全移除，改為：`make help` 取得完整指令清單"
+    rationale: "65 行 Makefile 速查表是最大的 token 浪費；`make help` 已提供同等資訊"
+    red_team_question: "使用者在 session 中詢問「怎麼建立 ADR」時找不到指令怎麼辦？"
+    red_team_answer: "AI 可以直接輸出 `make adr-new TITLE=\"...\"` 因為這是標準指令。或者 CLAUDE.md 留 6 個最常用指令。ACCEPT（留 6 個最常用即可）。"
+
+  - id: claude_md.technical_execution_hooks
+    current: "CLAUDE.md lines 337-353"
+    lines: 17
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: COMPRESS
+    target: "CLAUDE.md (≤4 行：allow-all + deny 黑名單 + hook 指向 .asp/hooks/)"
+    rationale: "技術執行細節在 .asp/hooks/ 可查；CLAUDE.md 只需方向性說明（allow-all + deny list 策略）"
+    red_team_question: "壓縮後 AI 還知道有哪些被 deny 的指令嗎？"
+    red_team_answer: "deny list 在 .claude/settings.json 和 .asp/hooks/denied-commands.json，AI 可讀取。ACCEPT COMPRESS。"
+
+  # ══════════════════════════════════════════════════════════════
+  # Profile Sections
+  # ══════════════════════════════════════════════════════════════
+
+  - id: profile.global_core.communication_norms
+    current: ".asp/profiles/global_core.md section 1"
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "溝通規範是 cross-cutting implicit constraint，無觸發詞，必須留 profile"
+
+  - id: profile.global_core.working_dir_discipline
+    current: ".asp/profiles/global_core.md section 2"
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "工作目錄紀律是 cross-cutting implicit rule"
+
+  - id: profile.global_core.fact_verification_gate
+    current: ".asp/profiles/global_core.md (外部事實驗證閘 section)"
+    lines: 62
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-fact-verify"
+    rationale: "有明確觸發詞（涉及外部事實/API/版本時）、一次性執行、無跨 session 狀態、可獨立運作"
+    red_team_question: "如果 fact-verify 變 skill，使用者忘記觸發怎麼辦？"
+    red_team_answer: "pipeline.md G1 gate 仍要求 fact verification；asp-gate 會提醒。保留在 pipeline 的 implicit check，但邏輯詳情轉 skill。"
+
+  - id: profile.global_core.assumption_checkpoint
+    current: ".asp/profiles/global_core.md (Assumption Checkpoint Protocol section)"
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-assumption-checkpoint"
+    rationale: "非 trivial 任務前的假設確認是顯式 capability，有觸發詞（開始前先確認假設）"
+
+  - id: profile.global_core.classify_bug_severity
+    current: ".asp/profiles/global_core.md (bug severity section)"
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-bug-classify"
+    rationale: "Bug 分類有觸發詞（bug fix, 修 bug, 這是 trivial 嗎）"
+
+  - id: profile.global_core.change_cascade_protocol
+    current: ".asp/profiles/global_core.md (需求變更回溯協議 section)"
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-change-cascade"
+    rationale: "需求變更時有明確觸發詞（需求變更、change request、scope change）"
+
+  - id: profile.task_orchestrator.on_task_received
+    current: ".asp/profiles/task_orchestrator.md (on_task_received function)"
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "任務路由是 cross-cutting implicit rule，AI 必須自動套用，無觸發詞"
+
+  - id: profile.task_orchestrator.project_health_audit
+    current: ".asp/profiles/task_orchestrator.md (project_health_audit)"
+    dimensions:
+      nature: Constraint
+      state: Stateful
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "首次介入自動觸發（implicit），且管理 health audit baseline（stateful）"
+
+  - id: profile.task_orchestrator.handoff_protocol
+    current: ".asp/profiles/task_orchestrator.md (handoff section) + .asp/templates/handoff/"
+    lines: 80
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-handoff"
+    rationale: "交接是顯式 capability——使用者說「交接給下一個 agent」才觸發；5 種模板可獨立嵌入 skill"
+
+  - id: profile.task_orchestrator.team_recommendation
+    current: ".asp/profiles/task_orchestrator.md (recommend_team) + .asp/agents/team_compositions.yaml"
+    lines: 60
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-team-pick"
+    rationale: "團隊推薦是顯式 capability——使用者說「推薦 team」才觸發；team_compositions.yaml 可嵌入 skill"
+
+  - id: profile.escalation
+    current: ".asp/profiles/escalation.md"
+    lines: 115
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-escalate"
+    rationale: "整個 escalation.md 是 capability——有觸發詞（escalate, P0, 緊急, stuck）；P0 的 implicit 觸發保留在 autonomous_dev.md"
+    note: "P0 implicit escalation（autonomous_dev 的 must_pause 條件）不轉 skill，留在 autonomous_dev.md"
+
+  - id: profile.dev_qa_loop
+    current: ".asp/profiles/dev_qa_loop.md"
+    lines: 138
+    dimensions:
+      nature: Capability
+      state: Stateless
+      trigger: Explicit
+      coverage: Domain
+    disposition: CONVERT_TO_SKILL
+    target_skill: "asp-dev-qa-loop"
+    rationale: "Dev↔QA 迴路是顯式工作流——使用者啟動才執行，非 implicit；整個 profile 可轉 skill"
+
+  - id: profile.pipeline
+    current: ".asp/profiles/pipeline.md"
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "G1-G6 gate 是 cross-cutting pipeline constraint，不能只有觸發詞才執行"
+
+  - id: profile.system_dev
+    current: ".asp/profiles/system_dev.md"
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "TDD 規則、Pre-Implementation Gate 是 cross-cutting constraint；提取出的邏輯已轉為 skills"
+
+  - id: profile.autonomous_dev
+    current: ".asp/profiles/autonomous_dev.md"
+    dimensions:
+      nature: Constraint
+      state: Stateless
+      trigger: Implicit
+      coverage: Cross
+    disposition: KEEP_IN_PROFILE
+    rationale: "auto_fix_loop 和 must_pause 條件是 implicit constraint，無觸發詞"
+
+  - id: profile.agent_memory
+    current: ".asp/profiles/agent_memory.md"
+    dimensions:
+      nature: Capability
+      state: Stateful
+      trigger: Implicit
+      coverage: Domain
+    disposition: KEEP_IN_PROFILE
+    target_future: "v4.1+ 可考慮轉為 MCP tool（Stateful + Lazy 的組合）"
+    rationale: "Stateful（跨 session 持久記憶）但目前無 MCP server；留 profile 直到 MCP 實作完成"
+
+dispositions_summary:
+  KEEP: 4
+  COMPRESS: 6
+  REFERENCE: 4
+  ELIMINATE: 2
+  CONVERT_TO_SKILL: 8
+  KEEP_IN_PROFILE: 9
+  total_entries: 33

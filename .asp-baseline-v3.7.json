@@ -1,0 +1,139 @@
+{
+  "version": "3.7.0",
+  "captured_at": "2026-04-29T00:00:00+08:00",
+  "branch": "main",
+  "measurement_note": "v4.0 refactor pre-flight baseline — measured on feature/v4-refactor before any changes",
+  "claude_md": {
+    "lines": 309,
+    "chars": 16598,
+    "estimated_tokens": 4500,
+    "target_v4_lines": 100,
+    "target_v4_tokens": 2500
+  },
+  "profiles": {
+    "count": 20,
+    "total_lines": 6419,
+    "files": {
+      "task_orchestrator.md": 1379,
+      "autopilot.md": 566,
+      "pipeline.md": 499,
+      "system_dev.md": 493,
+      "multi_agent.md": 444,
+      "design_dev.md": 427,
+      "global_core.md": 404,
+      "autonomous_dev.md": 310,
+      "agent_memory.md": 291,
+      "openapi.md": 245,
+      "frontend_quality.md": 218,
+      "vibe_coding.md": 177,
+      "coding_style.md": 177,
+      "reality_checker.md": 154,
+      "dev_qa_loop.md": 138,
+      "rag_context.md": 136,
+      "escalation.md": 115,
+      "committee.md": 114,
+      "content_creative.md": 67,
+      "guardrail.md": 65
+    },
+    "reduction_candidates": [
+      "task_orchestrator.md",
+      "system_dev.md",
+      "pipeline.md",
+      "global_core.md"
+    ],
+    "skill_extraction_sources": {
+      "asp-handoff": "task_orchestrator.md + .asp/templates/handoff/",
+      "asp-team-pick": "task_orchestrator.md + .asp/agents/team_compositions.yaml",
+      "asp-escalate": "escalation.md",
+      "asp-dev-qa-loop": "dev_qa_loop.md",
+      "asp-fact-verify": "global_core.md (Fact Verification Gate section)",
+      "asp-assumption-checkpoint": "global_core.md (Assumption Checkpoint section)",
+      "asp-bug-classify": "global_core.md (classify_bug_severity function)",
+      "asp-change-cascade": "global_core.md (需求變更回溯協議 L1-L4)"
+    }
+  },
+  "skills": {
+    "count": 13,
+    "total_lines": 2048,
+    "router_file": ".claude/skills/asp/SKILL.md",
+    "target_v4_count": 21,
+    "files": {
+      "asp-gate.md": 381,
+      "asp-ship.md": 255,
+      "asp-autopilot.md": 227,
+      "asp-review.md": 187,
+      "asp-level.md": 170,
+      "asp-audit.md": 154,
+      "asp-plan.md": 149,
+      "SKILL.md": 110,
+      "asp-reality-check.md": 92,
+      "asp-impact.md": 89,
+      "asp-qa.md": 83,
+      "asp-dispatch.md": 80,
+      "asp-security.md": 71
+    }
+  },
+  "agents": {
+    "count": 11
+  },
+  "levels": {
+    "count": 5,
+    "range": "L1-L5",
+    "missing": ["L0"],
+    "target_v4": ["L0", "L1", "L2", "L3", "L4", "L5"]
+  },
+  "hooks": {
+    "session_audit_lines": 267,
+    "clean_allow_list_lines": 77,
+    "rag_auto_index_lines": 21,
+    "denied_commands_lines": 10,
+    "total_lines": 375
+  },
+  "templates": {
+    "count": 14
+  },
+  "docs": {
+    "adr_count": 1,
+    "spec_count": 1,
+    "plans_exists": false,
+    "security_exists": false
+  },
+  "keyword_density": {
+    "description": "必須/禁止/不可/鐵則/BLOCKER 出現次數（grep -c 聯合計數）",
+    "CLAUDE_md": 35,
+    "global_core_md": 29,
+    "system_dev_md": 53,
+    "task_orchestrator_md": 17,
+    "autonomous_dev_md": 15
+  },
+  "targets_v4": {
+    "claude_md_max_lines": 100,
+    "claude_md_max_tokens": 2500,
+    "new_skills": [
+      "asp-handoff",
+      "asp-team-pick",
+      "asp-escalate",
+      "asp-dev-qa-loop",
+      "asp-fact-verify",
+      "asp-assumption-checkpoint",
+      "asp-bug-classify",
+      "asp-change-cascade"
+    ],
+    "new_levels": ["L0"],
+    "new_adrs": [
+      "ADR-002-asp-v4-security",
+      "ADR-003-asp-mcp-server",
+      "ADR-004-asp-telemetry"
+    ],
+    "new_specs": [
+      "SPEC-002-asp-mcp-server",
+      "SPEC-003-asp-v4-architecture-refactor"
+    ],
+    "new_directories": [
+      "docs/plans",
+      "docs/security",
+      ".asp/mcp",
+      ".asp/scripts/telemetry"
+    ]
+  }
+}
