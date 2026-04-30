@@ -54,6 +54,19 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 |---------|--------|------------|
 | ASP 成熟度評估與升級 | level, maturity, 成熟度, 等級, level check, 升級 ASP, 我該升到哪一級 | asp-level |
 
+### v4.0 新增 Skill（抽自 Profile）
+
+| 用戶意圖 | 觸發詞 | 載入的 Skill |
+|---------|--------|------------|
+| 任務交接 / Agent handoff | handoff, 交接, 任務移交, session bridge | asp-handoff |
+| 推薦執行團隊 | team pick, 組團隊, 推薦 agent, who should work | asp-team-pick |
+| 升級處理 / 緊急問題 | escalate, P0, P1, 緊急, 卡住, critical | asp-escalate |
+| Dev↔QA 品質迴路 | dev qa loop, qa loop, 開發品質迴路 | asp-dev-qa-loop |
+| 外部事實查證 | fact verify, 外部事實, 查證 API, 確認版本 | asp-fact-verify |
+| 任務假設確認 | assumption, checkpoint, 假設確認, 開始前確認 | asp-assumption-checkpoint |
+| Bug 嚴重度分類 | bug classify, bug severity, 這是 trivial 嗎 | asp-bug-classify |
+| 需求變更回溯 | change cascade, 需求變更, scope change | asp-change-cascade |
+
 ## 執行後 — 主動提示下一步（v3.5）
 
 完成任一子 skill 後，**主動**在回覆末尾提供「建議的下一步」，協助使用者理解 workflow 的前後關係。**不可**自動執行下一步（違反 HITL 原則），只做提示：
