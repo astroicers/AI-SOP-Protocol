@@ -19,7 +19,7 @@
     "allow": [
       "Bash(*)"
     ],
-    "deny": [
+    "ask": [
       "Bash(docker deploy *)",
       "Bash(docker push *)",
       "Bash(git push *)",

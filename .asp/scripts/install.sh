@@ -447,7 +447,7 @@ HOOKS_JSON='{
   },
   "permissions": {
     "allow": ["Bash(*)"],
-    "deny": [
+    "ask": [
       "Bash(git push *)", "Bash(git push)",
       "Bash(git rebase *)", "Bash(git rebase)",
       "Bash(docker push *)", "Bash(docker deploy *)",
@@ -495,16 +495,17 @@ if [ "$JQ_AVAILABLE" = true ]; then
         echo "✅ 已建立 .claude/settings.json（含 ASP SessionStart Hook）"
     fi
 
-    # --- 設定 deny 規則（從 denied-commands.json 讀取）---
+    # --- 設定 ask 規則（從 denied-commands.json 讀取，彈窗詢問而非直接拒絕）---
     DENIED_FILE=".asp/hooks/denied-commands.json"
     if [ -f "$DENIED_FILE" ] && [ -f ".claude/settings.json" ]; then
         DENY_JSON=$(cat "$DENIED_FILE")
-        jq --argjson deny "$DENY_JSON" '
+        jq --argjson ask "$DENY_JSON" '
             .permissions.allow = ((.permissions.allow // []) + ["Bash(*)"] | unique) |
-            .permissions.deny = ((.permissions.deny // []) + $deny | unique)
+            .permissions.ask = ((.permissions.ask // []) + $ask | unique) |
+            del(.permissions.deny)
         ' .claude/settings.json > .claude/settings.json.tmp \
             && mv .claude/settings.json.tmp .claude/settings.json
-        echo "✅ 已設定權限 — allow: Bash(*), deny: $(echo "$DENY_JSON" | jq length) 條危險指令"
+        echo "✅ 已設定權限 — allow: Bash(*), ask（彈窗確認）: $(echo "$DENY_JSON" | jq length) 條危險指令"
     fi
 else
     if [ ! -f ".claude/settings.json" ]; then
@@ -528,7 +529,7 @@ else
   },
   "permissions": {
     "allow": ["Bash(*)"],
-    "deny": [
+    "ask": [
       "Bash(git push *)", "Bash(git push)",
       "Bash(git rebase *)", "Bash(git rebase)",
       "Bash(docker push *)", "Bash(docker deploy *)",
