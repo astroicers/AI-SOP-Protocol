@@ -5,7 +5,7 @@
 | **規格 ID** | SPEC-003 |
 | **Status** | Accepted |
 | **Date** | 2026-04-29 |
-| **關聯 ADR** | ADR-002 (security), ADR-003 (MCP), ADR-004 (telemetry) |
+| **關聯 ADR** | ADR-002 (security), ADR-004 (telemetry) |
 | **估算複雜度** | 高 |
 | **HITL 等級** | standard |
 
@@ -43,8 +43,7 @@ ASP v4.0 = 憲法壓縮 + Skill 增殖 + 可觀測性層：
               │             fact-verify/assumption-checkpoint/bug-classify/change-cascade]
               ├── .asp/levels/ (6 levels, L0-L5)
               ├── docs/security/threat-model-v4.0.md (STRIDE)
-              ├── .asp/scripts/telemetry/ (collect/report/prune)
-              └── .asp/mcp/ (ADR+SPEC, impl in v4.1)
+              └── .asp/scripts/telemetry/ (collect/report/prune)
 ```
 
 ---
@@ -149,9 +148,8 @@ python3 .asp/scripts/telemetry/report.py   # 查看統計
 
 1. **不取代 Superpowers skills**：ASP 和 Superpowers 互補——Superpowers 管理開發流程，ASP 管理治理約束
 2. **不為 enterprise 多人協作優化**：v4.0 仍是個人/小團隊（1-3 人）定位；multi-tenant RBAC 留 v5.0
-3. **MCP server 在 v4.0 是設計階段**：ADR-003 + SPEC-002 完成；`.asp/mcp/server.py` 實作留 v4.1+
-4. **不解決 AI 幻覺問題**：asp-fact-verify 提供結構化查證框架，但不保證 AI 完全準確
-5. **不取代 test framework**：ASP 治理流程（TDD 先後、gate 通過），不撰寫測試代碼
+3. **不解決 AI 幻覺問題**：asp-fact-verify 提供結構化查證框架，但不保證 AI 完全準確
+4. **不取代 test framework**：ASP 治理流程（TDD 先後、gate 通過），不撰寫測試代碼
 
 ---
 

@@ -63,7 +63,6 @@ warnings:
 use_cases:
   - "評估新技術棧可行性（半天工作）"
   - "CYBERSEC 演講 PoC：示範 prompt injection 攻擊 multi-agent"
-  - "評估新 MCP server 是否值得整合"
   - "新框架 / 第三方 API 可行性探索"
   - "nuclei template 命中率驗證"
 
