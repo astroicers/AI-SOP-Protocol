@@ -1,0 +1,76 @@
+level: 0
+name: Spike
+tagline: 探索優先 — 快速驗證假設，零治理負擔，鐵則仍然適用
+description: |
+  L0 是 ASP 的探索等級。適合「我不知道這個技術能不能 work」的原型驗證階段。
+  沒有 ADR 要求、沒有 SPEC 要求、沒有 TDD 要求、沒有 pipeline gate。
+  唯一目標：用最快速度驗證技術假設，然後在進入正式開發前切換到 L1+。
+  L0 是暫時狀態，不是永久豁免。
+
+profiles:
+  - global_core
+
+auto_load:
+  - spike_mode
+
+ai_profile_hint: |
+  type: system
+  level: 0
+  name: your-spike-project
+  hitl: strict
+
+hitl_override: strict
+
+permissions_granted:
+  - skip_adr_requirement
+  - skip_spec_requirement
+  - skip_tdd_requirement
+  - skip_pipeline_gates
+  - skip_changelog_update
+
+permissions_denied:
+  - production_deploy
+  - skip_iron_rules
+  - skip_credential_scan
+
+graduation_checklist:
+  - id: spike-question-answered
+    description: "Spike 驗證問題已有明確答案（可行 / 不可行）"
+    check: "test -f docs/spike-conclusion.md || find docs -name 'spike*.md' -o -name 'poc*.md' 2>/dev/null | grep -q ."
+    manual: true
+  - id: no-production-code-in-main
+    description: "Spike 代碼未進入 main branch"
+    check: "git branch --show-current | grep -E 'spike|poc|experiment'"
+  - id: spike-timebox-not-exceeded
+    description: "Spike 未超過 5 個工作天（可豁免，需說明）"
+    check: "true"
+    manual: true
+
+exit_to:
+  recommended: 1
+  rationale: "Spike 驗證後，進入 L1 (Starter) 開始正式開發"
+
+exit_triggers:
+  - "使用者說「這個方向可行，我們繼續開發」"
+  - "Spike 超過 3 天仍無結論"
+  - "開始寫第一個非 spike 的正式功能"
+
+warnings:
+  - "L0 沒有品質保護。Spike 代碼不應直接進入生產。"
+  - "如果 spike 持續超過 5 個工作天，考慮是否升級到 L1。"
+  - "L0 強制 hitl: strict — 你在探索未知，每步都需確認。"
+
+use_cases:
+  - "評估新技術棧可行性（半天工作）"
+  - "CYBERSEC 演講 PoC：示範 prompt injection 攻擊 multi-agent"
+  - "評估新 MCP server 是否值得整合"
+  - "新框架 / 第三方 API 可行性探索"
+  - "nuclei template 命中率驗證"
+
+benefits_of_upgrading: |
+  升到 L1 (Starter) 後，你會獲得：
+  - ADR 記錄：確保 spike 決策有根據
+  - SPEC 要求：把「感覺差不多」轉成可驗收的規格
+  - TDD：沒有測試的代碼難以重構進入正式版
+
+next_level: 1
