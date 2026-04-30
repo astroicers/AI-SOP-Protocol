@@ -1057,3 +1057,16 @@ deploy-spec-new:
 
 profile-validate:
 	@bash .asp/scripts/validate-profile.sh
+
+# ─── Telemetry ───────────────────────────────────────────────────────────────
+asp-telemetry-collect:
+	@python3 .asp/scripts/telemetry/collect.py
+	@echo "[ASP] Telemetry event collected"
+
+asp-telemetry-report:
+	@python3 .asp/scripts/telemetry/report.py --days 7
+
+asp-telemetry-prune:
+	@python3 .asp/scripts/telemetry/prune.py --days 90
+
+.PHONY: asp-telemetry-collect asp-telemetry-report asp-telemetry-prune
