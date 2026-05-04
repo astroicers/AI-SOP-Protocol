@@ -2,6 +2,16 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [Unreleased] - 2026-05-04
+
+### Added
+- **mattpocock/skills 整合**: 全局安裝 12 個 engineering skills（`diagnose`、`tdd`、`grill-with-docs`、`to-prd`、`to-issues`、`triage`、`improve-codebase-architecture`、`zoom-out`、`grill-me`、`caveman`、`write-a-skill`、`setup-matt-pocock-skills`）至 `~/.agents/skills/`，symlink 至 `~/.claude/skills/`
+- **`docs/agents/` 設定目錄**: 新增 `issue-tracker.md`（GitHub Issues + `gh` CLI）、`triage-labels.md`（5 個 canonical triage 狀態）、`domain.md`（single-context，`CONTEXT.md` + `docs/adr/`）
+- **`CLAUDE.md` Agent skills 區塊**: 新增 `## Agent skills` section，讓 mattpocock skills 能讀取 issue tracker、triage labels、domain docs 設定
+
+### Fixed
+- **`.claude/settings.json` deny 重複注入**: `npx skills@latest add` installer 將 `ask` 陣列複製為 `deny`，造成危險指令從「跳彈窗確認」變為「靜默拒絕」，與 ASP 鐵則設計不符；已移除多餘 `deny` 區塊，還原為 `ask` 行為
+
 ## [3.6.0] - 2026-04-22
 
 ### Added

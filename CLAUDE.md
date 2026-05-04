@@ -90,3 +90,19 @@
 | 解除 commit 阻擋 | `make asp-unlock-commit` |
 
 完整指令：`make help` | 入門文件：`docs/where-to-start.md`
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`astroicers/AI-SOP-Protocol`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Using default label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — `CONTEXT.md` at root + `docs/adr/`. See `docs/agents/domain.md`.

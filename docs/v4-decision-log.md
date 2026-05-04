@@ -32,21 +32,7 @@
 
 ---
 
-## D3: 為什麼 MCP Server 選 Python（非 TypeScript）
-
-**問題：** Anthropic 官方 MCP reference implementation 是 TypeScript，但 ASP 現有腳本基礎設施是 Python。
-
-**被拒絕的方案：**
-- TypeScript：引入 Node.js/npm 依賴，與現有 Python 生態不一致。
-- Bash + JSON：難以維護 stateful tool 響應，長期成本高。
-
-**最終決策：** Python（`pip install mcp`）。
-
-**理由：** `.asp/scripts/rag/*.py` 已建立 Python 基礎；telemetry 腳本也用 Python；同語言降低維護負擔。Anthropic 官方有 Python SDK，品質相當。
-
----
-
-## D4: 為什麼 Telemetry 用 JSONL（非 SQLite）
+## D3: 為什麼 Telemetry 用 JSONL（非 SQLite）
 
 **問題：** 需要一種可以持久記錄 ASP 事件的方式，以便做 evidence-based 的規則調整。
 
@@ -61,7 +47,7 @@
 
 ---
 
-## D5: 為什麼加 L0 Spike 等級
+## D4: 為什麼加 L0 Spike 等級
 
 **問題：** ASP 從 L1 開始，沒有「探索性原型」等級。PoC 驗證、CYBERSEC 演講 demo、新技術可行性評估等場景，使用者被迫在 L1 的治理負擔（ADR、SPEC、TDD、pipeline gates）下做探索性工作，摩擦感高。
 
@@ -75,11 +61,10 @@
 
 ---
 
-## D6: 我們決定不做的事（被拒絕的想法清單）
+## D5: 我們決定不做的事（被拒絕的想法清單）
 
 | 被拒絕的想法 | 拒絕理由 |
 |------------|---------|
-| 把 MCP server 在 v4.0 完整實作 | 設計（ADR + SPEC）優先；實作在設計穩定後進行（v4.1） |
 | 把 session-audit.sh 重寫為 Python | 現有 Bash 實作穩定，重寫風險高、收益低 |
 | 移除 Makefile 全部速查表 | 保留 6 個最常用指令 + `make help` 一行；完全移除影響新手 |
 | 把 escalation.md 整個刪除 | 轉為 skill 後，profile 可以標記為 deprecated 但不立即刪除 |

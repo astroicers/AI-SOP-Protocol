@@ -52,5 +52,4 @@ asp-telemetry-prune: python3 .asp/scripts/telemetry/prune.py --days 90
 
 ## Related Documents
 
-- `docs/adr/ADR-003-asp-mcp-server.md` — MCP server 決策
 - `.asp/scripts/telemetry/README.md` — 實作說明
