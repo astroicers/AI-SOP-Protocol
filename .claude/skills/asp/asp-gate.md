@@ -50,6 +50,9 @@ description: |
 3. Done When 條件可二元測試（非主觀描述）
 4. 非 trivial 功能有 Gherkin 場景
 5. 用戶面向功能有 Observability 欄位
+6. **術語一致性**（若 CONTEXT.md 存在）：SPEC 中的核心術語與 CONTEXT.md 一致，無使用「避免使用」同義詞
+   - FAIL 條件：使用了 CONTEXT.md 明確標記「避免使用」的詞
+   - SKIP 條件：CONTEXT.md 不存在（靜默略過）
 
 **通過條件：** SPEC 完整且 Done When 可測試
 
