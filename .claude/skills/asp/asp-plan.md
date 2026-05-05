@@ -77,6 +77,16 @@ grep -r "ADR-舊編號" docs/
 
 ## Step 4：建立 SPEC
 
+**術語預檢（若 CONTEXT.md 存在）：**
+
+撰寫 SPEC 前，確認以下術語已在 CONTEXT.md 收錄：
+- SPEC Goal 中使用的核心名詞
+- 輸入/輸出的資料結構名稱
+- Side Effects 涉及的系統元件名稱
+
+若術語未收錄 → 提示使用者執行 `/asp-context`（Mode B）補充後再繼續。
+若 CONTEXT.md 不存在 → 略過此步。
+
 ```bash
 make spec-new TITLE="[功能名稱]"
 ```
