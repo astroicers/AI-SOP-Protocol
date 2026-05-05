@@ -2,15 +2,28 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
-## [Unreleased] - 2026-05-04
+## [Unreleased] - 2026-05-05
 
 ### Added
+- **Domain Vocabulary Mechanism（CONTEXT.md）**: ASP v4.1 核心補強。完整的術語一致性執行鏈：
+  - **`CONTEXT.md`（repo root）**: ASP 自身的領域詞彙表，覆蓋 15+ 核心術語（ASP、Profile、Skill、Gate G1-G6、SPEC、ADR、HITL、Session Briefing、Bypass Log、Dynamic Deny、Reality Checker、Smuggling、Maturity Level、Autopilot、Pipeline、Telemetry）；含定義、避免使用詞、相關 ADR
+  - **`asp-context` skill（Mode A/B/C）**: Mode A 從現有 ADR/SPEC 初始化詞彙表，Mode B 增量更新術語，Mode C 審計術語一致性（掃描 ADR/SPEC/commit message 是否使用已棄用同義詞）；所有寫入操作前設置 STOP gate 等待人類確認
+  - **`.asp/templates/CONTEXT_Template.md`**: CONTEXT.md 標準模板，含五個必要 section
+  - **`global_core.md` session 啟動讀取**: 若 `CONTEXT.md` 存在，session 開始前必須讀取；後續所有輸出術語必須與 CONTEXT.md 一致
+  - **`asp-plan.md` 術語預檢**: SPEC 撰寫 Step 4 後，強制以 `grep` 交叉比對 CONTEXT.md「避免使用」詞清單
+  - **`asp-gate.md` G2 術語一致性**: G2 checklist 新增第 6 項：SPEC 術語對照 CONTEXT.md，「避免使用」詞一律 FAIL
+  - **`SKILL.md` router 新增 asp-context 路由**: 觸發詞 `context, vocabulary, 術語, 詞彙, domain vocab`；執行後提示下一步為 `/asp-gate G2` 術語驗證
 - **mattpocock/skills 整合**: 全局安裝 12 個 engineering skills（`diagnose`、`tdd`、`grill-with-docs`、`to-prd`、`to-issues`、`triage`、`improve-codebase-architecture`、`zoom-out`、`grill-me`、`caveman`、`write-a-skill`、`setup-matt-pocock-skills`）至 `~/.agents/skills/`，symlink 至 `~/.claude/skills/`
 - **`docs/agents/` 設定目錄**: 新增 `issue-tracker.md`（GitHub Issues + `gh` CLI）、`triage-labels.md`（5 個 canonical triage 狀態）、`domain.md`（single-context，`CONTEXT.md` + `docs/adr/`）
 - **`CLAUDE.md` Agent skills 區塊**: 新增 `## Agent skills` section，讓 mattpocock skills 能讀取 issue tracker、triage labels、domain docs 設定
 
 ### Fixed
+- **`.asp/scripts/install.sh` 升級 Bug #1（cp -r 嵌套）**: `cp -r src/dir dst/dir` 在目標目錄已存在時產生 `dst/dir/dir` 嵌套，導致 skill/profile 重複安裝；修復為 `rm -rf dst && mkdir dst && cp -r src/. dst/`
+- **`.asp/scripts/install.sh` 升級 Bug #2（Makefile 自訂 targets 被清空）**: 升級時完整替換 Makefile，使用者寫在「專案自訂 targets」區塊的內容被覆蓋；修復為升級前用 awk 提取自訂區塊，替換後以 sed 重新注入
 - **`.claude/settings.json` deny 重複注入**: `npx skills@latest add` installer 將 `ask` 陣列複製為 `deny`，造成危險指令從「跳彈窗確認」變為「靜默拒絕」，與 ASP 鐵則設計不符；已移除多餘 `deny` 區塊，還原為 `ask` 行為
+
+### Rationale
+競品分析（mattpocock/skills、addyosmani/agent-skills、slavingia/skills）發現 ASP 在「跨 session 術語一致性執行」維度有明顯差距：其他框架以 CONTEXT.md 為核心解決「AI 自創術語」問題，ASP 雖在 `docs/adr/` 有架構記錄，但缺少 session 啟動時的強制讀取機制與 Gate 整合。Domain Vocabulary Mechanism 補上此差距，同時借助 ASP 現有的 Gate 體系（G2 術語一致性 checklist）實現比競品更強的執行強制力。
 
 ## [3.6.0] - 2026-04-22
 
