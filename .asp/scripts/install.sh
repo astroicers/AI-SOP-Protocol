@@ -263,14 +263,18 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
 
     # v3.0: Agent 角色定義
     if [ -d "$PROTOCOL_DIR/.asp/agents" ]; then
-        cp -r "$PROTOCOL_DIR/.asp/agents" ./.asp/agents
+        rm -rf .asp/agents
+        mkdir -p .asp/agents
+        cp -r "$PROTOCOL_DIR/.asp/agents/." ./.asp/agents/
         echo "  ✅ .asp/agents/ (角色定義 + 團隊組成)"
     fi
 
     # v3.4: Claude Code Skills（asp-* skills）
     if [ -d "$PROTOCOL_DIR/.claude/skills" ]; then
         mkdir -p .claude/skills
-        cp -r "$PROTOCOL_DIR/.claude/skills/asp" ./.claude/skills/asp
+        rm -rf .claude/skills/asp
+        mkdir -p .claude/skills/asp
+        cp -r "$PROTOCOL_DIR/.claude/skills/asp/." ./.claude/skills/asp/
         echo "  ✅ .claude/skills/asp/ (ASP skill layer)"
     fi
 
@@ -297,14 +301,25 @@ if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
         # 全新安裝：使用 stub 範本
         cp "$PROTOCOL_DIR/Makefile" ./Makefile
     elif grep -q "AI-SOP-Protocol" Makefile 2>/dev/null; then
-        # ASP 產生的 Makefile（舊版完整式或 stub）：替換為 stub（保留 APP_NAME）
+        # ASP 產生的 Makefile（舊版完整式或 stub）：替換為 stub（保留 APP_NAME + 自訂區塊）
         cp Makefile Makefile.pre-asp-upgrade
         CURRENT_APP=$(grep "^APP_NAME" Makefile | head -1 || true)
+        # 提取「專案自訂 targets」區塊（marker 行之後到 # ASP targets 行之前）
+        CUSTOM_BLOCK=$(awk '/專案自訂 targets 請寫在此區塊/{found=1; next} found && /# ASP targets/{exit} found{print}' Makefile)
         cp "$PROTOCOL_DIR/Makefile" ./Makefile
         if [ -n "${CURRENT_APP:-}" ]; then
             SED_INPLACE "s/^APP_NAME.*/$CURRENT_APP/" Makefile
         fi
-        echo "🔄 Makefile 已轉換為 include 模式（ASP targets 移至 .asp/Makefile.inc，舊版備份於 Makefile.pre-asp-upgrade）"
+        # 將自訂區塊回注到新 Makefile 的 marker 之後
+        if [ -n "${CUSTOM_BLOCK:-}" ]; then
+            ESCAPED_BLOCK=$(printf '%s\n' "$CUSTOM_BLOCK" | sed 's/[&/\]/\\&/g; s/$/\\/')
+            ESCAPED_BLOCK="${ESCAPED_BLOCK%\\}"
+            SED_INPLACE "/專案自訂 targets 請寫在此區塊/a\\
+${ESCAPED_BLOCK}" Makefile
+            echo "🔄 Makefile 已轉換為 include 模式（自訂區塊已保留，舊版備份於 Makefile.pre-asp-upgrade）"
+        else
+            echo "🔄 Makefile 已轉換為 include 模式（ASP targets 移至 .asp/Makefile.inc，舊版備份於 Makefile.pre-asp-upgrade）"
+        fi
     elif ! grep -qF "$ASP_INCLUDE_LINE" Makefile 2>/dev/null; then
         # 非 ASP Makefile：僅追加 include 指令（不覆蓋原有內容）
         printf '\n# ASP targets（勿刪除此行）\n%s\n' "$ASP_INCLUDE_LINE" >> Makefile
