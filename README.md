@@ -21,7 +21,8 @@ ASP **不管你做什麼**。產品方向、功能優先序、時程規劃不在
 
 | 能力 | 說明 | 版本 |
 |------|------|------|
-| **Skill Layer** | 10 個 Claude Code 原生 skill（plan/ship/audit/review/autopilot + dispatch/qa/security/reality-check/impact），按意圖自動路由 | v2.12 |
+| **Domain Vocabulary Mechanism** | `CONTEXT.md` 領域詞彙表 + `/asp-context` skill（Mode A 初始化/B 更新/C 審計）+ G2 Gate 術語一致性強制；跨 session 確保 ADR/SPEC/commit 使用一致術語 | v4.1 |
+| **Skill Layer** | 11 個 Claude Code 原生 skill（plan/ship/audit/review/autopilot + dispatch/qa/security/reality-check/impact/**context**），按意圖自動路由 | v2.12 |
 | **設計閘門強制** | `design: enabled` 時，無 design system → BLOCK；缺 tokens.yaml → WARN | v2.13 |
 | **安全違規 BLOCK** | SQL injection、raw HTML、硬編碼密碼直接阻擋，無豁免 | v2.14 |
 | **提交前自審報告** | 5 維度通過/失敗結論，任一 🔴 即阻擋提交 | v2.14 |
@@ -100,6 +101,15 @@ curl -sSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp
 ### Step 3. 調整設定（選用）
 
 安裝後可隨時編輯 `.ai_profile` 微調行為，**開新 session 生效**。
+
+### Step 4. 建立領域詞彙表（選用，建議）
+
+```
+/asp-context
+```
+
+選擇 Mode A，AI 自動掃描現有 ADR/SPEC，提取核心術語並建立 `CONTEXT.md`。
+日後任何 session 啟動時，AI 會自動讀取詞彙表，確保 ADR/SPEC/commit message 術語一致。
 
 ---
 
