@@ -36,6 +36,23 @@
 
 ---
 
+## CONTEXT.md 自動讀取（Session 啟動）
+
+若 `CONTEXT.md` 存在於 repo root，**必須在本次 session 第一次動手前讀取**：
+
+```bash
+cat CONTEXT.md
+```
+
+讀取後：
+- 所有後續輸出（ADR、SPEC、commit message、PR description）的術語必須與 CONTEXT.md 一致
+- 若輸出中使用了「避免使用」欄的同義詞，視為術語違規，須修正
+- 若需要的術語未收錄，標記為 ❓ 並建議使用者執行 `/asp-context`
+
+若 `CONTEXT.md` **不存在**：靜默略過，不提示使用者創建（lazy creation 原則）。
+
+---
+
 ## 外部事實驗證閘（Fact Verification Gate）（v3.7 升級，原 v3.5.1 外部資料校對）
 
 > LLM 幻覺 API 簽章、函式行為是常見問題。ASP evidence-based 精神延伸至外部資料：不可引用訓練資料記憶作為「事實」。
