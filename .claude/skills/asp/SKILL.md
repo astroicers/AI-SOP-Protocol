@@ -66,6 +66,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | 任務假設確認 | assumption, checkpoint, 假設確認, 開始前確認 | asp-assumption-checkpoint |
 | Bug 嚴重度分類 | bug classify, bug severity, 這是 trivial 嗎 | asp-bug-classify |
 | 需求變更回溯 | change cascade, 需求變更, scope change | asp-change-cascade |
+| 領域詞彙管理 / CONTEXT.md 建立與更新 | context, 詞彙, vocabulary, 術語, domain, grill-with-docs, context 不存在, 術語衝突 | asp-context |
 
 ## 執行後 — 主動提示下一步（v3.5）
 
@@ -84,6 +85,8 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | `asp-reality-check`（NEEDS_WORK） | 👉 下一步：補足反面證據對應項目 → 重跑 `/asp-reality-check` |
 | `asp-level-check`（未達 graduation） | 👉 下一步：修復 checklist 未通過項目 → 重跑 `/asp-level` |
 | `asp-level-check`（通過） | 👉 下一步：`make asp-level-upgrade` 準備升級（需使用者確認） |
+| `asp-context`（初始化完成） | 👉 下一步：執行 `asp-plan` 新功能時術語已備妥；或在 `asp-gate G2` 做術語審查 |
+| `asp-context`（Mode C 發現衝突） | 👉 下一步：修正 ADR/SPEC 中的術語 → 重跑 `/asp-gate G2` |
 
 ### 原則
 
