@@ -90,14 +90,28 @@ test:
 	@echo "🧪 Running tests..."
 	@if [ -f "go.mod" ]; then go test ./... -v -race -coverprofile=coverage.out; \
 	elif [ -f "package.json" ] && grep -q '"test"' package.json 2>/dev/null; then npm test; \
-	elif ls tests/*.sh &>/dev/null 2>&1; then \
-	    PASS=0; FAIL=0; \
-	    for f in tests/*.sh; do \
-	        echo "  → $$f"; bash "$$f" && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
-	    done; \
-	    echo "bash tests: $$PASS passed, $$FAIL failed"; [ $$FAIL -eq 0 ]; \
-	elif command -v pytest >/dev/null 2>&1 && { [ -f "pytest.ini" ] || [ -f "pyproject.toml" ] || ls tests/*.py &>/dev/null 2>&1; }; then pytest ./tests -v --cov=.; \
-	else echo "⚠️  未偵測到測試框架（go.mod / package.json / tests/*.sh / pytest）"; exit 1; fi
+	else \
+	    HAS_BASH=0; HAS_PYTEST=0; FAIL=0; \
+	    if ls tests/*.sh >/dev/null 2>&1; then HAS_BASH=1; fi; \
+	    if command -v pytest >/dev/null 2>&1 && ls tests/*.py >/dev/null 2>&1; then HAS_PYTEST=1; fi; \
+	    if [ $$HAS_BASH -eq 1 ]; then \
+	        echo "── bash tests ──"; \
+	        BPASS=0; BFAIL=0; \
+	        for f in tests/*.sh; do \
+	            echo "  → $$f"; bash "$$f" && BPASS=$$((BPASS+1)) || BFAIL=$$((BFAIL+1)); \
+	        done; \
+	        echo "bash tests: $$BPASS passed, $$BFAIL failed"; \
+	        [ $$BFAIL -eq 0 ] || FAIL=$$((FAIL+BFAIL)); \
+	    fi; \
+	    if [ $$HAS_PYTEST -eq 1 ]; then \
+	        echo "── pytest ──"; \
+	        pytest ./tests -v || FAIL=$$((FAIL+1)); \
+	    fi; \
+	    if [ $$HAS_BASH -eq 0 ] && [ $$HAS_PYTEST -eq 0 ]; then \
+	        echo "⚠️  未偵測到測試框架（go.mod / package.json / tests/*.sh / pytest）"; exit 1; \
+	    fi; \
+	    [ $$FAIL -eq 0 ]; \
+	fi
 
 test-filter:
 	@if [ -z "$(FILTER)" ]; then echo "使用方式：make test-filter FILTER=xxx"; exit 1; fi

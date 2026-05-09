@@ -96,10 +96,10 @@ def _update_tier_file(score, tier):
         return
     content = TIER_FILE.read_text()
     import re
-    content = re.sub(r'(trust_tier:\s*\n\s*current:\s*)\S+', f'\\1{tier}', content)
-    content = re.sub(r'(score:\s*)\d+', f'\\1{score}', content)
+    content = re.sub(r'(trust_tier:\s*\n\s*current:\s*)\S+', rf'\g<1>{tier}', content)
+    content = re.sub(r'(score:\s*)\d+', rf'\g<1>{score}', content)
     today = datetime.now(timezone.utc).date().isoformat()
-    content = re.sub(r'(last_updated:\s*")[^"]*"', f'\\1{today}"', content)
+    content = re.sub(r'(last_updated:\s*")[^"]*"', rf'\g<1>{today}"', content)
     TIER_FILE.write_text(content)
     print(f"\nUpdated {TIER_FILE}: score={score}, tier={tier}")
 

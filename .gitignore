@@ -52,3 +52,12 @@ tmp/
 # OS
 .DS_Store
 Thumbs.db
+.asp-audit-baseline.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Bypass log NDJSON (Iron Rule B append-only — local audit trail)
+.asp-bypass-log.ndjson
