@@ -71,3 +71,21 @@
 | 把 escalation.md 整個刪除 | 轉為 skill 後，profile 可以標記為 deprecated 但不立即刪除 |
 | 為 v4.0 寫完整 test suite | ASP 是 AI governance framework，測試 AI 行為比測試 code 複雜；留 v5.0 |
 | 把 STRIDE 威脅模型轉為正式 security policy | 威脅模型是分析工具，執行層面的 policy 在 v4.1 的 Iron Rule 實作 |
+
+---
+
+## D6: 為什麼用 git worktree 取代 .agent-lock.yaml（multi-agent 隔離）
+
+**問題：** v3.7 的 multi-agent 用 `.agent-lock.yaml` + `make agent-lock-gc` 做檔案層級鎖，但這是 W5 教過的 soft mechanism——靠 Worker 自律檢查 lock 表，無法保證不直接寫入鎖定檔案。同時 v3.7 的「context 全量傳遞」與 Anthropic SubAgents 文件 `/clear` between roles 矛盾（這個部分 D-001 已處理）。
+
+**被拒絕的方案：**
+- 保留 `.agent-lock.yaml` soft lock：Worker 可繞過、無法 enforce，違反 W5「Hard mechanism > Soft mechanism」原則
+- OS 層 file lock（flock）：跨平台問題（Windows/macOS/Linux 行為不一致），且只擋寫入不擋讀取，無法支援「Worker 看到的是獨立 working tree」需求
+
+**最終決策：** 採 git worktree 硬性隔離。每個 Worker 在獨立 worktree 中工作，由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。隔離由檔案系統層保證，不靠 AI 自律。
+
+**理由：** worktree 是 git 原生功能、跨平台一致、與 D-001 的「`/clear` + scratchpad」context 隔離精神對齊（Worker 看到的是獨立 tree，與其他 Worker 的工作完全隔離）。同時 worktree 共享 `.git/` 讓 Iron Rule A hooks 透過 `.claude/settings.json` 自動繼承。
+
+**實作範圍：** v4.0 標記廢止 v3.7 機制（commit `10adbbe`，2026-05-09），v4.1 實作見 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。完整 trade-off 與替代方案分析見 `docs/v4-architecture-sds.md` §10 D-001 addendum (2026-05-10)。
+
+> **註：** 本條目是 SDS §10 D-001 addendum 在 v4-decision-log 的對應索引，避免 SPEC-004 引用 D-001 時找不到 worktree 決策內容。詳細 alternatives + rationale 仍以 SDS §10 D-001 為準。

@@ -5,7 +5,7 @@
 | 欄位 | 內容 |
 |------|------|
 | **規格 ID** | SPEC-004 |
-| **關聯 ADR** | D-001（v4-decision-log）；ADR-002（Iron Rules） |
+| **關聯 ADR** | SDS §10 D-001 addendum (2026-05-10)；v4-decision-log D6（worktree 索引）；ADR-002（Iron Rules） |
 | **估算複雜度** | 中 |
 | **建議模型** | Sonnet（涉及 git plumbing + multi-agent orchestration，需要精準 shell 操作） |
 | **HITL 等級** | strict（涉及 worktree 建立 + 跨 branch merge，需人類審查） |
@@ -16,7 +16,7 @@
 
 ## 🎯 目標（Goal）
 
-讓 multi-agent 並行任務真正以**檔案系統層級隔離**運作：每個 Worker 在獨立的 git worktree 中工作，由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。取代 v3.7 廢止的 `.agent-lock.yaml` 軟性檔案鎖（D-001 決策已標記廢止，但 v4.0 未實作替代方案）。
+讓 multi-agent 並行任務真正以**檔案系統層級隔離**運作：每個 Worker 在獨立的 git worktree 中工作，由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。取代 v3.7 廢止的 `.agent-lock.yaml` 軟性檔案鎖（決策見 SDS §10 D-001 addendum 與 v4-decision-log D6；v4.0 已標記廢止但未實作替代方案）。
 
 **為誰有價值**：跑 multi-agent 並行任務的 L4-L5 使用者。目前 v4.0 處於「無隔離機制」狀態，必須改為單軌序列執行才安全；本 SPEC 解放並行能力。
 
@@ -117,7 +117,29 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 
 **Worker 寫入機制**：Worker 在 worktree 中啟動時，環境變數 `ASP_AUDIT_ROOT` 由 dispatch.sh 注入，指向主 repo 根。所有寫入 bypass log / telemetry 的程式碼必須 resolve 到 `${ASP_AUDIT_ROOT}/.asp-bypass-log.ndjson`，**禁止使用相對路徑**（會被 worktree cwd 拐進去）。
 
-**並行寫入驗證**：實作完成後須跑壓力測試 — 10 個 Worker 同時 append 1000 筆 bypass log entry（總 10,000 筆），驗證 NDJSON 完整性（行數 = 10,000、所有 line 可被 `jq -c .` 解析）。對應測試 N5（new）。
+#### 🚨 ASP_AUDIT_ROOT Fail-Safe 規格（Iron Rule B 強制要求）
+
+`ASP_AUDIT_ROOT` 是 Iron Rule B 全局審計的 single source of truth，**任何 silently fallback 到相對路徑的行為都會讓 Iron Rule B 靜默失效**，因此必須採 fail-closed 設計。
+
+**驗證時機**（兩階段，缺一不可）：
+
+| 階段 | 執行者 | 驗證內容 | 失敗行為 |
+|------|-------|---------|---------|
+| **Stage 1: dispatch 階段** | `dispatch.sh` 在建立 worktree 之前 | ① `ASP_AUDIT_ROOT` 已設定（非空字串）；② 是 absolute path（以 `/` 開頭）；③ 路徑存在且為目錄；④ 該目錄下存在 `.git/` 或被 `git rev-parse --show-toplevel` 認可為主 repo | 拒絕建立任何 worktree；退出碼 7；stderr 印明確原因 |
+| **Stage 2: Worker 寫入階段** | Worker 寫入 audit log 前的 wrapper（`.asp/scripts/multi-agent/audit-write.sh`） | 同 Stage 1 全部四項 | 拒絕寫入；退出碼 7；Worker 同時 abort 任務、寫入 escalation log（用 hard-coded 主 repo 路徑作為最後手段，因為此時 audit-write 本身已失效） |
+
+**禁止的 fallback 行為**：
+
+- ❌ `ASP_AUDIT_ROOT` 未設定時 fallback 到 `$(pwd)` 或 `.`（會寫到 worktree 內）
+- ❌ `ASP_AUDIT_ROOT` 為相對路徑時自動 resolve 到 absolute（會掩蓋使用者錯誤配置）
+- ❌ `ASP_AUDIT_ROOT` 指向不存在的目錄時 mkdir -p（會建立非預期的 audit trail location）
+- ❌ Worker 收到驗證失敗訊息後仍繼續執行任務（即使把 task 結果丟掉，也已洩漏 scope_violation 等敏感事件未被記錄）
+
+**強制路徑**：所有 audit log 寫入必須透過 `audit-write.sh` wrapper，禁止直接 `>>` append。wrapper 在 Stage 2 失敗時必須讓 caller process 結束，不可 silent。
+
+**對應測試**：S15（正向）+ N7（負向，新增）+ N8（負向，新增）。
+
+**並行寫入驗證**：實作完成後須跑壓力測試 — 10 個 Worker 同時 append 1000 筆 bypass log entry（總 10,000 筆），驗證 NDJSON 完整性（行數 = 10,000、所有 line 可被 `jq -c .` 解析）。對應測試 S18。
 
 ### 🪝 Iron Rule A 在 worktree 中的掛載機制
 
@@ -170,8 +192,10 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 | N2 | ❌ 負向 | Worker 修改 forbid 路徑 | Worker 中止、bypass log 寫入、Orchestrator 收到 fail 回報 | S7 |
 | N3 | ❌ 負向 | 兩個 task branch 之間 merge 衝突 | Orchestrator 暫停、列出衝突檔案、退出碼 3 | S8 |
 | N4 | ❌ 負向 | worktree_root 指向 `/etc` | 拒絕建立，安全警告 | S9 |
-| N5 | ❌ 負向 | scope.allow 重疊（兩 task 都含 `src/store/`） | dispatch 前偵測並拒絕，要求重新拆解、退出碼 5 | S17 (new) |
-| N6 | ❌ 負向 | 10 worker × 1000 entry 並行壓測 bypass log | NDJSON 共 10,000 行、`jq -c .` 全部可解析、無 truncated line | S18 (new，並行寫入安全性) |
+| N5 | ❌ 負向 | scope.allow 重疊（兩 task 都含 `src/store/`） | dispatch 前偵測並拒絕，要求重新拆解、退出碼 5 | S17 |
+| N6 | ❌ 負向 | 10 worker × 1000 entry 並行壓測 bypass log | NDJSON 共 10,000 行、`jq -c .` 全部可解析、無 truncated line | S18（並行寫入安全性） |
+| N7 | ❌ 負向 | `ASP_AUDIT_ROOT` 未設定時 dispatch 啟動 | dispatch.sh 拒絕建立 worktree、退出碼 7、stderr 含「ASP_AUDIT_ROOT must be set」 | S20 |
+| N8 | ❌ 負向 | `ASP_AUDIT_ROOT` 為相對路徑（例如 `.`）時 dispatch 啟動 | 拒絕、退出碼 7、stderr 含「ASP_AUDIT_ROOT must be absolute path」 | S21 |
 | B1 | 🔶 邊界 | max_parallel = 10 | 10 個 worktree 並行不衝突 | S10 |
 | B2 | 🔶 邊界 | max_parallel = 11 | 要求人類確認後才繼續（**human-in-loop，自動測試靠 mock 確認 prompt，不真的等人**） | S11 |
 | B3 | 🔶 邊界 | worktree idle > 2 小時 | `make agent-worktree-gc` 標記為 stale 並清理 | S12 |
@@ -344,20 +368,44 @@ Feature: Multi-Agent Worktree 硬性隔離
     And .asp-task-manifests/TASK-001.yaml 由 Orchestrator 標記為 abandoned
     And 下次執行 `make agent-worktree-gc` 時清理該 worktree
     But base_branch 不受影響（worker 未來得及 commit）
+
+  # --- ASP_AUDIT_ROOT fail-safe（Iron Rule B 全局審計後門封堵） ---
+
+  Scenario: S20 - ASP_AUDIT_ROOT 未設定時 dispatch 拒絕啟動
+    Given 環境變數 ASP_AUDIT_ROOT 未設定（unset）或為空字串
+    When dispatch.sh 啟動
+    Then dispatch 立即失敗，退出碼為 7
+    And stderr 含 "ASP_AUDIT_ROOT must be set"
+    And 沒有 worktree 被建立
+    And 沒有 audit log（bypass / telemetry）被寫入任何位置
+
+  Scenario Outline: S21 - ASP_AUDIT_ROOT 非絕對路徑或無效路徑時 dispatch 拒絕
+    Given 環境變數 ASP_AUDIT_ROOT = <value>
+    When dispatch.sh 啟動
+    Then dispatch 失敗，退出碼為 7
+    And stderr 含 <error_msg>
+    And 沒有 worktree 被建立
+
+    Examples:
+      | value                          | error_msg                                            |
+      | "."                            | "ASP_AUDIT_ROOT must be absolute path"               |
+      | "../some-rel"                  | "ASP_AUDIT_ROOT must be absolute path"               |
+      | "/tmp/does-not-exist"          | "ASP_AUDIT_ROOT path not found or not a directory"   |
+      | "/tmp/not-a-git-repo"          | "ASP_AUDIT_ROOT is not a git repo (no .git/ found)"  |
 ```
 
 ---
 
 ## ✅ 驗收標準（Done When）
 
-1. [ ] `make test-filter FILTER=spec-004` 全數通過（測試矩陣 7 P + 6 N + 6 B = 19 項全綠）
+1. [ ] `make test-filter FILTER=spec-004` 全數通過（測試矩陣 7 P + 8 N + 6 B = 21 項全綠）
 2. [ ] `make lint` 無 error
 3. [ ] `multi_agent.md` 中所有指向 v4.1 worktree 的廢止警告改為指向已實作章節（不再用「將實作」字樣，且不用任何行號描述位置）
 4. [ ] `multi_agent.md` 新增「Multi-agent worktree 隔離」章節，描述使用方式與限制
 5. [ ] `make agent-worktree-gc` Makefile target 實作完成
 6. [ ] `make agent-worktree-list` 顯示當前所有 worktree + age + task_id
 7. [ ] `.asp/scripts/multi-agent/dispatch.sh` 與 `converge.sh` 實作
-8. [ ] 副作用連動已驗證（見 Side Effects 表中所有 P1-P7 / N1-N6 / B1-B6 驗證 ID）
+8. [ ] 副作用連動已驗證（見 Side Effects 表中所有 P1-P7 / N1-N8 / B1-B6 驗證 ID）
 9. [ ] Rollback plan 已測試（`make spec-004-rollback-test`）
 10. [ ] 已更新 `docs/architecture.md`（multi-agent 子系統圖加入 worktree 層）
 11. [ ] 已更新 `CHANGELOG.md`（v4.1 entry）
@@ -366,6 +414,8 @@ Feature: Multi-Agent Worktree 硬性隔離
 14. [ ] 與 ADR-002 Iron Rule A/B/C 不衝突（S15+S16 場景驗證）
 15. [ ] 提供 `docs/specs/SPEC-004-benchmarks.md` — 含基準環境實測數據（含 WSL2 / NFS / 大型 repo 偏離結果）
 16. [ ] `ASP_AUDIT_ROOT` 環境變數機制實作 + 文件化（dispatch.sh 注入、bypass log / telemetry 寫入點 resolve）
+17. [ ] `ASP_AUDIT_ROOT` Fail-Safe 兩階段驗證實作（dispatch 階段 + Worker 寫入階段；fail-closed 不 fallback）；`audit-write.sh` wrapper 為唯一寫入點；S20/S21 場景全綠
+18. [ ] 提供 `docs/v4-decision-log.md` D6 條目（worktree 決策索引），確保 SPEC 引用可追溯
 
 ---
 
@@ -433,7 +483,9 @@ Feature: Multi-Agent Worktree 硬性隔離
 
 ## 📎 參考資料（References）
 
-- **相關 ADR**：D-001（v4-decision-log.md，廢止 file-lock 採用 worktree）
+- **相關決策**：
+  - `docs/v4-architecture-sds.md` §10 D-001 addendum (2026-05-10) — 完整 alternatives + rationale
+  - `docs/v4-decision-log.md` D6 — worktree 決策索引
 - **被取代的機制**：v3.7 `.agent-lock.yaml` + `make agent-lock-gc`（已於 commit `10adbbe` 廢止）
 - **現有設計**：`docs/multi-agent-architecture.md` v3.0 角色制（保留，本 SPEC 只變動隔離層）
 - **git worktree 文件**：https://git-scm.com/docs/git-worktree
