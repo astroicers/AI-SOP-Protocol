@@ -18,8 +18,10 @@
 > **v3.0 升級**：通用 Worker 升級為 10 個專精角色（4 部門）。
 > 角色定義見 `.asp/agents/*.yaml`，團隊組成見 `.asp/agents/team_compositions.yaml`。
 >
-> **Context 全量傳遞**：agent 間交接使用結構化交接單（`.asp/templates/handoff/`），
-> 不摘要、不壓縮，確保新 agent 取得完整上下文。
+> ⚠️ **v3.7「Context 全量傳遞」機制已廢止（D-001, 2026-05-04）**：
+> 新作法採 `/clear` + scratchpad（檔案路徑 + hash + 邊界限制）取代 context dump，
+> 避免跨 agent prompt injection 污染。完整 worktree 隔離架構排程於 v4.1 實作。
+> 詳見 `docs/v4-architecture-sds.md` §5.4 與 D-001。
 
 ### 角色分派
 
@@ -50,9 +52,11 @@ FUNCTION assign_roles(task_type, complexity, current_depth=0):
 1. 讀取 docs/architecture.md 與 docs/adr/ 確認現況
 2. 將需求拆解為低耦合子任務
 3. 為每個子任務定義 Task Manifest（見下）
-4. 建立 .agent-lock.yaml 登記文件鎖定
-5. 指派 Worker，設定 Done Definition（呼叫 assign_roles(type, complexity, current_depth=0)）
+4. 指派 Worker，設定 Done Definition（呼叫 assign_roles(type, complexity, current_depth=0)）
 ```
+
+> ⚠️ v3.7 步驟 4「建立 `.agent-lock.yaml` 登記文件鎖定」已廢止（D-001, 2026-05-04）。
+> 改用 git worktree 硬性隔離（v4.1 實作），每 agent 一個 worktree，無需檔案鎖。
 
 > **深度追蹤規則**：Orchestrator 是唯一以 `current_depth=0` 呼叫 `assign_roles` 的角色。
 > Worker 若需派生子 agent（如 impl 呼叫 Task 工具），必須以 `current_depth=1` 呼叫，
@@ -79,50 +83,18 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 
 ---
 
-## 文件鎖定（防衝突）
+## 衝突隔離（v4.0 起改為 worktree 模式）
 
-Orchestrator 維護 `.agent-lock.yaml`，Worker 修改任何檔案前必須確認未被鎖定。
-
-```yaml
-# .agent-lock.yaml
-locked_files:
-  src/store/user.go:
-    by: worker-a
-    task: TASK-001
-    since: 2025-01-15T10:00:00Z
-    expires: 2025-01-15T12:00:00Z   # 超時自動解鎖
-    track: A              # NEW: 軌道標識
-    level: 0              # NEW: 拓撲層級
-    lock_type: exclusive  # NEW: exclusive | shared-read
-```
-
-```bash
-make agent-unlock FILE=src/store/user.go   # 正常完成後解鎖
-make agent-lock-gc                          # 清理逾時鎖定（> 2 小時視為異常）
-```
-
-### Lock GC 自動化
-
-在 `Makefile` 中加入自動觸發：
-
-```bash
-# Makefile 新增
-agent-lock-gc:
-	@echo "清理逾時 agent locks..."
-	@python3 -c " \
-	import yaml, datetime; \
-	data = yaml.safe_load(open('.agent-lock.yaml')) or {}; \
-	now = datetime.datetime.now(datetime.timezone.utc); \
-	expired = [f for f, v in (data.get('locked_files') or {}).items() \
-	           if datetime.datetime.fromisoformat(v['expires']) < now]; \
-	[data['locked_files'].pop(f) for f in expired]; \
-	yaml.dump(data, open('.agent-lock.yaml', 'w')); \
-	print(f'  已清理 {len(expired)} 個逾時鎖定') if expired else print('  無逾時鎖定')"
-```
-
-**自動觸發時機**：
-- Orchestrator 每次輪詢 `completed.jsonl` 時，同時執行 `make agent-lock-gc`
-- SessionStart hook 可選擇性加入 lock GC
+> ⚠️ **v3.7「文件鎖定」機制已廢止（D-001, 2026-05-04）**
+>
+> 舊機制：`.agent-lock.yaml` + `make agent-lock-gc` 用檔案層級鎖防止 Worker 互相覆蓋。
+> 廢止理由：檔案鎖是 soft mechanism（靠 AI 自律檢查），W5 教過 hard mechanism 才可靠。
+>
+> **新作法（v4.1 實作）**：每個 Worker 在獨立 git worktree 中工作，由 Orchestrator
+> 在 `converge_tracks` 階段以 git merge 匯流。隔離由檔案系統層保證，不靠 AI 自律。
+>
+> v4.0 過渡期：multi-agent 任務以「單軌序列執行 + 明確 scope.allow/forbid」運作，
+> 暫不啟用平行軌道。完整 worktree 機制見 `docs/v4-architecture-sds.md` §5.4。
 
 ---
 
@@ -165,10 +137,6 @@ FUNCTION on_worker_done(event, lock_registry):
       escalate_to_human(task,
         reason  = "重試 {MAX_RETRIES} 次仍失敗",
         details = test_result.failures)
-
-  // 死鎖處理：鎖超過 expires 時間 → 自動 gc
-  IF lock_registry.has_expired_locks():
-    EXECUTE("make agent-lock-gc")
 ```
 
 ---
