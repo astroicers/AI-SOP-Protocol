@@ -666,6 +666,13 @@ asp-bypass-record: ## 寫入 bypass 記錄（內部使用，或手動記錄：SK
 		mv ".asp-bypass-log.json.tmp" ".asp-bypass-log.json"; \
 	echo "✅ Bypass 記錄已寫入 (.asp-bypass-log.json)"
 
+asp-bypass-migrate: ## Migrate .asp-bypass-log.json → .asp-bypass-log.ndjson (Iron Rule B)
+	@if [ -f .asp-bypass-log.json ]; then \
+	    python3 -c "import json,sys; [print(json.dumps(e)) for e in json.load(open('.asp-bypass-log.json'))]" \
+	    >> .asp-bypass-log.ndjson && echo "[ASP] Migrated bypass log to NDJSON (.asp-bypass-log.ndjson)"; \
+	else echo "[ASP] No .asp-bypass-log.json to migrate"; fi
+.PHONY: asp-bypass-migrate
+
 #---------------------------------------------------------------------------
 # 專案健康審計
 #---------------------------------------------------------------------------

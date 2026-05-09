@@ -32,6 +32,40 @@ WARNINGS=()
 INFOS=()
 DYNAMIC_DENY=()
 
+# ═══════════════════════════════════════════
+# Iron Rule A: Hook Integrity Verification
+# ═══════════════════════════════════════════
+if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
+    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh"; do
+        if git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" &>/dev/null 2>&1; then
+            CURRENT_HASH=$(sha256sum "${PROJECT_DIR}/${CRITICAL_FILE}" 2>/dev/null | cut -d' ' -f1)
+            GIT_HASH=$(git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1)
+            if [ "${CURRENT_HASH}" != "${GIT_HASH}" ]; then
+                STAGED=$(git -C "${PROJECT_DIR}" diff --cached --name-only 2>/dev/null | grep -c "${CRITICAL_FILE}" || echo 0)
+                if [ "${STAGED}" -eq 0 ]; then
+                    BLOCKERS+=("Iron Rule A: ${CRITICAL_FILE} modified outside git (hash mismatch). Run: git diff ${CRITICAL_FILE}")
+                fi
+            fi
+        fi
+    done
+fi
+
+# ═══════════════════════════════════════════
+# Iron Rule B: Append-Only Bypass Log Integrity
+# ═══════════════════════════════════════════
+NDJSON_LOG="${PROJECT_DIR}/.asp-bypass-log.ndjson"
+JSON_LOG="${PROJECT_DIR}/.asp-bypass-log.json"
+if [ -f "${JSON_LOG}" ] && [ ! -f "${NDJSON_LOG}" ]; then
+    WARNINGS+=("Iron Rule B: .asp-bypass-log.json exists but not migrated to .ndjson format. Run: make asp-bypass-migrate")
+fi
+if [ -f "${NDJSON_LOG}" ] && git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
+    LINE_COUNT=$(wc -l < "${NDJSON_LOG}" 2>/dev/null || echo 0)
+    GIT_LINE_COUNT=$(git -C "${PROJECT_DIR}" log --oneline --follow -- "${NDJSON_LOG}" 2>/dev/null | wc -l)
+    if [ "${LINE_COUNT}" -lt "${GIT_LINE_COUNT}" ] && [ "${GIT_LINE_COUNT}" -gt 0 ]; then
+        BLOCKERS+=("Iron Rule B: .asp-bypass-log.ndjson may be truncated (current: ${LINE_COUNT} lines, git commits: ${GIT_LINE_COUNT})")
+    fi
+fi
+
 # ─── 輔助函數 ───
 get_field() {
     grep "^${1}:" "$PROFILE_FILE" 2>/dev/null | awk '{print $2}' | tr -d '"' | tr -d "'"
