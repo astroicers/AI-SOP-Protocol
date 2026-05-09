@@ -720,8 +720,8 @@ audit-health:
 	\
 	echo "── 1. 測試覆蓋 ──"; \
 	SRC_COUNT=0; TEST_COUNT=0; \
-	for ext in go ts tsx js jsx py java rb; do \
-		SRC_COUNT=$$((SRC_COUNT + $$(find . -name "*.$$ext" ! -path '*/node_modules/*' ! -path '*/.git/*' ! -path '*/vendor/*' ! -name '*_test.*' ! -name '*.test.*' ! -name '*.spec.*' ! -name 'test_*' ! -path '*/test*/*' 2>/dev/null | wc -l))); \
+	for ext in go ts tsx js jsx py java rb sh; do \
+		SRC_COUNT=$$((SRC_COUNT + $$(find . -name "*.$$ext" ! -path '*/node_modules/*' ! -path '*/.git/*' ! -path '*/vendor/*' ! -name '*_test.*' ! -name '*.test.*' ! -name '*.spec.*' ! -name 'test_*' ! -path '*/test*/*' ! -path '*/tests/*' 2>/dev/null | wc -l))); \
 		TEST_COUNT=$$((TEST_COUNT + $$(find . \( -name "*_test.$$ext" -o -name "*.test.$$ext" -o -name "*.spec.$$ext" -o -name "test_*.$$ext" \) ! -path '*/node_modules/*' ! -path '*/.git/*' 2>/dev/null | wc -l))); \
 	done; \
 	if [ $$SRC_COUNT -gt 0 ]; then \
@@ -808,7 +808,7 @@ audit-health:
 	DEP_COUNT=$$(grep -r "DEPRECATED\|@deprecated" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" --include="*.js" . 2>/dev/null | grep -v node_modules | grep -v .git | wc -l | tr -d ' '); \
 	TODO_NO_OWNER=$$(grep -rn "TODO[^(]" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" --include="*.js" . 2>/dev/null | grep -v node_modules | grep -v .git | wc -l | tr -d ' '); \
 	FIXME_COUNT=$$(grep -rn "FIXME" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" --include="*.js" . 2>/dev/null | grep -v node_modules | grep -v .git | wc -l | tr -d ' '); \
-	TECH_DEBT=$$(grep -rn "tech-debt:" . 2>/dev/null | grep -v node_modules | grep -v .git | grep -v .asp/profiles | wc -l | tr -d ' '); \
+	TECH_DEBT=$$(grep -rn "tech-debt:" --include="*.go" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" --include="*.java" --include="*.rb" --include="*.sh" . 2>/dev/null | grep -v node_modules | grep -v .git | grep -v .asp/profiles | grep -v .asp/templates | grep -v .asp/hooks | grep -v .asp/scripts | wc -l | tr -d ' '); \
 	if [ $$DEP_COUNT -gt 0 ]; then echo "  🟡 WARNING: $$DEP_COUNT 個 DEPRECATED 標記待清理"; WARNINGS=$$((WARNINGS + 1)); fi; \
 	if [ $$TODO_NO_OWNER -gt 0 ]; then echo "  🟡 WARNING: $$TODO_NO_OWNER 個 TODO 無 owner"; WARNINGS=$$((WARNINGS + 1)); fi; \
 	if [ $$FIXME_COUNT -gt 0 ]; then echo "  🟢 INFO: $$FIXME_COUNT 個 FIXME"; INFOS=$$((INFOS + 1)); fi; \
