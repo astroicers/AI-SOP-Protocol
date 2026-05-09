@@ -38,6 +38,7 @@
 | Iron Rule A: Hook file GPG signing | ADR-002 | Planned |
 | Iron Rule B: `.asp-bypass-log.ndjson` + `chattr +a` enforcement | ADR-002 | Planned |
 | Iron Rule C: UNTRUSTED_EXTERNAL parsing in tool output layer | ADR-002 | Doc-only in v4.0 |
+| **Multi-agent worktree hard isolation** | D-001 | **SPEC-004 (Draft)** |
 | Multi-agent memory isolation (worker A cannot read worker B memory) | TBD | Planned |
 | RAG poisoning detection (semantic drift alerts in `rag_search`) | TBD | Planned |
 | `audit-health` Dimension 8: Security Posture score (0–5) | TBD | Planned |

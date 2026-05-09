@@ -21,7 +21,7 @@
 > ⚠️ **v3.7「Context 全量傳遞」機制已廢止（D-001, 2026-05-04）**：
 > 新作法採 `/clear` + scratchpad（檔案路徑 + hash + 邊界限制）取代 context dump，
 > 避免跨 agent prompt injection 污染。完整 worktree 隔離架構排程於 v4.1 實作。
-> 詳見 `docs/v4-architecture-sds.md` §5.4 與 D-001。
+> 詳見 `docs/v4-architecture-sds.md` §5.4、D-001、與 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
 
 ### 角色分派
 
@@ -56,7 +56,7 @@ FUNCTION assign_roles(task_type, complexity, current_depth=0):
 ```
 
 > ⚠️ v3.7 步驟 4「建立 `.agent-lock.yaml` 登記文件鎖定」已廢止（D-001, 2026-05-04）。
-> 改用 git worktree 硬性隔離（v4.1 實作），每 agent 一個 worktree，無需檔案鎖。
+> 改用 git worktree 硬性隔離（SPEC-004），每 agent 一個 worktree，無需檔案鎖。
 
 > **深度追蹤規則**：Orchestrator 是唯一以 `current_depth=0` 呼叫 `assign_roles` 的角色。
 > Worker 若需派生子 agent（如 impl 呼叫 Task 工具），必須以 `current_depth=1` 呼叫，
@@ -90,11 +90,12 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 > 舊機制：`.agent-lock.yaml` + `make agent-lock-gc` 用檔案層級鎖防止 Worker 互相覆蓋。
 > 廢止理由：檔案鎖是 soft mechanism（靠 AI 自律檢查），W5 教過 hard mechanism 才可靠。
 >
-> **新作法（v4.1 實作）**：每個 Worker 在獨立 git worktree 中工作，由 Orchestrator
-> 在 `converge_tracks` 階段以 git merge 匯流。隔離由檔案系統層保證，不靠 AI 自律。
+> **新作法（SPEC-004，v4.1 實作）**：每個 Worker 在獨立 git worktree 中工作，
+> 由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。隔離由檔案系統層保證，
+> 不靠 AI 自律。
 >
 > v4.0 過渡期：multi-agent 任務以「單軌序列執行 + 明確 scope.allow/forbid」運作，
-> 暫不啟用平行軌道。完整 worktree 機制見 `docs/v4-architecture-sds.md` §5.4。
+> 暫不啟用平行軌道。完整 worktree 機制見 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
 
 ---
 
