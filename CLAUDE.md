@@ -1,7 +1,7 @@
 # AI-SOP-Protocol (ASP) v4.0 — 行為憲法
 
-> 讀取順序：本檔案 → `.ai_profile` → 對應 `.asp/profiles/`（按需）
-> Profile 驗證邏輯：見 `.asp/profiles/global_core.md`；由 `session-audit.sh` 在 SessionStart 自動執行
+> 讀取順序：本檔案 → `.ai_profile` → 對應 `~/.claude/asp/profiles/`（按需）
+> Profile 驗證邏輯：見 `~/.claude/asp/profiles/global_core.md`；由 `session-audit.sh` 在 SessionStart 自動執行
 
 ---
 
@@ -14,7 +14,7 @@
 5. `autopilot: enabled` → 載入 `autopilot.md`（含 step 3/4）；檢查 `.asp-autopilot-state.json` 自動續接
 6. 無 `.ai_profile`：只套用本檔案鐵則，詢問使用者專案類型
 
-**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`multi_agent+task_orchestrator+pipeline` | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → +`autopilot+autonomous_dev+task_orchestrator` | 完整 schema：`.asp/templates/example-profile-full.yaml`
+**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`multi_agent+task_orchestrator+pipeline` | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → +`autopilot+autonomous_dev+task_orchestrator` | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
 
 ---
 
@@ -29,7 +29,7 @@
 | **L4** | Collaborative | + multi-agent + reality-checker | 中大型/跨模組 |
 | **L5** | Autonomous | + autopilot + RAG | ROADMAP 驅動 |
 
-等級詳情：`.asp/levels/level-N.yaml` | 等級管理：`make asp-level-check` / `asp-level skill`
+等級詳情：`~/.claude/asp/levels/level-N.yaml` | 等級管理：`make asp-level-check` / `asp-level skill`
 
 ---
 
@@ -68,13 +68,13 @@
          ↑ 架構影響時必須        ↑ 預設行為，可調整
 ```
 
-預設行為完整清單：`.asp/profiles/global_core.md`「預設行為」section
+預設行為完整清單：`~/.claude/asp/profiles/global_core.md`「預設行為」section
 
 ---
 
 ## 技術執行層
 
-策略：`Bash(*)` allow-all + deny 黑名單（`.asp/hooks/denied-commands.json` + session-audit.sh 動態注入） | Hook 設定：`.claude/settings.json`
+策略：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入） | Hook 設定：`.claude/settings.json`
 
 ---
 
