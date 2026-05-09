@@ -1,647 +1,444 @@
 #!/usr/bin/env bash
-# AI-SOP-Protocol 安裝腳本
-# 用途：在新專案或現有專案中快速植入 ASP（支援升級）
+# AI-SOP-Protocol 安裝腳本 v4.0 — User-level 架構
+#
+# 安裝架構：
+#   Phase 1：ASP 核心裝到 ~/.claude/（所有專案共用，一次安裝）
+#   Phase 2：在當前專案建立輕量設定（.ai_profile + CLAUDE.md + hooks 設定）
+#
+# 用法：
+#   bash install.sh                          # 互動式安裝
+#   ASP_TYPE=system ASP_LEVEL=2 bash install.sh  # 非互動式（CI / curl | bash）
+#
+# 移除：bash uninstall.sh
 
 set -euo pipefail
 
 PROTOCOL_REPO="https://github.com/astroicers/AI-SOP-Protocol"
-PROTOCOL_DIR=".asp-tmp"
+TMP_DIR=$(mktemp -d /tmp/asp-install-XXXXX)
+USER_CLAUDE="${HOME}/.claude"
+USER_ASP="${USER_CLAUDE}/asp"
+USER_SKILLS="${USER_CLAUDE}/skills/asp"
 
-# 失敗時自動清理暫存目錄
-cleanup() {
-    local exit_code=$?
-    if [ $exit_code -ne 0 ] && [ -d "$PROTOCOL_DIR" ]; then
-        echo "⚠️  安裝中斷，清理暫存目錄 $PROTOCOL_DIR"
-        rm -rf "$PROTOCOL_DIR"
-    fi
-    exit $exit_code
+# 失敗時清理暫存目錄
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+# ─── 工具函式 ────────────────────────────────────────────────────
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+success() { echo -e "  ${GREEN}✓${NC} $1"; }
+warn()    { echo -e "  ${YELLOW}⚠${NC}  $1"; }
+
+# 跨平台 sed -i
+SED_INPLACE() {
+  if [ "$(uname)" = "Darwin" ]; then sed -i '' "$@"; else sed -i "$@"; fi
 }
-trap cleanup EXIT
 
-# 檢查 jq（Hooks 需要）
-if command -v jq &>/dev/null; then
-    JQ_AVAILABLE=true
-else
-    JQ_AVAILABLE=false
+# ─── 偵測專案類型 ─────────────────────────────────────────────────
+detect_type() {
+  if [ -f "docker-compose.yml" ] && [ -d "docs/adr" ]; then echo "architecture"; return; fi
+  if ls */Dockerfile &>/dev/null 2>&1 || [ -d "terraform" ] || [ -d "pulumi" ] || [ -f "helmfile.yaml" ]; then
+    echo "architecture"; return
+  fi
+  for f in go.mod Cargo.toml pom.xml package.json requirements.txt pyproject.toml Dockerfile Makefile; do
+    [ -f "$f" ] && echo "system" && return
+  done
+  echo "content"
+}
+
+# ─── Preset ───────────────────────────────────────────────────────
+apply_preset() {
+  case "$1" in
+    1) ASP_LEVEL=1; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+       ENABLE_RAG=n; ENABLE_GUARDRAIL=n; ENABLE_CODING_STYLE=n ;;
+    2) ASP_LEVEL=2; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
+    3) ASP_LEVEL=3; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
+    4) ASP_LEVEL=4; HITL_LEVEL=standard; WORKFLOW=standard; MODE=multi-agent
+       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n
+       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
+    5) ASP_LEVEL=5; HITL_LEVEL=minimal; WORKFLOW=vibe-coding; MODE=multi-agent
+       ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y
+       ENABLE_RAG=y; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
+    *) apply_preset 1 ;;
+  esac
+}
+
+# ═══════════════════════════════════════════════════════════════════
+# 開場
+# ═══════════════════════════════════════════════════════════════════
+echo ""
+echo "🤖 AI-SOP-Protocol 安裝程式 v4.0"
+echo "======================================"
+echo "  架構：User-level（~/.claude/asp/）— 所有專案共用"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 1：User-level 安裝
+# ═══════════════════════════════════════════════════════════════════
+echo "📦 Phase 1：安裝 ASP 核心到 ~/.claude/"
+echo "──────────────────────────────────────"
+
+IS_USER_UPGRADE=false
+if [ -d "$USER_ASP" ] || [ -d "$USER_SKILLS" ]; then
+  IS_USER_UPGRADE=true
+  INSTALLED_VERSION="unknown"
+  [ -f "$USER_ASP/VERSION" ] && INSTALLED_VERSION=$(cat "$USER_ASP/VERSION" | tr -d '[:space:]')
+  echo "  🔄 偵測到已安裝 ASP v${INSTALLED_VERSION}，執行升級"
 fi
 
-# 跨平台 sed
-SED_INPLACE() {
-    if [ "$(uname)" = "Darwin" ]; then
-        sed -i '' "$@"
-    else
-        sed -i "$@"
+# clone ASP repo
+echo "  從 GitHub 下載 ASP..."
+if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>/dev/null; then
+  NEW_VERSION=$(cat "$TMP_DIR/.asp/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+  NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
+
+  # ~/.claude/asp/（profiles/hooks/templates/levels/agents/config）
+  mkdir -p "$USER_ASP"
+  for dir in profiles hooks templates levels agents config advanced; do
+    if [ -d "$TMP_DIR/.asp/$dir" ]; then
+      rm -rf "${USER_ASP:?}/$dir"
+      cp -r "$TMP_DIR/.asp/$dir" "$USER_ASP/$dir"
     fi
-}
+  done
+  cp -f "$TMP_DIR/.asp/VERSION" "$USER_ASP/VERSION" 2>/dev/null || true
+  chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
+
+  # ~/.claude/skills/asp/
+  mkdir -p "$USER_SKILLS"
+  rm -rf "${USER_SKILLS:?}/"*
+  cp -r "$TMP_DIR/.claude/skills/asp/." "$USER_SKILLS/"
+
+  # ~/.claude/CLAUDE.md（user-level 鐵則）
+  # 只有在不存在或已是 ASP 版本時才覆蓋
+  USER_CLAUDE_MD="$USER_CLAUDE/CLAUDE.md"
+  if [ ! -f "$USER_CLAUDE_MD" ] || grep -q "ASP User-level Rules\|AI-SOP-Protocol" "$USER_CLAUDE_MD" 2>/dev/null; then
+    cp "$TMP_DIR/.claude/CLAUDE.md" "$USER_CLAUDE_MD" 2>/dev/null || \
+    cat > "$USER_CLAUDE_MD" << 'UCLAUDEMD'
+# ASP User-level Rules
+
+> Applies to all projects. Project-specific rules go in each project's CLAUDE.md.
+
+## 鐵則（不可覆蓋）
+
+| 鐵則 | 說明 |
+|------|------|
+| 破壞性操作防護 | `git push / rebase / rm -rf / docker push` 必須先列出變更並等待人類確認 |
+| 敏感資訊保護 | 禁止輸出 API Key、密碼、憑證（任何包裝方式） |
+| ADR 未定案禁止實作 | Draft ADR 狀態下禁止寫生產代碼 |
+| 外部事實驗證防護 | 涉及第三方 API/版本/法規 → 必須執行 asp-fact-verify，記錄至 .asp-fact-check.md |
+
+## 成熟度等級（L0-L5）
+
+| Level | 名稱 | 適用場景 |
+|-------|------|---------|
+| L0 | Spike | 技術假設驗證、PoC（≤5 working days） |
+| L1 | Starter | 個人/小型專案（最小治理） |
+| L2 | Disciplined | 自動化品質護欄 |
+| L3 | Test-First | 測試文化成熟 + pipeline gates G1-G6 |
+| L4 | Collaborative | 中大型/跨模組 + multi-agent |
+| L5 | Autonomous | ROADMAP 驅動 + RAG |
+
+Level details: see `~/.claude/skills/asp/` or `~/.claude/asp/levels/level-N.yaml`
+
+## 啟動程序
+
+1. 讀取專案 `.ai_profile`，依欄位載入對應 profile（見 `~/.claude/asp/profiles/global_core.md`）
+2. 無 `.ai_profile`：只套用本鐵則，詢問使用者專案類型
+
+## Agent skills
+
+Invoke with `/skill-name`. All asp-* skills via `~/.claude/skills/asp/`.
+
+| Skill | Purpose |
+|-------|---------|
+| /asp-plan | ADR + SPEC planning |
+| /asp-ship | Pre-commit 10-step check |
+| /asp-gate | Quality gates G1-G6 |
+| /asp-audit | Project health audit |
+| /asp-level | Maturity level management |
+UCLAUDEMD
+    success "~/.claude/CLAUDE.md（user-level 鐵則）"
+  fi
+
+  # ~/.claude/scripts/asp-sync.sh（後續更新用）
+  mkdir -p "$USER_CLAUDE/scripts"
+  cp "$TMP_DIR/.claude/scripts/asp-sync.sh" "$USER_CLAUDE/scripts/asp-sync.sh" 2>/dev/null || \
+  cat > "$USER_CLAUDE/scripts/asp-sync.sh" << 'SYNCSH'
+#!/usr/bin/env bash
+# ASP sync — 從 AI-SOP-Protocol repo 同步到 ~/.claude/
+# 用法：bash ~/.claude/scripts/asp-sync.sh
+set -euo pipefail
+ASP_REPO="${HOME}/AI-SOP-Protocol"
+USER_CLAUDE="${HOME}/.claude"
+USER_ASP="${USER_CLAUDE}/asp"
+USER_SKILLS="${USER_CLAUDE}/skills/asp"
+[ -d "$ASP_REPO" ] || { echo "ERROR: ASP repo not found at $ASP_REPO"; exit 1; }
+DIFF=$(diff -rq "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
+DIFF2=$(diff -rq "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
+[ -z "$DIFF" ] && [ -z "$DIFF2" ] && { echo "Already in sync"; exit 0; }
+echo "Changes detected. Syncing..."
+if command -v rsync &>/dev/null; then
+  rsync -a --delete "$ASP_REPO/.asp/" "$USER_ASP/"
+  rsync -a --delete "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
+else
+  rm -rf "$USER_ASP" && cp -r "$ASP_REPO/.asp" "$USER_ASP"
+  rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
+fi
+chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
+echo "Synced $(find "$USER_SKILLS" -type f | wc -l) skill files + profiles/hooks/templates"
+SYNCSH
+  chmod +x "$USER_CLAUDE/scripts/asp-sync.sh"
+  success "~/.claude/scripts/asp-sync.sh"
+
+  if [ "$IS_USER_UPGRADE" = true ]; then
+    success "User-level 升級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+  else
+    success "User-level 安裝完成（v${NEW_VERSION}）"
+  fi
+else
+  warn "無法連接 GitHub，跳過 user-level 安裝"
+  warn "請手動執行：bash ~/.claude/scripts/asp-sync.sh"
+  NEW_VERSION="local"
+  NEW_COMMIT="local"
+fi
 
 echo ""
-echo "🤖 AI-SOP-Protocol 安裝程式"
-echo "=============================="
 
-# 偵測是否為升級
-IS_UPGRADE=false
-INSTALLED_VERSION="0.0.0"
-if [ -f ".asp/VERSION" ]; then
-    INSTALLED_VERSION=$(cat ".asp/VERSION" | tr -d '[:space:]')
-    IS_UPGRADE=true
-elif [ -f ".ai_profile" ]; then
-    IS_UPGRADE=true
+# ═══════════════════════════════════════════════════════════════════
+# Phase 2：專案輕量設定
+# ═══════════════════════════════════════════════════════════════════
+echo "📋 Phase 2：設定專案輕量層（$(pwd)）"
+echo "──────────────────────────────────────"
+
+# 升級偵測
+IS_PROJECT_UPGRADE=false
+if [ -f ".ai_profile" ] || [ -d ".asp" ]; then
+  IS_PROJECT_UPGRADE=true
 fi
 
-# 自動偵測專案類型
-detect_type() {
-    # architecture：多服務 / IaC / K8s 基礎設施
-    if [ -f "docker-compose.yml" ] && [ -d "docs/adr" ]; then
-        echo "architecture"
-    elif ls */Dockerfile &>/dev/null 2>&1 || ls */docker-compose.yml &>/dev/null 2>&1; then
-        echo "architecture"  # 多個子目錄有 Dockerfile = 多服務
-    elif [ -d "terraform" ] || [ -d "pulumi" ] || [ -f "helmfile.yaml" ] || \
-         ls *.tf &>/dev/null 2>&1 || [ -f "skaffold.yaml" ]; then
-        echo "architecture"
-    # system：有程式碼或建置檔的單一專案
-    elif [ -f "go.mod" ] || [ -f "Cargo.toml" ] || [ -f "pom.xml" ] || \
-         [ -f "build.gradle" ] || [ -f "build.gradle.kts" ] || \
-         [ -f "*.csproj" ] || [ -f "*.sln" ] || [ -f "CMakeLists.txt" ]; then
-        echo "system"
-    elif [ -f "Dockerfile" ] || [ -f "Makefile" ]; then
-        echo "system"
-    elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-        echo "system"
-    elif [ -f "package.json" ]; then
-        echo "system"
-    elif [ -f "Gemfile" ] || [ -f "mix.exs" ] || [ -f "composer.json" ]; then
-        echo "system"
-    # content：以上都沒有
-    else
-        echo "content"
-    fi
-}
+# 舊架構清理提示
+if [ -d ".asp" ]; then
+  warn ".asp/ 偵測到舊架構 — 自動清理"
+  rm -rf ".asp"
+  success "移除 .asp/（已由 ~/.claude/asp/ 取代）"
+fi
+if [ -d ".claude/skills/asp" ]; then
+  rm -rf ".claude/skills/asp"
+  success "移除 .claude/skills/asp/（已由 ~/.claude/skills/asp/ 取代）"
+fi
 
+# 偵測類型 / 互動
 DETECTED=$(detect_type)
 DEFAULT_NAME="$(basename "$(pwd)")"
 
-# 預設開發風格
-apply_preset() {
-    MODE=auto  # 預設 mode，preset 4 會覆蓋
-    case "$1" in
-        1) # 標準模式 — 對應 L1 Starter
-            ASP_LEVEL=1
-            ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=standard
-            ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
-            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
-        2) # 高速自主模式 — 對應 L3/L5（保留以向後相容）
-            ASP_LEVEL=3
-            ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
-            ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
-            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n; WORKFLOW=vibe-coding ;;
-        3) # 完整治理模式 — 對應 L3 Test-First
-            ASP_LEVEL=3
-            ENABLE_RAG=y; ENABLE_GUARDRAIL=y; HITL_LEVEL=strict
-            ENABLE_DESIGN=y; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=y
-            ENABLE_FRONTEND_QUALITY=y; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
-        4) # 高速自主+多Agent模式 — 對應 L4/L5
-            ASP_LEVEL=4
-            ENABLE_RAG=n; ENABLE_GUARDRAIL=n; HITL_LEVEL=minimal
-            ENABLE_DESIGN=n; ENABLE_CODING_STYLE=n; ENABLE_OPENAPI=n
-            ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n; WORKFLOW=vibe-coding; MODE=multi-agent ;;
-        *) return 1 ;;
-    esac
-}
-
-# 偵測是否為互動式（curl | bash 時 stdin 不是 terminal）
 if [ -t 0 ]; then
-    echo ""
-    if [ "$IS_UPGRADE" = true ]; then
-        echo "🔄 偵測到已安裝 ASP v${INSTALLED_VERSION}，執行升級"
-    fi
-    echo "專案類型：  [1] system  [2] content  [3] architecture  （偵測：$DETECTED）"
-    read -rp "選擇 (1-3，Enter 使用偵測值): " TYPE_CHOICE
-    case "${TYPE_CHOICE:-}" in
-        1) PROJECT_TYPE=system ;;
-        2) PROJECT_TYPE=content ;;
-        3) PROJECT_TYPE=architecture ;;
-        *) PROJECT_TYPE="$DETECTED" ;;
-    esac
-    PROJECT_NAME="$DEFAULT_NAME"
+  echo ""
+  echo "  專案類型：[1] system  [2] content  [3] architecture  （偵測：$DETECTED）"
+  read -rp "  選擇 (Enter 使用偵測值): " TYPE_CHOICE
+  case "${TYPE_CHOICE:-}" in
+    1) PROJECT_TYPE=system ;;
+    2) PROJECT_TYPE=content ;;
+    3) PROJECT_TYPE=architecture ;;
+    *) PROJECT_TYPE="$DETECTED" ;;
+  esac
 
-    echo ""
-    echo "ASP 成熟度等級（v3.5 新增 — 建議新專案從 L1 開始）："
-    echo "  [1] L1 Starter       — ADR + SPEC + 測試（最小治理）"
-    echo "  [2] L2 Disciplined   — + guardrail + coding_style"
-    echo "  [3] L3 Test-First    — + pipeline gates G1-G6"
-    echo "  [4] L4 Collaborative — + multi-agent"
-    echo "  [5] L5 Autonomous    — + autopilot + RAG"
-    echo "  [P] 使用傳統 preset（1-4）代替 level"
-    read -rp "選擇 level (1-5, P, 或 Enter = L1): " LEVEL_CHOICE
-    case "${LEVEL_CHOICE:-1}" in
-        1) ASP_LEVEL=1; apply_preset 1 ;;
-        2) ASP_LEVEL=2
-           ENABLE_RAG=n; ENABLE_GUARDRAIL=y; HITL_LEVEL=standard
-           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
-           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
-        3) ASP_LEVEL=3
-           ENABLE_RAG=n; ENABLE_GUARDRAIL=y; HITL_LEVEL=standard
-           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
-           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n; WORKFLOW=standard ;;
-        4) ASP_LEVEL=4
-           ENABLE_RAG=n; ENABLE_GUARDRAIL=y; HITL_LEVEL=standard
-           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
-           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n; WORKFLOW=standard; MODE=multi-agent ;;
-        5) ASP_LEVEL=5
-           ENABLE_RAG=y; ENABLE_GUARDRAIL=y; HITL_LEVEL=minimal
-           ENABLE_DESIGN=n; ENABLE_CODING_STYLE=y; ENABLE_OPENAPI=n
-           ENABLE_FRONTEND_QUALITY=n; ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y; WORKFLOW=vibe-coding; MODE=multi-agent ;;
-        [Pp])
-           echo "開發風格：  [1] 標準  [2] 高速自主  [3] 完整治理  [4] 高速自主+多Agent"
-           read -rp "選擇 (1-4，Enter 使用 1): " PRESET_CHOICE
-           apply_preset "${PRESET_CHOICE:-1}" ;;
-        *) ASP_LEVEL=1; apply_preset 1 ;;
-    esac
+  echo ""
+  echo "  成熟度等級："
+  echo "    [1] L1 Starter       — 最小治理（ADR + SPEC + 測試）"
+  echo "    [2] L2 Disciplined   — + guardrail + coding_style"
+  echo "    [3] L3 Test-First    — + pipeline gates G1-G6"
+  echo "    [4] L4 Collaborative — + multi-agent"
+  echo "    [5] L5 Autonomous    — + autopilot + RAG"
+  read -rp "  選擇 level (Enter = L1): " LEVEL_CHOICE
+  apply_preset "${LEVEL_CHOICE:-1}"
 else
-    echo ""
-    echo "📋 非互動模式（可透過環境變數覆寫）"
-    PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
-    PROJECT_NAME="$DEFAULT_NAME"
-    apply_preset "${ASP_PRESET:-1}"
-    # 若明確指定 ASP_LEVEL，覆寫 preset 推斷的等級
-    ASP_LEVEL="${ASP_LEVEL:-$ASP_LEVEL}"
-    echo "  type: $PROJECT_TYPE | preset: ${ASP_PRESET:-1} | level: L${ASP_LEVEL} | hitl: $HITL_LEVEL"
+  PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
+  apply_preset "${ASP_LEVEL:-1}"
+  echo "  非互動模式 — type: $PROJECT_TYPE | level: L${ASP_LEVEL:-1}"
 fi
 
+PROJECT_NAME="$DEFAULT_NAME"
 echo ""
-echo "📥 安裝 AI-SOP-Protocol..."
 
-# 建立必要目錄
-mkdir -p docs/adr docs/specs
-
-# 複製核心檔案
-if git ls-remote "$PROTOCOL_REPO" &>/dev/null 2>&1; then
-    git clone --depth=1 "$PROTOCOL_REPO" "$PROTOCOL_DIR" 2>/dev/null
-
-    # 讀取新版本號與 commit hash
-    NEW_VERSION="unknown"
-    NEW_COMMIT="unknown"
-    if [ -f "$PROTOCOL_DIR/.asp/VERSION" ]; then
-        NEW_VERSION=$(cat "$PROTOCOL_DIR/.asp/VERSION" | tr -d '[:space:]')
-    fi
-    NEW_COMMIT=$(git -C "$PROTOCOL_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
-
-    if [ "$IS_UPGRADE" = true ]; then
-        echo "🔄 升級 ASP: v${INSTALLED_VERSION} → v${NEW_VERSION} (${NEW_COMMIT})"
-    fi
-
-    # --- CLAUDE.md 處理 ---
-    if [ -f "CLAUDE.md" ]; then
-        if grep -q "AI-SOP-Protocol" CLAUDE.md; then
-            # 升級場景：檢查是否有更新
-            if [ "$IS_UPGRADE" = true ] && ! diff -q "$PROTOCOL_DIR/CLAUDE.md" CLAUDE.md &>/dev/null; then
-                cp CLAUDE.md CLAUDE.md.pre-upgrade
-                cp "$PROTOCOL_DIR/CLAUDE.md" ./CLAUDE.md
-                echo "🔄 CLAUDE.md 已更新至 v${NEW_VERSION}（舊版備份於 CLAUDE.md.pre-upgrade）"
-            else
-                echo "ℹ️  CLAUDE.md 已為最新，跳過"
-            fi
-        else
-            # 首次安裝：在現有 CLAUDE.md 頂部插入 ASP 引用
-            cp CLAUDE.md CLAUDE.md.pre-asp
-            { printf '# AI-SOP-Protocol (ASP) — 行為憲法\n\n'; \
-              printf '> 本專案遵循 ASP 協議。讀取順序：本區塊 → `.ai_profile` → 對應 `.asp/profiles/`（按需）\n'; \
-              printf '> 鐵則與 Profile 對應表請見：.asp/profiles/global_core.md\n\n---\n\n'; \
-              cat CLAUDE.md; } > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md
-            echo "⚠️  已在現有 CLAUDE.md 頂部插入 ASP 引用（原檔備份於 CLAUDE.md.pre-asp）"
-        fi
-    else
-        cp "$PROTOCOL_DIR/CLAUDE.md" ./CLAUDE.md
-    fi
-
-    # --- 清理舊版 ASP（根目錄散落的檔案）---
-    for OLD_DIR in profiles templates advanced; do
-        if [ -d "$OLD_DIR" ]; then
-            # 驗證是否真的是 ASP 目錄（避免誤刪使用者同名目錄）
-            if [ -f "$OLD_DIR/global_core.md" ] || [ -f "$OLD_DIR/ADR_Template.md" ] || \
-               [ -f "$OLD_DIR/spectra_integration.md" ]; then
-                echo "🔄 偵測到舊版 ASP，清理根目錄 $OLD_DIR/"
-                rm -rf "$OLD_DIR"
-            fi
-        fi
-    done
-    # 特殊處理：scripts/rag（舊版巢狀結構）
-    if [ -d "scripts/rag" ] && [ -f "scripts/rag/build_index.py" ]; then
-        echo "🔄 清理舊版 scripts/rag/"
-        rm -rf "scripts/rag"
-        rmdir scripts 2>/dev/null || true
-    fi
-
-    # 清理舊的 .asp/ 子目錄避免 cp -r 嵌套
-    rm -rf .asp/profiles .asp/templates .asp/scripts .asp/advanced .asp/hooks .asp/config .asp/levels
-    mkdir -p .asp
-
-    # 支援新結構（.asp/）和舊結構（根目錄）
-    if [ -d "$PROTOCOL_DIR/.asp/profiles" ]; then
-        SRC="$PROTOCOL_DIR/.asp"
-    else
-        SRC="$PROTOCOL_DIR"
-    fi
-    cp -r "$SRC/profiles" ./.asp/profiles
-    cp -r "$SRC/templates" ./.asp/templates
-    cp -r "$SRC/scripts" ./.asp/scripts
-    cp -r "$SRC/advanced" ./.asp/advanced
-    if [ -d "$SRC/hooks" ]; then
-        cp -r "$SRC/hooks" ./.asp/hooks
-        chmod +x .asp/hooks/*.sh 2>/dev/null || true
-    fi
-    # v3.7: 量化閾值設定（quality-thresholds.yaml）
-    if [ -d "$SRC/config" ]; then
-        cp -r "$SRC/config" ./.asp/config
-        echo "  ✅ .asp/config/ (量化品質閾值 v3.7)"
-    fi
-    # v3.5: 成熟度等級定義
-    if [ -d "$SRC/levels" ]; then
-        cp -r "$SRC/levels" ./.asp/levels
-        echo "  ✅ .asp/levels/ (成熟度等級 L1-L5)"
-    fi
-
-    # v3.0: Agent 角色定義
-    if [ -d "$PROTOCOL_DIR/.asp/agents" ]; then
-        rm -rf .asp/agents
-        mkdir -p .asp/agents
-        cp -r "$PROTOCOL_DIR/.asp/agents/." ./.asp/agents/
-        echo "  ✅ .asp/agents/ (角色定義 + 團隊組成)"
-    fi
-
-    # v3.4: Claude Code Skills（asp-* skills）
-    if [ -d "$PROTOCOL_DIR/.claude/skills" ]; then
-        mkdir -p .claude/skills
-        rm -rf .claude/skills/asp
-        mkdir -p .claude/skills/asp
-        cp -r "$PROTOCOL_DIR/.claude/skills/asp/." ./.claude/skills/asp/
-        echo "  ✅ .claude/skills/asp/ (ASP skill layer)"
-    fi
-
-    # v3.4: Claude Code Subagents（reality-checker 等）
-    if [ -d "$PROTOCOL_DIR/.claude/agents" ]; then
-        mkdir -p .claude/agents
-        cp -r "$PROTOCOL_DIR/.claude/agents/"*.md ./.claude/agents/ 2>/dev/null || true
-        echo "  ✅ .claude/agents/ (subagent 定義)"
-    fi
-
-    # 複製版本檔案
-    if [ -f "$PROTOCOL_DIR/.asp/VERSION" ]; then
-        cp "$PROTOCOL_DIR/.asp/VERSION" ./.asp/VERSION
-    fi
-
-    # --- Makefile 處理（include-based，非破壞性）---
-    # ASP targets 放在 .asp/Makefile.inc，專案 Makefile 只需 include
-    if [ -f "$PROTOCOL_DIR/.asp/Makefile.inc" ]; then
-        cp "$PROTOCOL_DIR/.asp/Makefile.inc" ./.asp/Makefile.inc
-    fi
-
-    ASP_INCLUDE_LINE='-include .asp/Makefile.inc'
-    if [ ! -f "Makefile" ]; then
-        # 全新安裝：使用 stub 範本
-        cp "$PROTOCOL_DIR/Makefile" ./Makefile
-    elif grep -q "AI-SOP-Protocol" Makefile 2>/dev/null; then
-        # ASP 產生的 Makefile（舊版完整式或 stub）：替換為 stub（保留 APP_NAME + 自訂區塊）
-        cp Makefile Makefile.pre-asp-upgrade
-        CURRENT_APP=$(grep "^APP_NAME" Makefile | head -1 || true)
-        # 提取「專案自訂 targets」區塊（marker 行之後到 # ASP targets 行之前）
-        CUSTOM_BLOCK=$(awk '/專案自訂 targets 請寫在此區塊/{found=1; next} found && /# ASP targets/{exit} found{print}' Makefile)
-        cp "$PROTOCOL_DIR/Makefile" ./Makefile
-        if [ -n "${CURRENT_APP:-}" ]; then
-            SED_INPLACE "s/^APP_NAME.*/$CURRENT_APP/" Makefile
-        fi
-        # 將自訂區塊回注到新 Makefile 的 marker 之後
-        if [ -n "${CUSTOM_BLOCK:-}" ]; then
-            ESCAPED_BLOCK=$(printf '%s\n' "$CUSTOM_BLOCK" | sed 's/[&/\]/\\&/g; s/$/\\/')
-            ESCAPED_BLOCK="${ESCAPED_BLOCK%\\}"
-            SED_INPLACE "/專案自訂 targets 請寫在此區塊/a\\
-${ESCAPED_BLOCK}" Makefile
-            echo "🔄 Makefile 已轉換為 include 模式（自訂區塊已保留，舊版備份於 Makefile.pre-asp-upgrade）"
-        else
-            echo "🔄 Makefile 已轉換為 include 模式（ASP targets 移至 .asp/Makefile.inc，舊版備份於 Makefile.pre-asp-upgrade）"
-        fi
-    elif ! grep -qF "$ASP_INCLUDE_LINE" Makefile 2>/dev/null; then
-        # 非 ASP Makefile：僅追加 include 指令（不覆蓋原有內容）
-        printf '\n# ASP targets（勿刪除此行）\n%s\n' "$ASP_INCLUDE_LINE" >> Makefile
-        echo "✅ 已在現有 Makefile 追加 ASP include 指令（原有內容完整保留）"
-    fi
-
-    # --- .gitignore 增量合併 ---
-    if [ ! -f ".gitignore" ]; then
-        cp "$PROTOCOL_DIR/.gitignore" ./.gitignore
-    else
-        # 逐行補充缺失的條目
-        ADDED=0
-        while IFS= read -r line; do
-            [ -z "$line" ] && continue
-            [[ "$line" == \#* ]] && continue
-            if ! grep -qF "$line" .gitignore; then
-                echo "$line" >> .gitignore
-                ADDED=$((ADDED + 1))
-            fi
-        done < "$PROTOCOL_DIR/.gitignore"
-        if [ "$ADDED" -gt 0 ]; then
-            echo "✅ 已補充 $ADDED 條 .gitignore 條目"
-        fi
-    fi
-
-    rm -rf "$PROTOCOL_DIR"
-    echo "✅ 從 GitHub 安裝完成"
+# .ai_profile
+if [ -f ".ai_profile" ]; then
+  warn ".ai_profile 已存在，保留（如需重設請刪除後重跑）"
 else
-    echo "⚠️  無法連接 GitHub，請手動複製以下目錄："
-    echo "   CLAUDE.md / .asp/ / Makefile / .gitignore"
-fi
-
-# --- .ai_profile 處理（升級時保留使用者自訂）---
-RAG_VAL="disabled"
-[ "${ENABLE_RAG,,}" = "y" ] && RAG_VAL="enabled"
-
-GUARDRAIL_VAL="disabled"
-[ "${ENABLE_GUARDRAIL,,}" = "y" ] && GUARDRAIL_VAL="enabled"
-
-DESIGN_VAL="disabled"
-[ "${ENABLE_DESIGN,,}" = "y" ] && DESIGN_VAL="enabled"
-
-CODING_STYLE_VAL="disabled"
-[ "${ENABLE_CODING_STYLE,,}" = "y" ] && CODING_STYLE_VAL="enabled"
-
-OPENAPI_VAL="disabled"
-[ "${ENABLE_OPENAPI,,}" = "y" ] && OPENAPI_VAL="enabled"
-
-FRONTEND_QUALITY_VAL="disabled"
-[ "${ENABLE_FRONTEND_QUALITY,,}" = "y" ] && FRONTEND_QUALITY_VAL="enabled"
-
-AUTONOMOUS_VAL="disabled"
-[ "${ENABLE_AUTONOMOUS,,}" = "y" ] && AUTONOMOUS_VAL="enabled"
-
-ORCHESTRATOR_VAL="disabled"
-[ "${ENABLE_ORCHESTRATOR,,}" = "y" ] && ORCHESTRATOR_VAL="enabled"
-
-AUTOPILOT_VAL="disabled"
-[ "${ENABLE_AUTOPILOT,,}" = "y" ] && AUTOPILOT_VAL="enabled"
-
-NEW_PROFILE="type: ${PROJECT_TYPE}
-level: ${ASP_LEVEL:-1}
+  cat > .ai_profile << PROFILE
+type: ${PROJECT_TYPE}
+level: ${ASP_LEVEL}
 mode: ${MODE:-auto}
 workflow: ${WORKFLOW:-standard}
-rag: ${RAG_VAL}
-guardrail: ${GUARDRAIL_VAL}
-hitl: ${HITL_LEVEL}
-autonomous: ${AUTONOMOUS_VAL}
-orchestrator: ${ORCHESTRATOR_VAL}
-autopilot: ${AUTOPILOT_VAL}
-design: ${DESIGN_VAL}
-coding_style: ${CODING_STYLE_VAL}
-openapi: ${OPENAPI_VAL}
-frontend_quality: ${FRONTEND_QUALITY_VAL}
-name: ${PROJECT_NAME}"
-
-if [ -f ".ai_profile" ]; then
-    echo "ℹ️  .ai_profile 已存在，保留現有設定"
-    # 僅補充缺失欄位
-    ADDED_FIELDS=0
-    for FIELD in type level mode workflow rag guardrail hitl autonomous orchestrator autopilot design coding_style openapi frontend_quality name; do
-        if ! grep -q "^${FIELD}:" .ai_profile; then
-            DEFAULT_VAL=$(echo "$NEW_PROFILE" | grep "^${FIELD}:" | head -1)
-            if [ -n "$DEFAULT_VAL" ]; then
-                echo "$DEFAULT_VAL" >> .ai_profile
-                echo "  + 補充缺失欄位：$DEFAULT_VAL"
-                ADDED_FIELDS=$((ADDED_FIELDS + 1))
-            fi
-        fi
-    done
-    if [ "$ADDED_FIELDS" -eq 0 ]; then
-        echo "  （所有欄位完整，無需補充）"
-    fi
-    echo "✅ .ai_profile 已保留（如需重設，請刪除後重跑安裝）"
-else
-    echo "$NEW_PROFILE" > .ai_profile
-    echo "✅ 已建立 .ai_profile"
+hitl: ${HITL_LEVEL:-standard}
+rag: $([ "${ENABLE_RAG:-n}" = "y" ] && echo enabled || echo disabled)
+guardrail: $([ "${ENABLE_GUARDRAIL:-n}" = "y" ] && echo enabled || echo disabled)
+autonomous: $([ "${ENABLE_AUTONOMOUS:-n}" = "y" ] && echo enabled || echo disabled)
+orchestrator: $([ "${ENABLE_ORCHESTRATOR:-n}" = "y" ] && echo enabled || echo disabled)
+autopilot: $([ "${ENABLE_AUTOPILOT:-n}" = "y" ] && echo enabled || echo disabled)
+coding_style: $([ "${ENABLE_CODING_STYLE:-n}" = "y" ] && echo enabled || echo disabled)
+name: ${PROJECT_NAME}
+PROFILE
+  success ".ai_profile"
 fi
 
-# 更新 Makefile APP_NAME（僅首次安裝時）
-if [ "$IS_UPGRADE" = false ] && [ -f "Makefile" ] && grep -q "APP_NAME ?= app-service" Makefile; then
-    SED_INPLACE "s/APP_NAME ?= app-service/APP_NAME ?= ${PROJECT_NAME}/" Makefile
-    echo "✅ 已更新 Makefile APP_NAME → ${PROJECT_NAME}"
+# CLAUDE.md（精簡版）
+if [ -f "CLAUDE.md" ] && grep -q "AI-SOP-Protocol\|ASP" CLAUDE.md 2>/dev/null; then
+  warn "CLAUDE.md 已存在（ASP 版），保留"
+elif [ ! -f "CLAUDE.md" ]; then
+  cat > CLAUDE.md << CLAUDEMD
+# ${PROJECT_NAME} — AI 行為設定
+
+> ASP v4.0 | 讀取順序：本檔案 → \`.ai_profile\` → \`~/.claude/CLAUDE.md\`（user-level 鐵則）
+> Profile 邏輯與 ASP skills 詳見 \`~/.claude/asp/profiles/\` 與 \`~/.claude/skills/asp/\`
+
+## 專案說明
+
+[請填寫專案用途]
+
+## 特殊規則（選填，覆蓋 user-level 預設）
+
+[例如：禁止修改 legacy/ 目錄；必須保持向後相容]
+CLAUDEMD
+  success "CLAUDE.md（精簡版，≤15 行）"
 fi
 
-# 初始化 ADR-001（若不存在）
-if ! ls docs/adr/ADR-001-*.md &>/dev/null 2>&1; then
-    ADR_FILE="docs/adr/ADR-001-initial-technology-stack.md"
-    cp .asp/templates/ADR_Template.md "$ADR_FILE"
-    SED_INPLACE "s/ADR-000/ADR-001/g" "$ADR_FILE"
-    SED_INPLACE "s/決策標題/初始技術棧選型/g" "$ADR_FILE"
-    SED_INPLACE "s/YYYY-MM-DD/$(date +%Y-%m-%d)/g" "$ADR_FILE"
-    echo "✅ 已建立 ADR-001（請填入實際技術棧）"
-fi
+# .claude/settings.json（hooks 指向 user-level）
+mkdir -p .claude
+JQ_OK=false
+command -v jq &>/dev/null && JQ_OK=true
 
-# 初始化 architecture.md（若不存在）
-if [ ! -f "docs/architecture.md" ]; then
-    cp .asp/templates/architecture_spec.md docs/architecture.md
-    SED_INPLACE "s/PROJECT_NAME/${PROJECT_NAME}/g" docs/architecture.md
-    echo "✅ 已建立 docs/architecture.md"
-fi
+HOOK_CMD_AUDIT="${HOME}/.claude/asp/hooks/session-audit.sh"
+HOOK_CMD_ALLOW="${HOME}/.claude/asp/hooks/clean-allow-list.sh"
 
-# 設定 Claude Code Hooks（SessionStart: 設定權限 + 專案審計）
-HOOKS_JSON='{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/clean-allow-list.sh"
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/session-audit.sh"
-          }
+if [ "$JQ_OK" = true ]; then
+  if [ -f ".claude/settings.json" ]; then
+    # 升級：清理舊版 ASP hooks（project-local 路徑），加入 user-level 路徑
+    jq --arg audit "$HOOK_CMD_AUDIT" --arg allow "$HOOK_CMD_ALLOW" '
+      .hooks.SessionStart = [
+        ((.hooks.SessionStart // [])[] |
+          select((.hooks // []) | all(.command |
+            test("(session-audit|clean-allow-list)\\.sh") | not))
+        ),
+        {"hooks": [
+          {"type": "command", "command": $allow},
+          {"type": "command", "command": $audit}
+        ]}
+      ] |
+      .permissions.allow = ((.permissions.allow // []) + ["Bash(*)"] | unique)
+    ' .claude/settings.json > .claude/settings.json.tmp \
+      && mv .claude/settings.json.tmp .claude/settings.json
+    success ".claude/settings.json（ASP hooks 更新為 user-level 路徑）"
+  else
+    jq -n --arg audit "$HOOK_CMD_AUDIT" --arg allow "$HOOK_CMD_ALLOW" '{
+      "hooks": {
+        "SessionStart": [{
+          "hooks": [
+            {"type": "command", "command": $allow},
+            {"type": "command", "command": $audit}
+          ]
+        }]
+      },
+      "permissions": {
+        "allow": ["Bash(*)"],
+        "ask": [
+          "Bash(git push *)", "Bash(git push)",
+          "Bash(git rebase *)", "Bash(rm -rf *)", "Bash(rm -r *)",
+          "Bash(docker push *)", "Bash(docker deploy *)"
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": ["Bash(*)"],
-    "ask": [
-      "Bash(git push *)", "Bash(git push)",
-      "Bash(git rebase *)", "Bash(git rebase)",
-      "Bash(docker push *)", "Bash(docker deploy *)",
-      "Bash(rm -rf *)", "Bash(rm -r *)"
-    ]
-  }
-}'
-
-mkdir -p .claude
-
-if [ "$JQ_AVAILABLE" = true ]; then
-    if [ -f ".claude/settings.json" ]; then
-        # 升級：移除舊版 ASP hooks（PreToolUse enforce-*），加入新版 SessionStart hook
-        EXISTING=$(cat .claude/settings.json)
-        echo "$EXISTING" | jq '
-            # 移除舊版 ASP PreToolUse hooks
-            .hooks.PreToolUse = [(.hooks.PreToolUse // [])[] | select(
-                (.hooks // []) | all(.command | test("enforce-(side-effects|workflow)\\.sh$") | not)
-            )] |
-            # 如果 PreToolUse 為空則移除
-            if (.hooks.PreToolUse | length) == 0 then del(.hooks.PreToolUse) else . end |
-            # 加入 SessionStart hooks（移除舊的 ASP SessionStart hooks 後加入）
-            .hooks.SessionStart = [
-                ((.hooks.SessionStart // [])[] | select(
-                    (.hooks // []) | all(.command | test("(clean-allow-list|session-audit)\\.sh$") | not)
-                )),
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/clean-allow-list.sh"
-                        },
-                        {
-                            "type": "command",
-                            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/session-audit.sh"
-                        }
-                    ]
-                }
-            ]
-        ' > .claude/settings.json.tmp \
-            && mv .claude/settings.json.tmp .claude/settings.json
-        echo "✅ 已將 ASP Hook 合併至 .claude/settings.json（SessionStart: 清理危險 allow 規則）"
-    else
-        echo "$HOOKS_JSON" | jq '.' > .claude/settings.json
-        echo "✅ 已建立 .claude/settings.json（含 ASP SessionStart Hook）"
-    fi
-
-    # --- 設定 ask 規則（從 denied-commands.json 讀取，彈窗詢問而非直接拒絕）---
-    DENIED_FILE=".asp/hooks/denied-commands.json"
-    if [ -f "$DENIED_FILE" ] && [ -f ".claude/settings.json" ]; then
-        DENY_JSON=$(cat "$DENIED_FILE")
-        jq --argjson ask "$DENY_JSON" '
-            .permissions.allow = ((.permissions.allow // []) + ["Bash(*)"] | unique) |
-            .permissions.ask = ((.permissions.ask // []) + $ask | unique) |
-            del(.permissions.deny)
-        ' .claude/settings.json > .claude/settings.json.tmp \
-            && mv .claude/settings.json.tmp .claude/settings.json
-        echo "✅ 已設定權限 — allow: Bash(*), ask（彈窗確認）: $(echo "$DENY_JSON" | jq length) 條危險指令"
-    fi
+    }' > .claude/settings.json
+    success ".claude/settings.json（hooks 指向 ~/.claude/asp/hooks/）"
+  fi
 else
-    if [ ! -f ".claude/settings.json" ]; then
-        cat > .claude/settings.json << 'HOOKJSON'
+  if [ ! -f ".claude/settings.json" ]; then
+    cat > .claude/settings.json << HOOKJSON
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/clean-allow-list.sh"
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.asp/hooks/session-audit.sh"
-          }
-        ]
-      }
-    ]
+    "SessionStart": [{
+      "hooks": [
+        {"type": "command", "command": "${HOME}/.claude/asp/hooks/clean-allow-list.sh"},
+        {"type": "command", "command": "${HOME}/.claude/asp/hooks/session-audit.sh"}
+      ]
+    }]
   },
   "permissions": {
     "allow": ["Bash(*)"],
-    "ask": [
-      "Bash(git push *)", "Bash(git push)",
-      "Bash(git rebase *)", "Bash(git rebase)",
-      "Bash(docker push *)", "Bash(docker deploy *)",
-      "Bash(rm -rf *)", "Bash(rm -r *)"
-    ]
+    "ask": ["Bash(git push *)", "Bash(git push)", "Bash(rm -rf *)", "Bash(rm -r *)"]
   }
 }
 HOOKJSON
-        echo "✅ 已建立 .claude/settings.json（含 ASP SessionStart Hooks）"
-    else
-        echo "⚠️  .claude/settings.json 已存在且無 jq 可用，請手動加入 hooks 設定"
-        echo "   參考：.asp/hooks/ 目錄內的腳本"
+    success ".claude/settings.json"
+  fi
+fi
+
+# denied-commands 合併（從 user-level 讀取）
+if [ "$JQ_OK" = true ] && [ -f "$USER_ASP/hooks/denied-commands.json" ]; then
+  DENY_JSON=$(cat "$USER_ASP/hooks/denied-commands.json")
+  jq --argjson ask "$DENY_JSON" '
+    .permissions.ask = ((.permissions.ask // []) + $ask | unique)
+  ' .claude/settings.json > .claude/settings.json.tmp \
+    && mv .claude/settings.json.tmp .claude/settings.json
+fi
+
+# docs 目錄
+mkdir -p docs/adr docs/specs
+success "docs/adr/ docs/specs/"
+
+# ADR-001（若無）
+if ! ls docs/adr/ADR-001-*.md &>/dev/null 2>&1; then
+  ADR_SRC="$USER_ASP/templates/ADR_Template.md"
+  if [ -f "$ADR_SRC" ]; then
+    cp "$ADR_SRC" docs/adr/ADR-001-initial-technology-stack.md
+    SED_INPLACE "s/ADR-000/ADR-001/g; s/決策標題/初始技術棧選型/g; s/YYYY-MM-DD/$(date +%Y-%m-%d)/g" \
+      docs/adr/ADR-001-initial-technology-stack.md
+    success "docs/adr/ADR-001-initial-technology-stack.md（請填入技術棧）"
+  fi
+fi
+
+# .gitignore（補充 ASP 相關條目）
+ASP_GITIGNORE_ENTRIES=(
+  ".asp-session-briefing.json"
+  ".asp-audit-baseline.json"
+  ".asp-bypass-log.ndjson"
+  ".asp-telemetry.jsonl"
+  ".asp-fact-check.md"
+  ".asp-review-calibration.jsonl"
+)
+if [ -f ".gitignore" ]; then
+  ADDED=0
+  for entry in "${ASP_GITIGNORE_ENTRIES[@]}"; do
+    if ! grep -qF "$entry" .gitignore; then
+      echo "$entry" >> .gitignore
+      ADDED=$((ADDED + 1))
     fi
+  done
+  [ "$ADDED" -gt 0 ] && success ".gitignore（補充 $ADDED 條 ASP 執行時檔案）"
 fi
 
-# --- 清理 allow list 中的具體危險指令 + 確保 deny 規則存在（安裝時執行一次）---
-# 舊版 ASP 可能在 allow list 中有具體危險指令，需要清理
-# 新版只需 Bash(*) 在 allow + deny 列表阻擋危險指令
-if [ "$JQ_AVAILABLE" = true ]; then
-    DANGEROUS_PATTERNS='git\s+rebase|git\s+push|docker\s+(push|deploy)|rm\s+-[a-z]*r|find\s+.*-delete'
-    TOTAL_REMOVED=0
-    for SETTINGS_FILE in .claude/settings.local.json .claude/settings.json; do
-        [ -f "$SETTINGS_FILE" ] || continue
-        FILE_TYPE=$(jq -r 'type' "$SETTINGS_FILE" 2>/dev/null || echo "invalid")
-        if [ "$FILE_TYPE" != "object" ]; then
-            continue
-        fi
-        BEFORE_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash(") and . != "Bash(*)")] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
-        jq --arg pattern "$DANGEROUS_PATTERNS" '
-          .permissions.allow = [
-            (.permissions.allow // [])[] |
-            select((startswith("Bash(") and . != "Bash(*)" and test($pattern)) | not)
-          ]
-        ' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" \
-            && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-        AFTER_COUNT=$(jq -r '[.permissions.allow // [] | .[] | select(startswith("Bash(") and . != "Bash(*)")] | length' "$SETTINGS_FILE" 2>/dev/null || echo 0)
-        TOTAL_REMOVED=$((TOTAL_REMOVED + BEFORE_COUNT - AFTER_COUNT))
-    done
-    if [ "$TOTAL_REMOVED" -gt 0 ]; then
-        echo "🔒 已從 allow list 移除 ${TOTAL_REMOVED} 條舊版危險規則"
-    fi
-fi
-
-# 設定 RAG git hook（增量插入，不破壞現有 hooks）
-ASP_RAG_MARKER_START="# --- ASP RAG HOOK START ---"
-ASP_RAG_MARKER_END="# --- ASP RAG HOOK END ---"
-
-if [ "${ENABLE_RAG,,}" = "y" ] && [ -d ".git" ]; then
-    HOOK_FILE=".git/hooks/post-commit"
-
-    ASP_RAG_BLOCK="$ASP_RAG_MARKER_START
-if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q \"^docs/\"; then
-    echo \"📚 docs/ 有異動，更新 RAG 索引...\"
-    make rag-index --silent 2>/dev/null || true
-fi
-$ASP_RAG_MARKER_END"
-
-    if [ -f "$HOOK_FILE" ]; then
-        # 移除舊的 ASP RAG 區塊（如存在）
-        if grep -q "$ASP_RAG_MARKER_START" "$HOOK_FILE"; then
-            SED_INPLACE "/$ASP_RAG_MARKER_START/,/$ASP_RAG_MARKER_END/d" "$HOOK_FILE"
-        fi
-        # 附加新區塊
-        printf '\n%s\n' "$ASP_RAG_BLOCK" >> "$HOOK_FILE"
-    else
-        printf '#!/usr/bin/env bash\n\n%s\n' "$ASP_RAG_BLOCK" > "$HOOK_FILE"
-    fi
-    chmod +x "$HOOK_FILE"
-    echo "✅ 已設定 RAG git hook（post-commit）— 保留現有 hooks"
-fi
-
-# --- 安裝/升級完成 ---
+# ═══════════════════════════════════════════════════════════════════
+# 完成
+# ═══════════════════════════════════════════════════════════════════
 echo ""
-if [ "$IS_UPGRADE" = true ]; then
-    echo "🎉 升級完成！"
-    echo ""
-    echo "升級摘要 (v${INSTALLED_VERSION} → v${NEW_VERSION:-unknown} @ ${NEW_COMMIT:-unknown})："
-    echo "  ✅ 已更新：.asp/profiles, .asp/templates, .asp/scripts, .asp/hooks"
-    echo "  🔒 已保留：.ai_profile, docs/adr/*, docs/specs/*, docs/architecture.md"
-    echo ""
+if [ "$IS_PROJECT_UPGRADE" = true ]; then
+  echo "🎉 升級完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
 else
-    echo "🎉 安裝完成！（v${NEW_VERSION:-unknown} @ ${NEW_COMMIT:-unknown}）"
-    echo ""
-    echo "啟動 Claude Code，輸入："
-    echo ""
-    echo "  請讀取 CLAUDE.md，依照 .ai_profile 載入對應 Profile。"
-    echo "  然後幫我完成以下初始化："
-    echo "  1. 確認 .ai_profile 設定是否正確"
-    echo "  2. 依專案需求調整 Makefile（build / test / deploy targets）"
-    echo "  3. 填寫 ADR-001 技術棧選型"
-    echo "  4. 更新 docs/architecture.md"
-    echo ""
+  echo "🎉 安裝完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
 fi
-if [ "${ENABLE_RAG,,}" = "y" ]; then
-    echo "RAG 已啟用，還需要："
-    echo "  pip install chromadb sentence-transformers && make rag-index"
-    echo ""
-fi
-echo "💡 建議執行 make audit-health 進行專案健康檢查"
+echo ""
+echo "  每個專案只需："
+echo "    .ai_profile           ← 專案設定"
+echo "    CLAUDE.md             ← 精簡版行為設定"
+echo "    .claude/settings.json ← hooks 指向 ~/.claude/asp/hooks/"
+echo ""
+echo "  ASP 核心在 ~/.claude/asp/（所有專案共用）"
+echo "  更新 ASP：bash ~/.claude/scripts/asp-sync.sh"
+echo ""
+echo "  啟動 Claude Code，輸入："
+echo "  「請讀取 CLAUDE.md，依照 .ai_profile 載入對應設定。」"
+echo ""
+echo "💡 建議：開始前執行 /asp-audit 做初始健康檢查"
 echo ""

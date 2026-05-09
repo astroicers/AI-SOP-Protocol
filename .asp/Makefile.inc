@@ -673,6 +673,10 @@ asp-bypass-migrate: ## Migrate .asp-bypass-log.json → .asp-bypass-log.ndjson (
 	else echo "[ASP] No .asp-bypass-log.json to migrate"; fi
 .PHONY: asp-bypass-migrate
 
+asp-update: ## Sync ASP core from local repo to ~/.claude/ (profiles/hooks/skills)
+	@bash ~/.claude/scripts/asp-sync.sh
+.PHONY: asp-update
+
 asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Promotion Gate checks)
 	@bash .asp/scripts/l0-audit.sh .
 .PHONY: asp-l0-audit

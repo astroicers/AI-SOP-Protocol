@@ -4,6 +4,31 @@
 
 ---
 
+## 首次安裝 ASP
+
+```bash
+# 一次安裝，所有專案共用（裝到 ~/.claude/）
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
+
+# 之後每個新專案：在專案目錄再跑一次（只建立輕量設定）
+cd your-project
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
+
+# 更新 ASP 到最新版本
+bash ~/.claude/scripts/asp-sync.sh
+
+# 移除當前專案的 ASP 設定
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh)
+
+# 移除 user-level ASP（~/.claude/ 內的核心）
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh) --user-level
+```
+
+> 安裝後每個專案只需三個檔案：`.ai_profile`、`CLAUDE.md`（精簡版）、`.claude/settings.json`。
+> ASP 核心（profiles/hooks/skills）統一在 `~/.claude/asp/`，不再複製到每個專案。
+
+---
+
 ## 我想做一個新功能
 
 ```
@@ -207,5 +232,6 @@ make runbook-view SCENARIO=incident-response  # 閱讀特定場景
 | `docs/level0-spike-mode.md` | L0 Spike 模式使用指南 |
 | `docs/adr/ADR-002-asp-v4-security-threat-model.md` | 安全威脅模型（Iron Rules 來源） |
 | `docs/security/threat-model-v4.0.md` | STRIDE 威脅分析 + 8 步攻擊鏈 |
-| `.asp/templates/example-profile-full.yaml` | 完整 `.ai_profile` schema 範例 |
+| `~/.claude/asp/templates/example-profile-full.yaml` | 完整 `.ai_profile` schema 範例 |
 | `CONTEXT.md` | 專案領域詞彙表（術語對照） |
+| `docs/project-structure.md` | User-level 架構說明（~/.claude/ vs 專案輕量層） |
