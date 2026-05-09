@@ -1,0 +1,29 @@
+# example-profile-spike.yaml
+# Copy to project root as .ai_profile when starting a spike.
+# Time-box: ≤5 working days, then graduate to L1 or discard.
+#
+# Usage:
+#   cp .asp/templates/example-profile-spike.yaml .ai_profile
+#   git checkout -b spike/my-spike-name
+#
+# See also: docs/level0-spike-mode.md
+
+type: system           # required field — do not remove
+level: 0               # activates L0 Spike mode (auto-loads spike_mode profile)
+name: my-spike         # short identifier for this spike (kebab-case)
+
+# L0 always forces hitl: strict regardless of what you put here.
+# Listed explicitly for clarity — do not change.
+hitl: strict
+
+# Spike metadata (read by session-audit.sh for context)
+spike_question: "Can we use X for Y?"    # what hypothesis are you validating?
+spike_deadline: "YYYY-MM-DD"             # ≤5 working days from today
+
+# Profiles loaded in L0:
+#   global_core  (always)
+#   spike_mode   (auto-loaded by level: 0)
+#
+# Profiles NOT loaded (skipped in L0 by design):
+#   system_dev, autonomous_dev, multi_agent, pipeline, guardrail, coding_style
+#   — add explicitly if truly needed, but reconsider whether you should upgrade to L1 instead
