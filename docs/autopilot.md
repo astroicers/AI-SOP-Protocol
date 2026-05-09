@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: L5 users -->
 # Autopilot 標準作業程序（SOP）
 
 `autopilot: enabled` 啟用 ROADMAP 驅動的持續自動執行。AI 讀取 `ROADMAP.yaml`，逐一完成所有任務，直到全部完成或 token 預算耗盡。

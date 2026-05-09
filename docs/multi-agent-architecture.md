@@ -4,6 +4,19 @@
 
 ---
 
+## v4.0 異動摘要（2026-04-29）
+
+| 異動 | 說明 |
+|------|------|
+| 新增 9 個 skill | `asp-handoff`, `asp-team-pick`, `asp-escalate`, `asp-dev-qa-loop`, `asp-fact-verify`, `asp-assumption-checkpoint`, `asp-bug-classify`, `asp-change-cascade`, `asp-context` — 從 profile 抽離為獨立 skill |
+| Iron Rules A/B/C | Hook 完整性、bypass log 不可刪除、工具輸出信任邊界（`session-audit.sh` + `global_core.md`） |
+| L0 Spike 等級 | 新增 `level-0.yaml` + `spike_mode.md`；Iron Rules 在 L0 仍強制執行 |
+| Telemetry 系統 | `collect.py` / `report.py` / `prune.py` — JSONL append-only 事件記錄 |
+| CONTEXT.md 機制 | 根目錄詞彙表 + `asp-context` skill + `asp-gate G2` 術語一致性驗證 |
+| CLAUDE.md 壓縮 | 309 行 → 100 行（disposition matrix 驅動，鐵則完整保留） |
+
+---
+
 ## 1. 系統總覽
 
 ASP v3.0 將 v2.x 的「Orchestrator + 通用 Worker」扁平模型升級為：

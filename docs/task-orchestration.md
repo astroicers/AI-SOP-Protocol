@@ -1,5 +1,9 @@
 # 任務協調與專案健康審計
 
+> **導覽提示：** 本文說明 ASP 任務編排的執行機制（asp-dispatch / asp-autopilot）。
+> 架構概覽請見 [`docs/multi-agent-architecture.md`](multi-agent-architecture.md)；
+> 全自動駕駛模式請見 [`docs/autopilot.md`](autopilot.md)。
+
 `orchestrator: enabled`（或 `autonomous: enabled` 自動載入）時，ASP 提供兩個核心能力。
 
 ---
