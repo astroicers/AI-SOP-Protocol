@@ -5,7 +5,7 @@
 | **規格 ID** | SPEC-003 |
 | **Status** | Accepted |
 | **Date** | 2026-04-29 |
-| **關聯 ADR** | ADR-002 (security), ADR-004 (telemetry) |
+| **關聯 ADR** | ADR-002 (security), ADR-004 (telemetry) — ADR-003 (MCP) deliberately removed |
 | **估算複雜度** | 高 |
 | **HITL 等級** | standard |
 
@@ -133,14 +133,31 @@ python3 .asp/scripts/telemetry/report.py   # 查看統計
 
 ## Done When（8 條 binary checks）
 
-- [ ] `wc -l CLAUDE.md` 輸出 ≤ 100
-- [ ] `ls .claude/skills/asp/asp-*.md | wc -l` 輸出 ≥ 20
-- [ ] `ls .asp/levels/level-*.yaml | wc -l` 輸出 = 6
-- [ ] `ls docs/adr/ADR-*.md | wc -l` 輸出 = 4
-- [ ] `ls docs/specs/SPEC-*.md | wc -l` 輸出 = 3
-- [ ] `python3 .asp/scripts/telemetry/collect.py --dry-run` exit 0 且輸出 valid JSON
-- [ ] `grep -c 'asp-handoff\|asp-team-pick' .claude/skills/asp/SKILL.md` ≥ 2
-- [ ] `grep -E "ADR 未定案|外部事實|敏感資訊|破壞性操作" CLAUDE.md | wc -l` = 4
+> **注意：** ADR-003（MCP server）與 SPEC-002（MCP server）已在 v4.0 開發期間刻意移除
+> （技術決策：ASP 不採用 MCP 技術）。Checks 4/5 已依此更新。
+
+- [x] `wc -l CLAUDE.md` 輸出 ≤ 100 → **100** ✅
+- [x] `ls .claude/skills/asp/asp-*.md | wc -l` 輸出 ≥ 20 → **21** ✅
+- [x] `ls .asp/levels/level-*.yaml | wc -l` 輸出 = 6 → **6** ✅
+- [x] `ls docs/adr/ADR-*.md | wc -l` 輸出 = 3（原為 4，ADR-003 MCP 已移除）→ **3** ✅
+- [x] `ls docs/specs/SPEC-*.md | wc -l` 輸出 = 2（原為 3，SPEC-002 MCP 已移除）→ **2** ✅
+- [x] `python3 .asp/scripts/telemetry/collect.py --dry-run` exit 0 且輸出 valid JSON → **exit 0** ✅
+- [x] `grep -c 'asp-handoff\|asp-team-pick' .claude/skills/asp/SKILL.md` ≥ 2 → **2** ✅
+- [x] `grep -E "ADR 未定案|外部事實|敏感資訊|破壞性操作" CLAUDE.md | wc -l` = 4 → **4** ✅
+
+**所有 Done-When checks 通過（2026-05-09）**
+
+## v4.0 Gap-Fill Sprint（2026-05-09）
+
+初始 v4.0 交付後，執行 gap-fill sprint 補齊以下殘缺：
+
+| 項目 | Commit | 狀態 |
+|------|--------|------|
+| CLAUDE.md trim 至 100 行 | `fix(claude-md): trim to ≤100 lines` | ✅ |
+| Iron Rules A/B/C 實作於 `session-audit.sh` + `global_core.md` | `feat(security): implement Iron Rules A/B/C` | ✅ |
+| L0 使用者文件：`docs/level0-spike-mode.md` + `example-profile-spike.yaml` | `docs(l0): user-facing spike mode guide` | ✅ |
+| 框架 ROADMAP：`docs/ROADMAP.md` | `docs(roadmap): add ASP framework ROADMAP` | ✅ |
+| 本 SPEC Done-When 更新（反映 MCP 移除） | `docs(spec-003): update done-when` | ✅ |
 
 ---
 
