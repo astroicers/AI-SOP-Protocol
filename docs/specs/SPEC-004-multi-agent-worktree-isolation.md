@@ -100,9 +100,36 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 | 寫入 task manifest | dispatch 後 | `.asp-task-manifests/TASK-XXX.yaml` | YAML 檔案存在且 schema valid；P2 |
 | Merge 到 base branch | converge 階段 | base branch HEAD | `git log` 含合併 commit；P5 |
 | 清理 worktree | 任務完成 / GC 觸發時 | `.asp-worktrees/`、`.git/worktrees/` | `git worktree prune` 無殘留；B3 |
-| 寫入 telemetry 事件 | dispatch / converge / fail 時 | `.asp-telemetry.ndjson` | NDJSON 含 `multi_agent.dispatch` event；驗證見 telemetry SPEC |
+| 寫入 telemetry 事件 | dispatch / converge / fail 時 | 主 repo 的 `.asp-telemetry.ndjson` | NDJSON 含 `multi_agent.dispatch` event；P5 |
+| **Append bypass log** | Worker 偵測 scope_violation 時 | **主 repo 的 `.asp-bypass-log.ndjson`**（非 worktree 內） | NDJSON 新增 actor=worker-N 一筆；P6（new） |
 
 > 每個副作用都有對應驗證 ID（見測試矩陣）。G5 Gate 會檢查。
+
+### 🔒 共享狀態檔案路徑策略（Iron Rule B 完整性保障）
+
+以下檔案是**全域 audit trail**，所有 Worker 必須寫入主 repo 路徑（非 worktree 內），否則 Iron Rule B（bypass log append-only）的全局審計會破裂：
+
+| 檔案 | 路徑策略 | 並行寫入安全性 |
+|------|---------|--------------|
+| `.asp-bypass-log.ndjson` | 主 repo 根目錄（不在 worktree 內） | NDJSON append（POSIX `O_APPEND` 對 < PIPE_BUF=4096 bytes 的 write 是 atomic）；單筆 entry 必須 < 4KB |
+| `.asp-telemetry.ndjson` | 主 repo 根目錄 | 同上 |
+| `.asp-task-manifests/TASK-XXX.yaml` | 主 repo 根目錄；每 task 一個獨立檔案 | 不同 task 寫不同檔案，無競態 |
+
+**Worker 寫入機制**：Worker 在 worktree 中啟動時，環境變數 `ASP_AUDIT_ROOT` 由 dispatch.sh 注入，指向主 repo 根。所有寫入 bypass log / telemetry 的程式碼必須 resolve 到 `${ASP_AUDIT_ROOT}/.asp-bypass-log.ndjson`，**禁止使用相對路徑**（會被 worktree cwd 拐進去）。
+
+**並行寫入驗證**：實作完成後須跑壓力測試 — 10 個 Worker 同時 append 1000 筆 bypass log entry（總 10,000 筆），驗證 NDJSON 完整性（行數 = 10,000、所有 line 可被 `jq -c .` 解析）。對應測試 N5（new）。
+
+### 🪝 Iron Rule A 在 worktree 中的掛載機制
+
+每個 worktree 是獨立 working directory，但**共享 `.git/`**。Hook 掛載策略：
+
+| Hook | 掛載方式 | 為什麼 |
+|------|---------|--------|
+| `session-audit.sh`（SessionStart） | 透過 `.claude/settings.json` 設定 — settings.json 在 base branch 已 commit，所有 worktree 自動繼承 | settings.json 是 git-tracked，worktree checkout 時自動帶過去 |
+| `clean-allow-list.sh`（PreToolUse） | 同上 | 同上 |
+| `denied-commands.json`（dynamic deny） | 由 session-audit.sh 在 session 啟動時動態生成 — 每個 worktree 啟動 Claude Code session 時各自生成一份 | 每個 Worker 有獨立 deny list，不互相干擾 |
+
+**驗證**：在 worktree 中啟動 Claude Code，session-audit.sh 必須執行；`.asp-session-briefing.json` 必須在 worktree 根產生（不在主 repo）。對應測試 P7（new）。
 
 ---
 
@@ -137,15 +164,20 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 | P3 | ✅ 正向 | task 完成後 cleanup | worktree 移除、branch 保留供 PR review | S3 |
 | P4 | ✅ 正向 | converge 階段，3 個 task 序列 merge | base branch 有 3 個 merge commit、無衝突 | S4 |
 | P5 | ✅ 正向 | telemetry 事件寫入 | `.asp-telemetry.ndjson` 含 `multi_agent.dispatch/converge/fail` 各事件類型 | S5 |
+| P6 | ✅ 正向 | bypass log 寫入路徑 | 主 repo 的 `.asp-bypass-log.ndjson` 接收所有 worktree 的記錄（非 worktree 內） | S15 |
+| P7 | ✅ 正向 | Iron Rule A hook 在 worktree 啟動 | worktree 中啟動 Claude session 時 `session-audit.sh` 執行、`.asp-session-briefing.json` 產生於 worktree 根 | S16 |
 | N1 | ❌ 負向 | scope.allow 指向 repo 外 | dispatch 階段拒絕，退出碼 1 | S6 |
 | N2 | ❌ 負向 | Worker 修改 forbid 路徑 | Worker 中止、bypass log 寫入、Orchestrator 收到 fail 回報 | S7 |
-| N3 | ❌ 負向 | converge 時 merge 衝突 | Orchestrator 暫停、列出衝突檔案、退出碼 3 | S8 |
+| N3 | ❌ 負向 | 兩個 task branch 之間 merge 衝突 | Orchestrator 暫停、列出衝突檔案、退出碼 3 | S8 |
 | N4 | ❌ 負向 | worktree_root 指向 `/etc` | 拒絕建立，安全警告 | S9 |
+| N5 | ❌ 負向 | scope.allow 重疊（兩 task 都含 `src/store/`） | dispatch 前偵測並拒絕，要求重新拆解、退出碼 5 | S17 (new) |
+| N6 | ❌ 負向 | 10 worker × 1000 entry 並行壓測 bypass log | NDJSON 共 10,000 行、`jq -c .` 全部可解析、無 truncated line | S18 (new，並行寫入安全性) |
 | B1 | 🔶 邊界 | max_parallel = 10 | 10 個 worktree 並行不衝突 | S10 |
-| B2 | 🔶 邊界 | max_parallel = 11 | 要求人類確認後才繼續 | S11 |
+| B2 | 🔶 邊界 | max_parallel = 11 | 要求人類確認後才繼續（**human-in-loop，自動測試靠 mock 確認 prompt，不真的等人**） | S11 |
 | B3 | 🔶 邊界 | worktree idle > 2 小時 | `make agent-worktree-gc` 標記為 stale 並清理 | S12 |
-| B4 | 🔶 邊界 | 磁碟可用 < 100MB | dispatch 拒絕；< 1GB 顯示警告 | S13 |
-| B5 | 🔶 邊界 | base_branch 中途有新 commit | converge rebase；衝突時 N3 路徑 | S14 |
+| B4 | 🔶 邊界 | 磁碟可用 < (repo_size × max_parallel × 1.2) | dispatch 拒絕；< 1.5 倍顯示警告 | S13 |
+| B5 | 🔶 邊界 | base_branch 中途有新 commit、與 task branch 有衝突 | converge rebase 失敗 → human-in-loop 暫停（**自動測試靠 mock 確認 escalation log，不真的等人**） | S14 |
+| B6 | 🔶 邊界 | Worker process killed（SIGKILL） | worktree 保留、task manifest 標記 abandoned、下次 GC 清理 | S19 (new) |
 
 ---
 
@@ -213,12 +245,14 @@ Feature: Multi-Agent Worktree 硬性隔離
     And .asp-bypass-log.ndjson 新增一筆記錄，actor=worker-a、reason="scope_violation"
     And Orchestrator 收到 status=failed 的回報
 
-  Scenario: S8 - converge 階段 merge 衝突
-    Given TASK-001 與 TASK-002 因為 base_branch 中途有新 commit 導致衝突
-    When Orchestrator converge
-    Then converge 暫停，退出碼為 3
-    And stderr 列出衝突檔案清單
-    And 等待人類執行手動 merge 或 rebase
+  Scenario: S8 - 兩個 task branch 之間 merge 衝突
+    Given TASK-001 與 TASK-002 都修改了 src/shared/util.go 同一行（scope 設計時未發現重疊）
+    And base_branch HEAD 在 dispatch 後沒有變動
+    When Orchestrator converge TASK-001 後再 converge TASK-002
+    Then converge 暫停於 TASK-002 的 merge 步驟，退出碼為 3
+    And stderr 列出衝突檔案：src/shared/util.go
+    And mock 模式下 escalation log 寫入 .asp-escalation.ndjson 含 reason="task_merge_conflict"
+    But base_branch 已包含 TASK-001 的 merge commit（部分成功）
 
   Scenario: S9 - worktree_root 指向系統路徑被拒絕
     Given .ai_profile 設定 worktree_root: "/etc/asp-worktrees"
@@ -229,13 +263,15 @@ Feature: Multi-Agent Worktree 硬性隔離
   # --- 邊界場景 ---
 
   Scenario Outline: S10/S11 - max_parallel 邊界
+    Given 環境變數 ASP_HITL_MODE=mock（自動測試用，跳過實際等待）
     When Orchestrator dispatch <count> 個 task
     Then 結果為 <result>
+    And mock 模式下，>10 task 時 .asp-escalation.ndjson 含一筆 reason="max_parallel_exceeded" 的記錄
 
     Examples:
-      | count | result                                   |
-      | 10    | 全部建立成功                              |
-      | 11    | 暫停並請求人類確認，未建立任何 worktree   |
+      | count | result                                                       |
+      | 10    | 全部建立成功                                                  |
+      | 11    | 拒絕並寫入 escalation log（mock 模式不真的等人，回傳退出碼 6）|
 
   Scenario: S12 - Stale worktree GC
     Given 一個 worktree 的 last_activity_ts 早於 2 小時前
@@ -244,41 +280,92 @@ Feature: Multi-Agent Worktree 硬性隔離
     And 被移除（.asp-worktrees/ 與 .git/worktrees/ 都清乾淨）
     And 對應的 task manifest 標記為 abandoned
 
-  Scenario Outline: S13 - 磁碟空間預檢
-    Given 磁碟可用空間為 <available>
+  Scenario Outline: S13 - 磁碟空間動態預檢
+    Given repo 大小為 100 MB
+    And max_parallel 為 5
+    And 預算為 100 × 5 = 500 MB（最低需求 × 1.2 = 600 MB；警告線 × 1.5 = 750 MB）
+    And 磁碟可用空間為 <available>
     When dispatch 嘗試建立 worktree
     Then 行為為 <behavior>
 
     Examples:
       | available | behavior              |
-      | 5GB       | 正常建立              |
-      | 500MB     | 顯示警告但繼續        |
-      | 50MB      | 拒絕建立，退出碼為 4  |
+      | 2GB       | 正常建立              |
+      | 700MB     | 顯示警告但繼續（介於 600MB 與 750MB） |
+      | 500MB     | 拒絕建立，退出碼為 4（< 600MB 門檻）  |
 
-  Scenario: S14 - base_branch 並行 commit
-    Given Orchestrator dispatch 後，使用者在 base_branch commit 了新內容
-    When Worker 完成、Orchestrator converge
-    Then converge 自動 rebase
-    And 若 rebase 成功，繼續 merge
-    And 若 rebase 衝突，路徑同 S8
+  Scenario: S14 - base_branch 並行 commit（與 task branch 衝突）
+    Given Orchestrator dispatch 後，使用者在 base_branch commit 了修改 src/api/routes.go 的內容
+    And TASK-001 的 worker branch 也修改了 src/api/routes.go 的同一段
+    And 環境變數 ASP_HITL_MODE=mock
+    When Orchestrator converge TASK-001
+    Then converge 自動嘗試 rebase task branch onto base_branch
+    And rebase 因衝突失敗
+    And mock 模式下 .asp-escalation.ndjson 含 reason="base_branch_rebase_conflict"
+    And 退出碼為 3（與 S8 同），但 escalation reason 不同（區別於 task-vs-task）
+
+  # --- S15+：bypass log 路徑、Iron Rule A 掛載、scope 重疊、並行壓測、process kill ---
+
+  Scenario: S15 - bypass log 寫入路徑強制為主 repo
+    Given 一個 Worker 在 .asp-worktrees/task-001/ 中執行
+    And 環境變數 ASP_AUDIT_ROOT 指向主 repo 根
+    When Worker 偵測 scope_violation 並寫入 bypass log
+    Then 主 repo 根的 .asp-bypass-log.ndjson 新增一筆記錄
+    But .asp-worktrees/task-001/.asp-bypass-log.ndjson 不存在（不可被建立）
+
+  Scenario: S16 - Iron Rule A hook 在 worktree 中正常掛載
+    Given .asp-worktrees/task-001/ 已建立
+    When 在該 worktree 中啟動新的 Claude Code session
+    Then session-audit.sh 執行（透過 .claude/settings.json 繼承自 base branch）
+    And worktree 根產生 .asp-session-briefing.json
+    And 主 repo 根的 .asp-session-briefing.json 不被覆蓋（兩份獨立）
+    And worktree 內的 dynamic deny list 不污染主 repo
+
+  Scenario: S17 - scope.allow 重疊 dispatch 階段拒絕
+    Given TASK-001 的 scope.allow = ["src/store/", "src/api/"]
+    And TASK-002 的 scope.allow = ["src/store/"] （與 TASK-001 重疊）
+    When Orchestrator 執行 dispatch_parallel([TASK-001, TASK-002])
+    Then dispatch 失敗，退出碼為 5
+    And stderr 含 "scope.allow overlap detected: src/store/ in TASK-001 and TASK-002"
+    And 沒有 worktree 被建立
+
+  Scenario: S18 - bypass log 並行寫入安全性壓測
+    Given 10 個 Worker 進程啟動（皆在獨立 worktree）
+    And 每個 Worker 各 append 1000 筆 bypass log entry（每筆 < 4KB）
+    When 全部 Worker 完成
+    Then .asp-bypass-log.ndjson 共 10,000 行
+    And 每一行被 `jq -c .` 解析成功（無 truncated 或 interleaved JSON）
+    And 沒有 line 包含其他 line 的部分內容（POSIX O_APPEND atomicity 驗證）
+
+  Scenario: S19 - Worker process killed 後狀態正確
+    Given Worker A 在 .asp-worktrees/task-001/ 中執行
+    When Worker A 被 SIGKILL 終止（模擬 OOM 或手動 kill）
+    Then .asp-worktrees/task-001/ 目錄保留
+    And .asp-task-manifests/TASK-001.yaml 由 Orchestrator 標記為 abandoned
+    And 下次執行 `make agent-worktree-gc` 時清理該 worktree
+    But base_branch 不受影響（worker 未來得及 commit）
 ```
 
 ---
 
 ## ✅ 驗收標準（Done When）
 
-- [ ] `make test-filter FILTER=spec-004` 全數通過（至少 14 個正向 + 9 個負向/邊界場景）
-- [ ] `make lint` 無 error
-- [ ] `multi_agent.md` 移除 v3.7 廢止警告，加入 v4.1 worktree 章節（取代第 82-126 行被砍掉的內容）
-- [ ] `make agent-worktree-gc` Makefile target 實作完成
-- [ ] `make agent-worktree-list` 顯示當前所有 worktree + age + task_id
-- [ ] `.asp/scripts/multi-agent/dispatch.sh` 與 `converge.sh` 實作
-- [ ] 副作用連動已驗證（見 Side Effects 表中所有驗證 ID）
-- [ ] Rollback plan 已測試（`make spec-004-rollback-test`）
-- [ ] 已更新 `docs/architecture.md`（multi-agent 子系統圖加入 worktree 層）
-- [ ] 已更新 `CHANGELOG.md`（v4.1 entry）
-- [ ] Telemetry 事件 schema 加入 `multi_agent.dispatch/converge/fail`
-- [ ] 與 ADR-002 Iron Rule A/B/C 不衝突（worktree 內 hook 仍生效）
+1. [ ] `make test-filter FILTER=spec-004` 全數通過（測試矩陣 7 P + 6 N + 6 B = 19 項全綠）
+2. [ ] `make lint` 無 error
+3. [ ] `multi_agent.md` 中所有指向 v4.1 worktree 的廢止警告改為指向已實作章節（不再用「將實作」字樣，且不用任何行號描述位置）
+4. [ ] `multi_agent.md` 新增「Multi-agent worktree 隔離」章節，描述使用方式與限制
+5. [ ] `make agent-worktree-gc` Makefile target 實作完成
+6. [ ] `make agent-worktree-list` 顯示當前所有 worktree + age + task_id
+7. [ ] `.asp/scripts/multi-agent/dispatch.sh` 與 `converge.sh` 實作
+8. [ ] 副作用連動已驗證（見 Side Effects 表中所有 P1-P7 / N1-N6 / B1-B6 驗證 ID）
+9. [ ] Rollback plan 已測試（`make spec-004-rollback-test`）
+10. [ ] 已更新 `docs/architecture.md`（multi-agent 子系統圖加入 worktree 層）
+11. [ ] 已更新 `CHANGELOG.md`（v4.1 entry）
+12. [ ] Telemetry 事件 schema 加入 `multi_agent.dispatch/converge/fail`（同步擴充 `docs/telemetry.md` event-type 章節）
+13. [ ] `install.sh` 預檢 git ≥ 2.20、bash ≥ 4.4、jq ≥ 1.6、python3 ≥ 3.10，缺任一者 abort 安裝
+14. [ ] 與 ADR-002 Iron Rule A/B/C 不衝突（S15+S16 場景驗證）
+15. [ ] 提供 `docs/specs/SPEC-004-benchmarks.md` — 含基準環境實測數據（含 WSL2 / NFS / 大型 repo 偏離結果）
+16. [ ] `ASP_AUDIT_ROOT` 環境變數機制實作 + 文件化（dispatch.sh 注入、bypass log / telemetry 寫入點 resolve）
 
 ---
 
@@ -294,13 +381,33 @@ Feature: Multi-Agent Worktree 硬性隔離
 
 ## 📊 非功能需求（Non-Functional Requirements）
 
-| 類別 | 需求 | 驗證方式 |
+### 基準環境（Reference Environment）
+
+所有效能 / 可擴展性 / 可恢復性指標的驗收必須在以下基準環境中量測，否則指標不成立：
+
+| 維度 | 基準規格 |
+|------|---------|
+| **OS** | Linux x86_64（Ubuntu 22.04 LTS 或同等 kernel ≥ 5.15）、macOS 13+ |
+| **檔案系統** | ext4 / APFS（**不**接受 NTFS、網路掛載 NFS / SMB） |
+| **磁碟** | 本地 SSD（NVMe 或 SATA），可用空間 ≥ 5 × repo 大小 |
+| **CPU / RAM** | ≥ 4 cores、≥ 8 GB RAM |
+| **Repo 大小** | 中型 repo（≤ 500 MB checkout、≤ 50,000 commit、無 LFS 巨檔） |
+| **git 版本** | ≥ 2.20 |
+| **WSL2** | 接受，但須在 Linux 檔案系統路徑（`/home/...`）；**不**接受 `/mnt/c/...` 跨檔系操作 |
+
+> 偏離基準環境（例如 WSL2 跨 `/mnt/c`、網路磁碟、Windows NTFS）時 NFR 指標**不適用**，但功能正確性仍須保證。實作完成時須在 `docs/specs/SPEC-004-benchmarks.md` 提供基準環境的實測數據。
+
+### 指標
+
+| 類別 | 需求（基準環境下） | 驗證方式 |
 |------|------|----------|
-| **效能** | dispatch 單一 worktree < 5 秒；converge 單一 task < 10 秒（無衝突） | benchmark in tests/ |
-| **可擴展性** | max_parallel 至少支援 10 個 worker 並行不衝突 | B1 場景 |
-| **安全** | scope.allow/forbid 路徑必須在 repo 內（防 path traversal） | N1/N4 場景 |
-| **可恢復性** | Stale worktree GC 在 SessionStart 時不阻塞、< 2 秒 | session-audit hook 整合測試 |
-| **相容性** | git ≥ 2.20（worktree 成熟版本） | install.sh 預檢 |
+| **效能** | dispatch 單一 worktree p95 < 5 秒；converge 單一 task p95 < 10 秒（無衝突）；NFR 不適用環境須在實測報告註明 | `tests/perf/test_spec_004_perf.sh`（10 次取 p95） |
+| **可擴展性** | max_parallel 支援 10 個 worker 並行不衝突；超過 10 須觸發 escalation（S11） | B1 + S18 並行壓測 |
+| **磁碟容量預檢** | dispatch 階段檢查 `df -BM` 可用空間：< (repo_size × max_parallel × 1.5) 警告；< (repo_size × max_parallel × 1.2) 拒絕。**不再用固定 100MB / 1GB 門檻** | S13 用動態值替代 |
+| **安全** | scope.allow/forbid 路徑必須在 repo 內（防 path traversal）；env var ASP_AUDIT_ROOT 必須是 absolute path | N1/N4/S15 場景 |
+| **可恢復性** | Stale worktree GC 在 SessionStart hook 中執行 < 2 秒（10 個 stale worktree 情況下） | session-audit hook 整合測試 |
+| **相容性** | git ≥ 2.20、bash ≥ 4.4、jq ≥ 1.6、python3 ≥ 3.10（dispatch.sh / converge.sh / agent-worktree-gc 共用依賴） | install.sh 預檢、Done When #13 |
+| **API 預算（外部依賴）** | 10 worker 並行 = 10 × LLM API token budget；本 SPEC **不**負責 token rate limit 策略，由上層 orchestrator 決定 | 文件說明，不寫成測試 |
 
 ---
 

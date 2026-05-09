@@ -617,22 +617,37 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 
 > v4.0 重構過程中所有重大決策的時間線。新決策 append 到末尾，不修改既有條目。
 
-### D-001: 對齊官方 vs 保留違反 (2026-05-04)
+### D-001: 對齊官方 vs 保留違反 (2026-05-04, addendum 2026-05-10)
 
-**決策**：multi-agent 設計**對齊官方** (`/clear` + scratchpad)，不保留 v3.7 的「context 全量傳遞」。
+**決策**：multi-agent 設計**對齊官方** (`/clear` + scratchpad + git worktree 隔離)，不保留 v3.7 的「context 全量傳遞」與「`.agent-lock.yaml` 檔案鎖」。
 
-**Context**：W5 學完後發現 v3.7 multi_agent.md 的「context 全量傳遞」與 Anthropic SubAgents 文件 `/clear` between roles 直接矛盾。
+**Context**：W5 學完後發現 v3.7 multi_agent.md 的「context 全量傳遞」與 Anthropic SubAgents 文件 `/clear` between roles 直接矛盾。同時 v3.7 的檔案鎖機制屬於 W5 教過的 soft mechanism（靠 AI 自律檢查 `.agent-lock.yaml`），無法保證 Worker 不會直接寫入鎖定檔案。
 
 **Alternatives considered**：
+
+Context 隔離部分：
 1. ❌ 保留違反，理由是政府/軍方需 audit trail
 2. ✅ 對齊官方，audit trail 改寫 disk hash chain
 3. ❌ 雙模式（按 maturity level 切換）
 
-**Rationale**：選 2 因為兩個需求（context 隔離 vs audit 完整）在不同層次，可解耦。「LLM 短記憶」+「人類永久記錄」兩個 channel 互不干擾。
+檔案隔離部分：
+1. ❌ 保留 `.agent-lock.yaml` soft lock — Worker 可繞過、無法 enforce
+2. ❌ 用 OS 層 file lock（flock）— 跨平台問題（Windows / macOS / Linux 行為不一致），且只擋寫入不擋讀取
+3. ✅ git worktree 硬性隔離 — 檔案系統層保證、git 原生支援、跨平台一致
 
-**Consequences**：multi_agent.md 大改，handoff 模板從「全量傳遞」改成「檔案路徑 + hash + 邊界限制」。
+**Rationale**：context 隔離選對齊官方因為兩個需求（context 隔離 vs audit 完整）在不同層次，可解耦。檔案隔離選 worktree 因為它是 hard mechanism（W5 原則），且與「AI 短記憶」的隔離需求對齊：每個 Worker 看到的是獨立 working tree，merge 由 Orchestrator 集中處理。
 
-→ 詳細設計見 §5.4
+**Consequences**：
+
+Context 層：
+- multi_agent.md 大改，handoff 模板從「全量傳遞」改成「檔案路徑 + hash + 邊界限制」
+
+檔案層（v4.0 標記廢止、v4.1 實作）：
+- `.agent-lock.yaml` + `make agent-lock-gc` 機制廢止（commit `10adbbe`, 2026-05-09）
+- v4.0 過渡期：multi-agent 改為單軌序列執行
+- v4.1 實作：每個 Worker 在獨立 worktree，Orchestrator 在 `converge_tracks` merge — 詳見 SPEC-004
+
+→ 詳細設計見 §5.4 與 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`
 
 ### D-002: 安全違規規則改用 Semgrep ruleset (2026-05-04, from W6)
 
