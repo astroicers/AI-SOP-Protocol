@@ -87,9 +87,15 @@ logs:
 test:
 	@echo "🧪 Running tests..."
 	@if [ -f "go.mod" ]; then go test ./... -v -race -coverprofile=coverage.out; \
-	elif command -v pytest >/dev/null 2>&1 && { [ -f "pytest.ini" ] || [ -f "pyproject.toml" ] || [ -d "tests" ]; }; then pytest ./tests -v --cov=.; \
 	elif [ -f "package.json" ] && grep -q '"test"' package.json 2>/dev/null; then npm test; \
-	else echo "⚠️  未偵測到測試框架（go.mod / pytest / package.json）"; exit 1; fi
+	elif ls tests/*.sh &>/dev/null 2>&1; then \
+	    PASS=0; FAIL=0; \
+	    for f in tests/*.sh; do \
+	        echo "  → $$f"; bash "$$f" && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
+	    done; \
+	    echo "bash tests: $$PASS passed, $$FAIL failed"; [ $$FAIL -eq 0 ]; \
+	elif command -v pytest >/dev/null 2>&1 && { [ -f "pytest.ini" ] || [ -f "pyproject.toml" ] || ls tests/*.py &>/dev/null 2>&1; }; then pytest ./tests -v --cov=.; \
+	else echo "⚠️  未偵測到測試框架（go.mod / package.json / tests/*.sh / pytest）"; exit 1; fi
 
 test-filter:
 	@if [ -z "$(FILTER)" ]; then echo "使用方式：make test-filter FILTER=xxx"; exit 1; fi
@@ -1017,7 +1023,10 @@ print("  Tasks: "+str(len(tasks))+" | Pending: "+str(pending)+" | Errors: "+str(
 [print("  \u274c "+e) for e in errors];\
 sys.exit(1 if errors else 0)'
 	@echo "📝 Updating CLAUDE.md project description..."
-	@python3 .asp/scripts/update-project-description.py
+	@ASP_SCRIPT="$$(dirname "$$(realpath "$$(command -v make)")" 2>/dev/null)"; \
+	  if [ -f ".asp/scripts/update-project-description.py" ]; then \
+	    python3 .asp/scripts/update-project-description.py; \
+	  else echo "  ℹ️  update-project-description.py not found, skipping"; fi
 
 autopilot-status:
 	@echo "🤖 Autopilot Status"
