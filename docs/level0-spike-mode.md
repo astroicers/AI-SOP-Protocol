@@ -93,6 +93,45 @@ Outcome: go → upgrade to L1, create ADR, write SPEC; no-go → document in spi
 
 ---
 
+## L0 Lifecycle: Active vs Zombie Diagnosis
+
+Run `make asp-l0-audit` monthly on L0 repos. Ask three questions:
+
+1. **Active?** — Any commits in the last 30 days?
+2. **Understandable?** — Can you change something in <30 min?
+3. **Worth keeping?** — Would losing it cause pain?
+
+| Answer | Diagnosis | Action |
+|--------|-----------|--------|
+| All yes | Active L0 | Continue as-is |
+| No to Q1 only | Zombie | Archive or delete |
+| No to Q2 | Zombie trap | Upgrade to L1 or refactor before it rots further |
+| No to Q3 | Zombie | Delete without guilt |
+
+```bash
+# Run lifecycle audit on any L0 project
+make asp-l0-audit
+# Or from ASP repo:
+bash .asp/scripts/l0-audit.sh /path/to/your-l0-project
+```
+
+---
+
+## Promotion Gate Triggers (Mandatory L0 → L1 Evaluation)
+
+These events **force** an L0 → L1 evaluation regardless of your preference:
+
+| Trigger | Required action |
+|---------|----------------|
+| First external user (someone you don't know) | Evaluate upgrade to L1 — production governance required |
+| Any real PII or payment data touches the system | Immediate L2+ required |
+| Repo age > 60 days AND still in active development | Run audit: Active or Zombie? Upgrade or delete. |
+| Going onto any app store / public deployment | L3 minimum required — start ADR + SPEC now |
+
+`make asp-l0-audit` checks trigger 1 (external committer) and trigger 3 (60-day clock) automatically.
+
+---
+
 ## Anti-patterns
 
 - **"We'll just stay in L0 forever"** — L0 is time-boxed. If you need > 5 working days, escalate to L1. The graduation checklist ensures spike findings are captured before going further.
@@ -110,4 +149,5 @@ Outcome: go → upgrade to L1, create ADR, write SPEC; no-go → document in spi
 | `.asp/profiles/spike_mode.md` | Profile loaded automatically when `level: 0` is set |
 | `.asp/templates/example-profile-spike.yaml` | Copy-paste `.ai_profile` template for spike projects |
 | `make asp-level` | Check current maturity level and graduation status |
+| `make asp-l0-audit` | Run L0 lifecycle audit (Active vs Zombie + Promotion Gate checks) |
 | `docs/where-to-start.md` | General ASP onboarding guide |

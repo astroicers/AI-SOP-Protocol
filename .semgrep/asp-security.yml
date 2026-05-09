@@ -1,0 +1,74 @@
+rules:
+  # Iron Rule: Sensitive Data Protection
+  - id: asp-no-hardcoded-secret
+    patterns:
+      - pattern: $KEY = "..."
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: '(?i)(password|secret|api_key|apikey|token|auth|credential|passwd|private_key)'
+    message: "Potential hardcoded secret in variable '$KEY' — use environment variables or a secrets manager"
+    languages: [python, go, javascript, typescript]
+    severity: ERROR
+    metadata:
+      asp_rule: "Iron Rule: Sensitive Data Protection"
+      category: security
+
+  # SQL injection guard (Go)
+  - id: asp-no-raw-sql-concat-go
+    patterns:
+      - pattern: |
+          $DB.Exec($QUERY + $USERINPUT)
+      - pattern: |
+          $DB.Query($QUERY + $USERINPUT)
+    message: "Potential SQL injection — use parameterized queries (db.Exec with args, not string concat)"
+    languages: [go]
+    severity: ERROR
+    metadata:
+      asp_rule: "OWASP A03: Injection"
+      category: security
+
+  # Iron Rule 7: Crypto functions require HITL
+  - id: asp-crypto-must-be-hitl-go
+    patterns:
+      - pattern: func Encrypt(...)
+      - pattern: func Decrypt(...)
+      - pattern: func Sign(...)
+      - pattern: func Verify(...)
+      - pattern: func Hash(...)
+    message: >
+      Crypto function detected — Iron Rule 7: HITL required.
+      No auto-merge allowed. Manual review mandatory before deployment.
+    languages: [go]
+    severity: WARNING
+    metadata:
+      asp_rule: "Iron Rule 7: Crypto Auto-fix Prohibition"
+      category: security
+
+  - id: asp-crypto-must-be-hitl-python
+    patterns:
+      - pattern: def encrypt(...)
+      - pattern: def decrypt(...)
+      - pattern: def sign(...)
+      - pattern: def verify(...)
+      - pattern: def hash_data(...)
+    message: >
+      Crypto function detected — Iron Rule 7: HITL required.
+      No auto-merge allowed. Manual review mandatory before deployment.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      asp_rule: "Iron Rule 7: Crypto Auto-fix Prohibition"
+      category: security
+
+  # Detect raw shell execution with user input (command injection)
+  - id: asp-no-command-injection-python
+    patterns:
+      - pattern: os.system($CMD)
+      - pattern: subprocess.call($CMD, shell=True)
+      - pattern: subprocess.run($CMD, shell=True)
+    message: "Potential command injection — avoid shell=True or os.system with dynamic input"
+    languages: [python]
+    severity: ERROR
+    metadata:
+      asp_rule: "OWASP A03: Injection"
+      category: security

@@ -673,6 +673,20 @@ asp-bypass-migrate: ## Migrate .asp-bypass-log.json → .asp-bypass-log.ndjson (
 	else echo "[ASP] No .asp-bypass-log.json to migrate"; fi
 .PHONY: asp-bypass-migrate
 
+asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Promotion Gate checks)
+	@bash .asp/scripts/l0-audit.sh .
+.PHONY: asp-l0-audit
+
+security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
+	@if command -v semgrep &>/dev/null; then \
+	    semgrep --config=.semgrep/asp-security.yml . --quiet; \
+	    echo "[ASP] security-scan complete"; \
+	else \
+	    echo "[ASP] semgrep not installed — skip security scan"; \
+	    echo "[ASP] Install: pip install semgrep"; \
+	fi
+.PHONY: security-scan
+
 #---------------------------------------------------------------------------
 # 專案健康審計
 #---------------------------------------------------------------------------

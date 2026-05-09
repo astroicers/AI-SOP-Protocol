@@ -67,6 +67,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | Bug 嚴重度分類 | bug classify, bug severity, 這是 trivial 嗎 | asp-bug-classify |
 | 需求變更回溯 | change cascade, 需求變更, scope change | asp-change-cascade |
 | 領域詞彙管理 / CONTEXT.md 建立與更新 | context, 詞彙, vocabulary, 術語, domain, grill-with-docs, context 不存在, 術語衝突 | asp-context |
+| 外部 AI 跨廠商 review（Layer 3） | external review, Layer 3, cross-vendor review, 外部審查, 跨廠商審查, crypto review, high-stakes review | asp-external-review |
 
 ## 執行後 — 主動提示下一步（v3.5）
 

@@ -52,6 +52,10 @@
 | Telemetry dashboard | Local HTML report from `.asp-telemetry.jsonl` |
 | `asp-gate` G5.5 / G6.5 gates | Adversarial content scanning, memory poisoning check |
 | Bypass rate alerting | Auto-escalate when bypass rate > 30% in 7 days |
+| AI Performance Review System | `~/asp-ai-performance/` — auto-merge JSONL + Trust Tier dynamic downgrade (D-006) |
+| L0 Lifecycle Audit | `make asp-l0-audit` — Active vs Zombie diagnosis + Promotion Gate triggers (D-009) |
+| Reality Checker Layer 3 | `asp-external-review` skill — cross-vendor review via GitHub Copilot/Diamond (D-008) |
+| Semgrep Security Ruleset | `.semgrep/asp-security.yml` — deterministic SAST replacing profile regex (D-002) |
 
 ---
 
