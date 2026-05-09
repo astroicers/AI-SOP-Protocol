@@ -199,8 +199,8 @@ endif
 adr-new:
 	@if [ -z "$(TITLE)" ]; then read -p "ADR 標題: " TITLE; fi; \
 	mkdir -p docs/adr; \
-	COUNT=$$(ls docs/adr/ADR-*.md 2>/dev/null | wc -l | tr -d ' '); \
-	NUM=$$(printf "%03d" $$((COUNT + 1))); \
+	MAX=$$(ls docs/adr/ADR-*.md 2>/dev/null | sed -n 's|.*/ADR-\([0-9]\{3\}\)-.*|\1|p' | sort -n | tail -1 | sed 's/^0*//'); \
+	NUM=$$(printf "%03d" $$(( $${MAX:-0} + 1 ))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
 	FILE="docs/adr/ADR-$$NUM-$$SLUG.md"; \
 	cp .asp/templates/ADR_Template.md $$FILE; \
@@ -225,8 +225,8 @@ adr-list:
 spec-new:
 	@if [ -z "$(TITLE)" ]; then read -p "規格書標題: " TITLE; fi; \
 	mkdir -p docs/specs; \
-	COUNT=$$(ls docs/specs/SPEC-*.md 2>/dev/null | wc -l | tr -d ' '); \
-	NUM=$$(printf "%03d" $$((COUNT + 1))); \
+	MAX=$$(ls docs/specs/SPEC-*.md 2>/dev/null | sed -n 's|.*/SPEC-\([0-9]\{3\}\)-.*|\1|p' | sort -n | tail -1 | sed 's/^0*//'); \
+	NUM=$$(printf "%03d" $$(( $${MAX:-0} + 1 ))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
 	FILE="docs/specs/SPEC-$$NUM-$$SLUG.md"; \
 	cp .asp/templates/SPEC_Template.md $$FILE; \
@@ -246,8 +246,8 @@ spec-list:
 postmortem-new:
 	@if [ -z "$(TITLE)" ]; then read -p "Postmortem 標題: " TITLE; fi; \
 	mkdir -p docs/postmortems; \
-	COUNT=$$(ls docs/postmortems/PM-*.md 2>/dev/null | wc -l | tr -d ' '); \
-	NUM=$$(printf "%03d" $$((COUNT + 1))); \
+	MAX=$$(ls docs/postmortems/PM-*.md 2>/dev/null | sed -n 's|.*/PM-\([0-9]\{3\}\)-.*|\1|p' | sort -n | tail -1 | sed 's/^0*//'); \
+	NUM=$$(printf "%03d" $$(( $${MAX:-0} + 1 ))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
 	FILE="docs/postmortems/PM-$$NUM-$$SLUG.md"; \
 	cp .asp/templates/Postmortem_Template.md $$FILE; \
