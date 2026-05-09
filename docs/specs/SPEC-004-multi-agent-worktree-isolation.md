@@ -9,7 +9,7 @@
 | **估算複雜度** | 中 |
 | **建議模型** | Sonnet（涉及 git plumbing + multi-agent orchestration，需要精準 shell 操作） |
 | **HITL 等級** | strict（涉及 worktree 建立 + 跨 branch merge，需人類審查） |
-| **狀態** | Draft |
+| **狀態** | Accepted |
 | **日期** | 2026-05-10 |
 
 ---
