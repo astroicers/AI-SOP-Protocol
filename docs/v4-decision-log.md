@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Archive | Audience: Contributors -->
 # ASP v4.0 決策日誌
 
 > 記錄 v4.0 重構過程中的主要決策、被拒絕的方案、和最終選擇的理由。

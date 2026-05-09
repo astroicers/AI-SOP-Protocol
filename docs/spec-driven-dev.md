@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: L1+ users -->
 # SPEC 驅動開發
 
 ASP 的 SPEC（規格書）不只是文件——它定義了**需求、邊界條件、測試驗收標準**，是一體的。

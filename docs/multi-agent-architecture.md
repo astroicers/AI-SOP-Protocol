@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: L4-L5 users -->
 # Multi-Agent 協作架構（ASP v3.0）
 
 > 本文件是 ASP v3.0 multi-agent 系統的完整技術參考。
@@ -99,7 +100,7 @@ graph TB
 | | Integrator | `integ` | 跨模組整合、軌道匯流 | 中立 | `converge_tracks()` |
 | **品質與驗證** | QA Verifier | `qa` | 獨立驗證、偷渡偵測 | 懷疑 | `on_worker_done()`, `dev_qa_loop()` |
 | | Security Reviewer | `sec` | OWASP、憑證掃描、攻擊面 | 懷疑 | `committee_debate()` security 角色 |
-| | Reality Checker | `reality` | **預設 NEEDS_WORK**、品質門否決權 | 懷疑 | `reality_check()` — v3.0 新增 |
+| | Reality Checker | `reality` | **預設 NEEDS_WORK**、品質門否決權 | 懷疑 | `reality_check()` |
 | **文件** | Doc Writer | `doc` | CHANGELOG、README、SPEC 追溯 | 主動 | `documentation_pipeline()` |
 
 > 角色定義檔案：`.asp/agents/{role-id}.yaml`

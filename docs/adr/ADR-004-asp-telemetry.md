@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Accepted | Audience: L2+ users -->
 # ADR-004: ASP Telemetry 採用 JSONL Append-Only 格式
 
 **Status:** Accepted

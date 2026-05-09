@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Reference | Audience: All users -->
 # autoresearch 搭配 ASP 使用指南
 
 > [karpathy/autoresearch](https://github.com/karpathy/autoresearch) 是 ML 訓練實驗自動化工具。

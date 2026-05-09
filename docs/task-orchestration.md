@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: L3+ users -->
 # 任務協調與專案健康審計
 
 > **導覽提示：** 本文說明 ASP 任務編排的執行機制（asp-dispatch / asp-autopilot）。

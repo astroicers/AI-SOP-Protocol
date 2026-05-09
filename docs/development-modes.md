@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: All users -->
 # 開發模式
 
 ### mode: auto（預設）

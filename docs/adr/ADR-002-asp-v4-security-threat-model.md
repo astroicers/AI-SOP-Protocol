@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-05-09 | Status: Accepted | Audience: All users -->
 # ADR-002: ASP 採用 STRIDE 威脅模型進行自我安全審計
 
 | 欄位 | 內容 |
