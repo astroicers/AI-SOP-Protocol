@@ -5,10 +5,10 @@
 > **使用方式**：v4.0 開發時這份是 single source of truth (單點真相)。可整份 paste 進 Claude Code session 當作設計憲章。
 >
 > **三份檔案分工**：
-> - `cs146s-study-notes.md` — 學什麼、學會了什麼（學習過程）
-> - `asp-v4-design-notes.md` ← **本檔案** — 為什麼這樣設計（架構與決策）
-> - `asp-v4-improvement-prompts.md` — 怎麼執行（11 個可執行 prompt）
-> - `asp-production-ops-playbook.md` — 框架完成後怎麼用 AI 維運（生產維運手冊）
+> - `~/docs/cs146s-study-notes.md` (personal notes, not in repo) — 學什麼、學會了什麼（學習過程）
+> - `docs/v4-architecture-sds.md` ← **本檔案** — 為什麼這樣設計（架構與決策）
+> - `docs/v4-refactor-prompts.md` — 怎麼執行（11 個可執行 prompt）
+> - `docs/production-ops-playbook.md` — 框架完成後怎麼用 AI 維運（生產維運手冊）
 
 ---
 
@@ -25,8 +25,8 @@
 
 ### 跨檔案索引
 
-- 各週學習對 ASP 的具體建議：見 `cs146s-study-notes.md` 各週「ASP 對照分析」段落
-- 可執行的 11 個 prompt：見 `asp-v4-improvement-prompts.md`
+- 各週學習對 ASP 的具體建議：見 `~/docs/cs146s-study-notes.md` (personal notes, not in repo) 各週「ASP 對照分析」段落
+- 可執行的 11 個 prompt：見 `docs/v4-refactor-prompts.md`
 - v3.7 既有檔案：`AI-SOP-Protocol/.asp/profiles/`、`AI-SOP-Protocol/.claude/skills/asp/`、`AI-SOP-Protocol/CLAUDE.md`
 
 ---
@@ -68,7 +68,7 @@ ASP v3.7 累積了大量 production-grade 設計（Reality Checker、4 層強制
 | Six prompting primitives | W1 教材 |
 | W2 K-shot 補充（甜區、lost in the middle、dynamic K-shot）| W2 教材 |
 | Disposition Matrix methodology | Skills vs ASP 討論 |
-| 11 個可執行 prompt | `asp-v4-improvement-prompts.md` |
+| 11 個可執行 prompt | `docs/v4-refactor-prompts.md` |
 
 ---
 
@@ -443,7 +443,7 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 
 > **本設計憲章 v1.0 原本包含完整的子系統設計、AI Performance Review System、High-Stakes Deployment Phasing 三大段落（原 §5.6-§5.8）。**
 >
-> **這些內容已抽出為獨立的 `asp-production-ops-playbook.md` 維運手冊**——因為它們是「v4.0 完成後怎麼用 ASP 維運」的長期 operational concern，跟本檔案「v4.0 怎麼重構」是不同關注點。
+> **這些內容已抽出為獨立的 `docs/production-ops-playbook.md` 維運手冊**——因為它們是「v4.0 完成後怎麼用 ASP 維運」的長期 operational concern，跟本檔案「v4.0 怎麼重構」是不同關注點。
 
 #### 摘要：4 個啟用 + 2 個跳過子系統
 
@@ -463,10 +463,10 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 
 #### 詳細內容跳轉
 
-→ `asp-production-ops-playbook.md` §3-7：4 個子系統完整設計
-→ `asp-production-ops-playbook.md` §10：AI Performance Review System 實作細節
-→ `asp-production-ops-playbook.md` §11：High-Stakes Deployment Phasing 完整規則
-→ `asp-production-ops-playbook.md` §12：Per-Project Status Tracker（每個專案目前在哪個 phase）
+→ `docs/production-ops-playbook.md` §3-7：4 個子系統完整設計
+→ `docs/production-ops-playbook.md` §10：AI Performance Review System 實作細節
+→ `docs/production-ops-playbook.md` §11：High-Stakes Deployment Phasing 完整規則
+→ `docs/production-ops-playbook.md` §12：Per-Project Status Tracker（每個專案目前在哪個 phase）
 
 ---
 
@@ -827,7 +827,7 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 
 ## 11. Cross-References (跨檔案索引)
 
-### 11.0 — 與 `asp-production-ops-playbook.md` 對應
+### 11.0 — 與 `docs/production-ops-playbook.md` 對應
 
 | 本檔案章節 | Playbook 對應段落 |
 |----------|------------------|
@@ -840,7 +840,7 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 | §10 D-006 | §10 AI Performance Review System |
 | §10 D-007 | §8.2 + §11 High-Stakes Deployment Phasing |
 
-### 11.1 — 與 `cs146s-study-notes.md` 對應
+### 11.1 — 與 `~/docs/cs146s-study-notes.md` (personal notes, not in repo) 對應
 
 | 本檔案章節 | 學習筆記對應段落 |
 |----------|----------------|
@@ -850,7 +850,7 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 | §4.2 Design Principles | W1-W5 各週 takeaway 整合 |
 | 目標架構三層 | W4「ASP v3.7 對照分析」+ Skills vs ASP 討論 |
 
-### 11.2 — 與 `asp-v4-improvement-prompts.md` 對應
+### 11.2 — 與 `docs/v4-refactor-prompts.md` 對應
 
 | 本檔案章節 | Prompt # |
 |----------|---------|
@@ -932,11 +932,11 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 
 ### 13.1 — 開始 v4.0 前的 pre-flight checklist
 
-- [ ] 讀完 `cs146s-study-notes.md` W1-W5 至少一次
+- [ ] 讀完 `~/docs/cs146s-study-notes.md` (personal notes, not in repo) W1-W5 至少一次
 - [ ] 在 ASP repo 開新 branch `feature/v4-refactor`
 - [ ] `git tag v3.7-final` 建立 rollback 錨點
 - [ ] 把這份檔案 commit 進 ASP repo `docs/v4-design/`
-- [ ] 把 `asp-v4-improvement-prompts.md` commit 進同一目錄
+- [ ] 把 `docs/v4-refactor-prompts.md` commit 進同一目錄
 - [ ] 設定每週固定時段 review 進度（建議週日晚上）
 
 ### 13.2 — 警告與提醒
