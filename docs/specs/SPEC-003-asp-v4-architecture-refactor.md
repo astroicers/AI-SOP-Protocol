@@ -14,7 +14,7 @@
 ## Goal
 
 ASP v4.0 = 憲法壓縮 + Skill 增殖 + 可觀測性層：
-把 v3.7 的 token 負擔降低 40%，同時增加 8 個 capability 與 security posture。
+把 v3.7 的 token 負擔降低 40%，同時增加 9 個 capability 與 security posture。
 
 ---
 
@@ -35,12 +35,12 @@ ASP v4.0 = 憲法壓縮 + Skill 增殖 + 可觀測性層：
 ```
 使用者 ← → Claude Code
               │
-              ├── CLAUDE.md (92 行 / ~2500 tokens) ← 壓縮 70%
+              ├── CLAUDE.md (100 行 / ~2500 tokens) ← 壓縮 70%
               ├── .ai_profile → .asp/profiles/ (21 profiles, +spike_mode)
-              ├── .claude/skills/asp/ (21 skills, +8 新增)
+              ├── .claude/skills/asp/ (21 skills, +9 新增)
               │        ├── [原有 12 skill]
-              │        └── [v4 新增 8: handoff/team-pick/escalate/dev-qa-loop/
-              │             fact-verify/assumption-checkpoint/bug-classify/change-cascade]
+              │        └── [v4 新增 9: handoff/team-pick/escalate/dev-qa-loop/
+              │             fact-verify/assumption-checkpoint/bug-classify/change-cascade/context]
               ├── .asp/levels/ (6 levels, L0-L5)
               ├── docs/security/threat-model-v4.0.md (STRIDE)
               └── .asp/scripts/telemetry/ (collect/report/prune)
