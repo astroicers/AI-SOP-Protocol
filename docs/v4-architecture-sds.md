@@ -570,47 +570,46 @@ ASP repo 自身定位轉變：從「**被裝進其他專案的 framework**」變
 
 ---
 
-## 9. Execution Progress Tracker (執行進度追蹤)
+## 9. v4.0 交付狀態（Shipped State）
 
-> **更新方式**：每完成一個 prompt 或 phase，更新對應 status。**這是這份檔案最常被改的地方。**
+> **最後更新**：2026-05-09 — v4.0 已發布。本節改為「交付紀錄」，不再是待辦追蹤。
+> v4.1 待辦見 `docs/ROADMAP.md`。
 
 ### 9.1 — 整體狀態
 
 | 項目 | 狀態 |
 |-----|------|
-| Overall | 🟡 Planning |
-| Branch | (待建) `feature/v4-refactor` |
-| 預估開始日期 | TBD |
-| 預估完成日期 | TBD（目標 30 天內出 alpha） |
+| Overall | ✅ v4.0 Shipped |
+| Branch | `main` |
+| 發布日期 | 2026-05-09 |
+| 下一版本 | v4.1（見 `docs/ROADMAP.md`） |
 
-### 9.2 — Track 進度
+### 9.2 — Track 交付結果
 
-| Track | Status | Progress | Next Action | Blocker |
-|-------|--------|----------|-------------|---------|
-| A. Constitution | ⬜ Not started | 0/4 | 跑 Prompt 0 量基線 | - |
-| B. Skills | ⬜ Not started | 0/9 | 等 Track A disposition matrix | A |
-| C. MCP server | ⬜ Not started | 0/5 | 等 Track A disposition matrix | A |
-| D. Telemetry | ⬜ Not started | 0/4 | 等 Track A 完成 | A |
-| E. 對抗式威脅鐵則 | ⬜ Not started | 0/4 | 可平行啟動 | - |
-| F. 整合發佈 | ⬜ Not started | 0/4 | 等 A-E 完成 | A-E |
-
-**Status legend**：⬜ Not started / 🟡 In progress / ✅ Done / ❌ Blocked / 🔄 Rework
+| Track | Status | 交付結果 | 備註 |
+|-------|--------|----------|------|
+| A. Constitution | ✅ Done | `CLAUDE.md` 瘦身至 100 行；user-level architecture | D-004 實作完成 |
+| B. Skills | ✅ Done | 23 個 `~/.claude/skills/asp/asp-*.md` | 含 asp-context、asp-gate、asp-handoff 等 |
+| C. MCP server | 🚫 Cancelled | 改採 user-level skill 架構 | 見 ADR-003 |
+| D. Telemetry | ✅ Done | `.asp/scripts/telemetry/` (collect/report/prune) | Makefile targets: asp-telemetry-* |
+| E. 對抗式威脅鐵則 | ✅ Done | `.semgrep/asp-security.yml`（5 rules）；`docs/security/threat-model-v4.0.md` | D-002 實作完成 |
+| F. 整合發佈 | ✅ Done | install.sh + uninstall.sh + asp-sync.sh 完整 rewrite | user-level 架構 |
 
 ### 9.3 — Prompt 執行紀錄
 
-| Prompt # | 主題 | 狀態 | 產出檔案 | 跑的日期 |
-|---------|------|------|---------|---------|
-| 0 | 基線量測 | ⬜ | `.asp-baseline-v3.7.json` + `.md` | - |
-| 1 | Disposition Matrix 全盤點 | ⬜ | `.asp-disposition-matrix.yaml` + `.md` | - |
-| 1.5 | Disposition 紅隊質疑 | ⬜ | (追加到 1.md 末尾) | - |
-| 2 | CLAUDE.md 瘦身 | ⬜ | `CLAUDE.md.v4` + diff + coverage | - |
-| 3 | Profile → Skill 拆解 | ⬜ | `.claude/skills/asp/asp-*.md` (8 個) | - |
-| 4 | ASP-as-MCP-server SDS | ⬜ | `docs/specs/SPEC-XXX-asp-mcp-server.md` | - |
-| 5 | Telemetry 採集 | ⬜ | `.asp/scripts/telemetry/*` | - |
-| 6 | 對抗式 Gap Analysis | ⬜ | `docs/security/ASP-Threat-Model-v1.md` | - |
-| 7 | L0 Spike 草擬 | ⬜ | `.asp/levels/level-0.yaml` + profile | - |
-| 8 | v4.0 整合 SDS | ⬜ | `docs/specs/SPEC-v4.0-asp-architecture-refactor.md` | - |
-| 9 | Migration Plan + ROADMAP | ⬜ | `docs/ROADMAP.md` 更新 | - |
+| Prompt # | 主題 | 狀態 | 產出檔案 |
+|---------|------|------|---------|
+| 0 | 基線量測 | ✅ DONE | 以 disposition matrix 取代（概念合併） |
+| 1 | Disposition Matrix 全盤點 | ✅ DONE | `docs/v4-architecture-sds.md` §10 Decision Log |
+| 1.5 | Disposition 紅隊質疑 | ✅ DONE | `docs/adr/ADR-002-asp-v4-security-threat-model.md` |
+| 2 | CLAUDE.md 瘦身 | ✅ DONE | `CLAUDE.md`（100 行；原 309 行） |
+| 3 | Profile → Skill 拆解 | ✅ DONE | `~/.claude/skills/asp/asp-*.md`（23 個） |
+| 4 | ASP-as-MCP-server SDS | 🚫 CANCELLED | 改採 user-level skill 架構（ADR-003） |
+| 5 | Telemetry 採集 | ✅ DONE | `.asp/scripts/telemetry/collect.py` + report + prune |
+| 6 | 對抗式 Gap Analysis | ✅ DONE | `docs/security/threat-model-v4.0.md` + `.semgrep/asp-security.yml` |
+| 7 | L0 Spike 草擬 | ✅ DONE | `.asp/levels/level-0.yaml`；`docs/level0-spike-mode.md` |
+| 8 | v4.0 整合 SDS | ✅ DONE | `docs/specs/SPEC-003-asp-v4-architecture-refactor.md` |
+| 9 | Migration Plan + ROADMAP | ✅ DONE | `docs/ROADMAP.md`；`docs/project-structure.md` |
 
 ---
 
