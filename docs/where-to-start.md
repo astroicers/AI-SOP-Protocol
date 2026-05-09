@@ -195,3 +195,17 @@ make profile-validate
 make runbook-list                             # 列出所有 Runbook
 make runbook-view SCENARIO=incident-response  # 閱讀特定場景
 ```
+
+---
+
+## 更多資源
+
+| 文件 | 說明 |
+|------|------|
+| `docs/ROADMAP.md` | ASP 框架路線圖：v4.0 → v4.1 → v5.0 |
+| `docs/multi-agent-architecture.md` | Multi-agent 系統架構（角色、溝通協議） |
+| `docs/level0-spike-mode.md` | L0 Spike 模式使用指南 |
+| `docs/adr/ADR-002-asp-v4-security-threat-model.md` | 安全威脅模型（Iron Rules 來源） |
+| `docs/security/threat-model-v4.0.md` | STRIDE 威脅分析 + 8 步攻擊鏈 |
+| `.asp/templates/example-profile-full.yaml` | 完整 `.ai_profile` schema 範例 |
+| `CONTEXT.md` | 專案領域詞彙表（術語對照） |
