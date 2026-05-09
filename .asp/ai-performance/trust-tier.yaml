@@ -1,0 +1,39 @@
+trust_tier:
+  current: TIER_2_STANDARD
+  score: 100
+  last_updated: "2026-05-09"
+  # Update this file monthly after running: python3 ~/asp-ai-performance/monthly-review.py
+
+tiers:
+  TIER_3_FULL_AUTO:
+    min_score: 95
+    auto_merge: true
+    requires_label: false
+    files_limit: 10
+    description: "High trust — auto-merge without label"
+
+  TIER_2_STANDARD:
+    min_score: 80
+    auto_merge: true
+    requires_label: "trivial-auto"
+    files_limit: 5
+    description: "Standard trust — auto-merge with label, ≤5 files"
+
+  TIER_1_REVIEW:
+    min_score: 60
+    auto_merge: false
+    auto_open_pr: true
+    requires_human_approval: true
+    description: "Reduced trust — open PR, human batch-approves"
+
+  TIER_0_REVOKED:
+    min_score: 0
+    auto_merge: false
+    auto_open_pr: false
+    you_must_invoke: true
+    description: "Trust revoked — all automation disabled, manual only"
+
+# Iron Rule overrides (never relaxed by tier)
+iron_rules:
+  crypto_always_hitl: true       # Rule 7: crypto/auth paths always human review
+  customer_facing_always_hitl: true  # Rule 6: customer-visible artifacts always human

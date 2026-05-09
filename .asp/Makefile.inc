@@ -22,7 +22,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         profile-validate \
         agent-memory-init agent-session-init audit-baseline-init \
         asp-unlock-commit asp-refresh asp-enforcement-status \
-        runbook-list runbook-view
+        runbook-list runbook-view \
+        asp-performance-review asp-performance-review-update
 
 #---------------------------------------------------------------------------
 # Help
@@ -55,6 +56,7 @@ endif
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
 	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
+	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -682,6 +684,14 @@ asp-bypass-migrate: ## Migrate .asp-bypass-log.json → .asp-bypass-log.ndjson (
 asp-update: ## Sync ASP core from local repo to ~/.claude/ (profiles/hooks/skills)
 	@bash ~/.claude/scripts/asp-sync.sh
 .PHONY: asp-update
+
+asp-performance-review: ## Run monthly AI performance review (trust score + tier)
+	@python3 ~/.claude/asp/ai-performance/monthly-review.py
+.PHONY: asp-performance-review
+
+asp-performance-review-update: ## Run monthly AI performance review and update trust-tier.yaml
+	@python3 ~/.claude/asp/ai-performance/monthly-review.py --update-tier
+.PHONY: asp-performance-review-update
 
 asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Promotion Gate checks)
 	@bash .asp/scripts/l0-audit.sh .
