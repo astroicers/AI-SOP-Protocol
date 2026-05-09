@@ -2,6 +2,27 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [4.0.1] - 2026-05-09
+
+對照 v4.0 四份核心設計文件（`docs/v4-architecture-sds.md`、`docs/production-ops-playbook.md`、`docs/v4-refactor-prompts.md`、`~/docs/cs146s-study-notes.md`）執行 review，補齊 v4.0 ship 後遺留的 gap。
+
+### Fixed
+- **`make test` exit 5**: pytest 找不到 Python 測試時直接失敗，bash 測試（`tests/*.sh`）被忽略。新增 bash test fallback 與 `autopilot-validate` 的 script-not-found graceful skip，27/27 測試通過
+- **`CLAUDE.md` 過時路徑**: 6 處引用 `.asp/profiles/`、`.asp/hooks/`、`.asp/levels/`、`.asp/templates/` 已失效（v4.0 改為 user-level 架構），全數更新為 `~/.claude/asp/`，檔案維持 100 行內
+- **audit-health 測試掃描盲點**: 第 723 行只認 `go/ts/tsx/js/jsx/py/java/rb` 副檔名，bash 測試完全被忽略，導致純 bash 測試專案被誤報為 BLOCKER。新增 `sh` 副檔名與 `tests/*` 路徑排除
+- **audit-health tech-debt false positive**: 第 811 行掃描沒有 `--include` 過濾，撈到 markdown 文件中的字面範例（`asp-ship.md`、`asp-review.md`、runbooks 等），誤報 14 個 ghost debts。已限定 source code 副檔名並排除 `.asp/profiles/`、`.asp/templates/`、`.asp/hooks/`、`.asp/scripts/` 工具內部
+
+### Added
+- **ADR-003: MCP Server 取消決策**: 正式記錄 v4.0 取消 MCP server 的選項評估與決策理由（user-level skill 架構已涵蓋原定 5 個 tool 功能），並列出 v4.1 重新評估條件
+- **`.asp/ai-performance/` (移入 repo)**: 將 `~/asp-ai-performance/` 的 `schema.md`、`trust-tier.yaml`、`monthly-review.py` 移入版控；新增 `make asp-performance-review` 與 `make asp-performance-review-update` Makefile targets；路徑同步至 `~/.claude/asp/ai-performance/`
+
+### Changed
+- **`docs/v4-architecture-sds.md` §9 進度追蹤**: 從 all-⬜-Not-started 改寫為「v4.0 交付狀態」，11 個 prompt 對應實際產出檔案；Track C（MCP）標記 CANCELLED，其餘 5 個 track 標記 DONE
+- **`multi_agent.md` 廢止 v3.7 機制**: 砍掉「Context 全量傳遞」（line 21）與「文件鎖定」+「Lock GC 自動化」（line 82-126，共 51 行）兩個與 D-001 決策矛盾的段落，加上指向 v4.1 worktree 架構的廢止警告
+
+### Rationale
+v4.0 ship 時為了發布，幾個 P1-P2 等級的不一致先暫時擱置：（1）測試與 audit 腳本對 bash-first 專案的覆蓋率盲點；（2）profile 中與 SDS 決策矛盾的舊 v3.7 機制描述；（3）SDS §9 進度追蹤滯後於實際交付。本次 review 一次補齊，使 audit baseline 反映真實狀態，profile 與 SDS 不再對 AI 下達矛盾指令。
+
 ## [Unreleased] - 2026-05-05
 
 ### Added
