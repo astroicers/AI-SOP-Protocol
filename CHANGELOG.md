@@ -373,3 +373,8 @@ ASP 保留 4 層強制力架構（Hook + Dynamic Deny + Gate + Subagent）作為
 
 ### Added
 - Autonomous + multi-agent composability via layered authorization
+
+---
+
+> **v3.7.0 (2026-04-28) 之前的完整 ASP 框架升級紀錄**：見 [`docs/archive/asp-changelog-pre-v4.0.md`](docs/archive/asp-changelog-pre-v4.0.md)。
+> 該檔案是 v4.0 重構前的 `.asp/CHANGELOG.md`（ASP 框架自身升級風格），與本 root CHANGELOG.md 早期條目重疊但格式不同，2026-05-10 cleanup 時 archive。

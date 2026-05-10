@@ -40,6 +40,12 @@ ASP 嘗試過但未實際 ship 的整合方案。
 |------|--------|------|
 | `spectra_integration.md` | `.asp/advanced/spectra_integration.md` | Spectra / OpenSpec 深度整合設計（Binary Shadowing），無人引用 |
 
+### 根目錄獨立檔
+
+| 檔案 | 原位置 | 角色 |
+|------|--------|------|
+| `asp-changelog-pre-v4.0.md` | `.asp/CHANGELOG.md` | v3.7.0 之前的 ASP 框架升級紀錄。v4.0 重構後 root `CHANGELOG.md` 接手；此檔案凍結於 v3.7.0、未被 install.sh 同步、無下游引用，2026-05-10 cleanup wave 3 archive |
+
 ---
 
 ## 何時會新增 archive 項目
