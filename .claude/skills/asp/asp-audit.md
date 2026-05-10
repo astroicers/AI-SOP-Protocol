@@ -33,9 +33,14 @@ description: |
 
 ## 完整審計：7 個維度
 
+用 Bash 工具嘗試執行 `make audit-health`。
+若失敗（exit ≠ 0 或輸出含 `No rule` / `Stop`），改執行：
+
 ```bash
-make audit-health
+bash ~/.claude/asp/scripts/audit-fallback.sh
 ```
+
+`audit-fallback.sh` 提供與 `make audit-health` 相同的 9 個維度審計，適用任何 ASP-enabled 專案。
 
 ### 維度說明與判斷標準
 
@@ -96,9 +101,7 @@ make spec-new TITLE="AUDIT-FIX: [問題簡述]"
 
 ## 快速審計模式
 
-```bash
-make audit-quick
-```
+嘗試 `make audit-quick`；若失敗，執行 `bash ~/.claude/asp/scripts/audit-fallback.sh` 並只顯示 BLOCKER 行。
 
 只輸出 Blocker 清單，適合每日確認無阻擋：
 
