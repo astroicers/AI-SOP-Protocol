@@ -35,9 +35,11 @@ make asp-telemetry-prune
 | `gate_pass` | 品質門通過；`data.gate_id` 記錄門號（G1–G6） | `asp-gate` PASS 時 |
 | `gate_fail` | 品質門未通過；`data.gate_id` 記錄門號（G1–G6） | `asp-gate` FAIL 時 |
 | `multi_agent.dispatch` | SPEC-004 dispatch 建立 worktree | `dispatch.sh` 每個 task 建 worktree 後 |
+| `multi_agent.dispatch_rejected` | dispatch 階段 task 被拒絕（max_parallel / scope overlap 等） | `dispatch.sh` 拒絕 dispatch 時（mock HITL 模式必發；prod 模式選擇性） |
 | `multi_agent.converge` | SPEC-004 task merge 成功並 cleanup worktree | `converge.sh` per-task 成功 merge 後 |
 | `multi_agent.fail` | SPEC-004 task 失敗（衝突 / scope_violation 等） | `converge.sh` 衝突；scope 違規時 |
 | `multi_agent.gc` | SPEC-004 stale worktree 被 GC 清理 | `worktree-gc.sh` 移除 stale worktree 時 |
+| `multi_agent.rollback` | SPEC-004 §🔄 rollback 完成 | `rollback.sh` 成功完成（含 worktrees + branches 計數 + base HEAD） |
 
 ---
 
@@ -94,6 +96,10 @@ make asp-telemetry-prune
 // dispatch_rejected (mock HITL mode only)
 {"event": "multi_agent.dispatch_rejected", "reason": "max_parallel_exceeded",
  "count": 11}
+
+// rollback (SPEC-004 §🔄 完成)
+{"event": "multi_agent.rollback", "worktrees": 3, "branches": 3,
+ "base_head": "abcdef1234567890..."}
 ```
 
 > **Schema note (v4.1)**：`multi_agent.*` 事件刻意使用平鋪結構是 SPEC-004 的選擇，與 `session_start / bypass / gate_*` 的 nested-data 結構不同。`report.py` 在 v4.1 階段 best-effort 顯示這些事件的計數，不解讀內部欄位。v4.2 規劃統一 schema（要嘛全部平鋪、要嘛全部 nested），屆時會發 ADR 記錄取捨。

@@ -68,12 +68,29 @@ level: {0|1|2|...}     # topological level
 ### Step 6: 分派
 
 向使用者確認分派計劃，然後：
-1. 鎖定 `.agent-lock.yaml`
-2. 記錄到 `.asp-agent-session.json`
-3. 輸出各 Worker 的啟動指引
+
+```bash
+# v4.1+ 統一入口（SPEC-004 Accepted；取代 v3.7 .agent-lock.yaml soft lock）
+ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+    bash .asp/scripts/multi-agent/dispatch.sh --manifests <manifests-dir>
+```
+
+dispatch.sh 自動：
+1. 兩階段驗證 ASP_AUDIT_ROOT（fail-closed，exit 7 若驗證失敗）
+2. scope.allow 重疊偵測（exit 5 若兩 task 範圍重疊）
+3. 為每個 task 建獨立 git worktree + branch（檔案系統層硬隔離）
+4. 寫 task manifest 到主 repo `.asp-task-manifests/<TID>.yaml`
+5. emit `multi_agent.dispatch` telemetry
+
+> ⚠️ v3.7 的 `.agent-lock.yaml` soft lock 已於 2026-05-09 (commit `10adbbe`) 廢止。
+> 不要再呼叫 `make agent-unlock` / `make agent-lock-gc`，這些 target 是 deprecated。
+> 改用 `make agent-worktree-list` / `make agent-worktree-gc` 管理 worktree 生命週期。
+
+完整退出碼語意 + 場景：見 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
 
 ## 參考
 
+- SPEC-004 多代理 worktree 規格：`docs/specs/SPEC-004-multi-agent-worktree-isolation.md`
 - 角色定義：`.asp/agents/*.yaml`
 - 團隊組成：`.asp/agents/team_compositions.yaml`
 - 管線階段：`.asp/profiles/pipeline.md`

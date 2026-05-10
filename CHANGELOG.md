@@ -2,6 +2,49 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [4.1.1] - 2026-05-10
+
+獨立 reality-checker 對 v4.1.0 GA 做 holistic review，抓出 4 個真實問題 + v3.7 殘留 + SPEC Done When 虛報。本版誠實修正。
+
+### Fixed
+
+- **`make agent-worktree-list / gc / gc-dry-run` 缺少 ASP_AUDIT_ROOT 注入** (Makefile.inc 第 744-754 行)：使用者直接 `make agent-worktree-list` 會 exit 7。已對齊 `agent-rollback` 的 `ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)"` 注入模式。功能首次真正可用。
+- **`asp-dispatch.md` Step 6 仍指示「鎖定 .agent-lock.yaml」** (`.claude/skills/asp/asp-dispatch.md` 第 71 行)：v3.7 廢止機制的殘留指示，會誤導 AI 跑 `/asp-dispatch` skill 時做廢止行為。改寫為 dispatch.sh 的呼叫範例 + ASP_AUDIT_ROOT 設定 + 廢止警告。
+- **退出碼 4 三處定義不一致**：SPEC §📤「Worktree 殘留 > max_parallel」/ dispatch.sh「磁碟不足」/ multi_agent.md 漏寫 4 與 8。已校對：SPEC §📤 改為 dispatch 階段語意（磁碟空間不足，v4.2 實作）、dispatch.sh 註解標明 RESERVED for v4.2、multi_agent.md 退出碼速覽含完整 1/2/3/4/5/6/7/8/13。
+- **telemetry.md 主表格漏 `multi_agent.dispatch_rejected` 和 `multi_agent.rollback`**：兩個事件都已實作但只在 schema 範例出現、主表沒列。補上完整對應。
+
+### Deprecated
+
+- **v3.7 file-lock Makefile targets** (`agent-unlock` / `agent-lock-gc` / `agent-locks`)：改寫為 deprecation stub，印警告 + 指向 v4.1+ worktree 機制 + 提示 `rm .agent-lock.yaml` 安全清理。**不直接刪除**，避免破壞既有 user 升級路徑。v5.0 移除。
+- **`docs/runbooks/enterprise-feature.md` 並行軌道協議**：原本用 `.agent-lock.yaml` YAML 範例 + `make agent-lock-gc`，改寫為 SPEC-004 worktree 工作流（dispatch.sh + converge.sh）。
+
+### Documentation Honesty Fix
+
+- **SPEC-004 Done When #1 與 #8 從 `[x]` 改為 `[⚠️] partial`**：v4.1.0 GA commit message 自稱「18/18 = 100%」是虛高計數。Reality-checker 正確指出：
+  - **N2 (S7) Worker runtime scope 違規攔截**：實作只有「audit-write.sh 手動 write」smoke test，缺 end-to-end runtime 攔截（需要 PreToolUse hook 整合）。
+  - **B4 (S13) 磁碟空間動態預檢**：dispatch.sh Stage 4 是「Skipped here」placeholder，連 `df` 呼叫都沒有；測試 comment 宣稱有但沒對應 Test body。
+  - 真實完成度：**16 完整 + 2 partial = 16/18 (89%)**，不是 100%。N2 + B4 排程 v4.2。
+- **SPEC-004 Done When #1 assertion 計數從 96 修正為 113**（spec-004 測試檔，6 檔；含 install_precheck 22 共 135）。
+
+### Tests
+
+無新測試（v4.1.1 是 review-fix release）；既有 173 bash + 50 pytest = 223 全綠。
+shellcheck `-S warning` 通過。
+audit-health 0/0/0。
+
+### v4.2 規劃（review 確認）
+
+- **B4 dispatch 階段磁碟空間動態預檢**：實作 `df -BM` + `repo_size × max_parallel × 1.2/1.5` 動態門檻，emit exit 4
+- **N2 PreToolUse hook 整合**：Worker 修改 forbid 路徑時 runtime 攔截、自動寫 bypass log
+- **`make agent-rollback` 確認提示**：不帶 `--dry-run` 時先預覽 + `ASP_ROLLBACK_CONFIRM=1` escape hatch
+- **Telemetry schema 統一**（已在 v4.1.0-alpha entry 提過）
+
+### Process Lesson
+
+v4.1.0 GA 是 AI 在 7 batch 連續實作後自評「18/18」並打 tag。獨立 reality-checker review **抓到 4 個 documentation drift / scope 偷渡**。
+
+教訓：**SPEC Done When 勾選必須以「測試實際 cover 該場景」為標準**，不能以「實作宣稱完成」為標準。本次校對機制已用 v4.1.1 落實。下次：在打 GA tag 前，由獨立 agent 對 SPEC-vs-實作做 holistic review，是 release gate。
+
 ## [4.1.0] - 2026-05-10
 
 SPEC-004 Done When 18/18 = 100% — v4.1.0 正式版。在 4.1.0-alpha 基礎上補完三條收尾項。

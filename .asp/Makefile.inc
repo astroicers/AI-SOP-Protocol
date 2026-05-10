@@ -43,7 +43,8 @@ endif
 	@echo "📋 ADR:         adr-new TITLE=... | adr-list"
 	@echo "📄 Spec:        spec-new TITLE=... | spec-list"
 	@echo "🔥 Postmortem:  postmortem-new TITLE=... | postmortem-list"
-	@echo "🤖 Agent:       agent-done TASK=... STATUS=... | agent-status | agent-reset | agent-unlock FILE=... | agent-lock-gc"
+	@echo "🤖 Agent:       agent-done TASK=... STATUS=... | agent-status | agent-reset"
+	@echo "                (v3.7 lock targets DEPRECATED: agent-unlock / agent-lock-gc / agent-locks → use SPEC-004 worktree)"
 	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log | agent-memory-show | agent-team-recommend TYPE=..."
 	@echo "🤖 Agent Init:  agent-memory-init | agent-session-init | audit-baseline-init"
 	@echo "💾 Session:     session-checkpoint NEXT=... | session-log"
@@ -339,22 +340,36 @@ agent-reset:
 	@rm -f .agent-events/completed.jsonl
 	@echo "🧹 Agent 事件紀錄已清空"
 
+# v3.7 file-lock targets — DEPRECATED in v4.1 (SPEC-004 worktree isolation
+# replaces them). Kept as stubs that print deprecation warnings + point to
+# the new mechanism. v3.7 user upgrades safely without these silently failing.
+# Will be removed in v5.0.
+
 agent-unlock:
-	@if [ -z "$(FILE)" ]; then echo "使用方式：make agent-unlock FILE=src/store/user.go"; exit 1; fi
+	@echo "⚠️  DEPRECATED: agent-unlock (v3.7 .agent-lock.yaml mechanism)"
+	@echo "    v4.1+ uses git worktree isolation instead — file locks are gone."
+	@echo "    See: docs/specs/SPEC-004-multi-agent-worktree-isolation.md"
 	@if [ -f .agent-lock.yaml ]; then \
-		python3 -c "import yaml; data = yaml.safe_load(open('.agent-lock.yaml')) or {}; data.get('locked_files', {}).pop('$(FILE)', None); yaml.dump(data, open('.agent-lock.yaml','w')); print('🔓 已解鎖: $(FILE)')" 2>/dev/null || echo "⚠️  需要 pip install pyyaml"; \
-	else echo "  (無鎖定記錄)"; fi
+		echo "    Found legacy .agent-lock.yaml — safe to delete:"; \
+		echo "        rm .agent-lock.yaml"; \
+	fi
 
 agent-lock-gc:
-	@echo "🧹 清理逾時鎖定（> 2 小時）..."
+	@echo "⚠️  DEPRECATED: agent-lock-gc (v3.7 .agent-lock.yaml mechanism)"
+	@echo "    v4.1+ uses 'make agent-worktree-gc' (worktree-level GC) instead."
+	@echo "    See: docs/specs/SPEC-004-multi-agent-worktree-isolation.md"
 	@if [ -f .agent-lock.yaml ]; then \
-		python3 -c "import yaml,datetime; f=open('.agent-lock.yaml'); data=yaml.safe_load(f) or {}; f.close(); locks=data.get('locked_files',{}); now=datetime.datetime.utcnow(); removed=[k for k,v in list(locks.items()) if now>datetime.datetime.fromisoformat(v.get('expires','2000-01-01').replace('Z',''))]; [locks.pop(k) for k in removed]; yaml.dump(data,open('.agent-lock.yaml','w')); print(f'已清理 {len(removed)} 個逾時鎖定：{removed}' if removed else '無逾時鎖定')" 2>/dev/null || echo "⚠️  需要 pip install pyyaml"; \
-	else echo "  (無鎖定記錄)"; fi
+		echo "    Found legacy .agent-lock.yaml — safe to delete:"; \
+		echo "        rm .agent-lock.yaml"; \
+	fi
 
 agent-locks:
+	@echo "⚠️  DEPRECATED: agent-locks (v3.7 .agent-lock.yaml mechanism)"
+	@echo "    v4.1+ uses 'make agent-worktree-list' instead."
 	@if [ -f .agent-lock.yaml ]; then \
-		echo "🔒 文件鎖定清單："; cat .agent-lock.yaml; \
-	else echo "  (無文件鎖定)"; fi
+		echo "    Legacy .agent-lock.yaml content (informational only):"; \
+		sed 's/^/      /' .agent-lock.yaml; \
+	fi
 
 # ─── Agent Handoff（v3.0）───────────────────────────────────────────
 .PHONY: agent-handoff-list agent-handoff-view agent-tracks agent-track-status agent-escalation-log agent-memory-show agent-memory-prune agent-team-recommend
@@ -741,16 +756,16 @@ asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Prom
 
 # SPEC-004 multi-agent worktree management ──────────────────────────────
 
-agent-worktree-list: ## List all SPEC-004 worktrees with age + branch + status (requires ASP_AUDIT_ROOT)
-	@bash .asp/scripts/multi-agent/worktree-list.sh
+agent-worktree-list: ## List all SPEC-004 worktrees with age + branch + status
+	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-list.sh
 .PHONY: agent-worktree-list
 
 agent-worktree-gc: ## Garbage-collect stale SPEC-004 worktrees (idle > ASP_WORKTREE_IDLE_HOURS, default 2h)
-	@bash .asp/scripts/multi-agent/worktree-gc.sh
+	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-gc.sh
 .PHONY: agent-worktree-gc
 
 agent-worktree-gc-dry-run: ## Show what agent-worktree-gc would remove without removing
-	@bash .asp/scripts/multi-agent/worktree-gc.sh --dry-run
+	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-gc.sh --dry-run
 .PHONY: agent-worktree-gc-dry-run
 
 agent-perf: ## Run SPEC-004 perf benchmarks (dispatch/converge p95 + S18 stress)

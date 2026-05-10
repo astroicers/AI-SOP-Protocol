@@ -14,14 +14,15 @@
 # Optional env:
 #   ASP_HITL_MODE=mock — skip human-in-loop prompts (for automated tests)
 #
-# Exit codes (per SPEC-004 §📤):
+# Exit codes (per SPEC-004 §📤 — full table is canonical there):
 #   0  all tasks dispatched successfully
-#   1  scope path outside repo (N1)
-#   4  insufficient disk space (B4)
+#   1  scope path outside repo / worktree_root outside ASP_AUDIT_ROOT (N1/N4)
+#   2  generic argument / manifest parse failure
+#   4  insufficient disk space — RESERVED for v4.2 B4 implementation, NOT
+#      currently emitted by this script (Stage 4 is a placeholder)
 #   5  scope.allow overlap between tasks (N5)
 #   6  max_parallel exceeded (S11)
 #   7  ASP_AUDIT_ROOT validation failed (N7)
-#   2  generic argument / manifest parse failure
 
 set -eu
 

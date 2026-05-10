@@ -123,8 +123,10 @@ make agent-worktree-gc
 ### 完整規格
 
 - **規格書**：`docs/specs/SPEC-004-multi-agent-worktree-isolation.md`（Accepted）
-- **退出碼語意**：1=scope outside repo / 2=bad args / 3=conflict / 5=scope overlap
-  / 6=max_parallel / 7=ASP_AUDIT_ROOT invalid
+- **退出碼語意**（完整表見 SPEC-004 §📤）：1=scope/path outside repo / 2=bad args
+  / 3=merge|rebase conflict / 4=disk space (v4.2 reserved) / 5=scope overlap
+  / 6=max_parallel / 7=ASP_AUDIT_ROOT invalid / 8=rollback verify failed
+  / 13=install.sh runtime precheck failed
 - **Telemetry events**：`multi_agent.dispatch / converge / fail / gc`（schema 見
   `docs/telemetry.md`）
 

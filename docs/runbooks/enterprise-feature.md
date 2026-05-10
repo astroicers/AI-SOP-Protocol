@@ -123,27 +123,30 @@ git push（人類明確同意後執行）
 
 ---
 
-## 並行軌道協議
+## 並行軌道協議（v4.1+ git worktree 硬隔離）
 
-當 dep-analyst 定義多個 [P] 並行軌道時：
+當 dep-analyst 定義多個 [P] 並行軌道時，使用 SPEC-004 worktree 機制：
 
-```yaml
-# .agent-lock.yaml 範例
-locked_files:
-  src/api/routes.go:
-    locked_by: impl-B
-    track: B
-    expires: 2026-XX-XXTXX:XX:XXZ
-  src/store/user.go:
-    locked_by: impl-C
-    track: C
-    expires: 2026-XX-XXTXX:XX:XXZ
+```bash
+# Orchestrator 為每個軌道建立 task manifest，然後一次 dispatch
+# manifests/TASK-B.yaml / TASK-C.yaml 等
+ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+    bash .asp/scripts/multi-agent/dispatch.sh --manifests manifests/
+
+# 每個 Worker 在獨立 worktree 完成工作後，Orchestrator converge
+ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+    bash .asp/scripts/multi-agent/converge.sh --task TASK-B --task TASK-C
 ```
 
 規則：
-- 不同軌道的 impl 不得修改對方鎖定的檔案
-- 鎖超時由 `make agent-lock-gc` 自動清除
-- 軌道完成後由 integ 統一匯流
+- scope.allow / scope.forbid 在 task manifest 中宣告，dispatch 階段強制檢查重疊（exit 5 拒絕）
+- 隔離由檔案系統層保證（git worktree），不靠 AI 自律檢查鎖
+- 軌道完成後由 converge.sh 統一匯流，衝突 escalation log 記錄
+- 異常終止的 worktree 由 `make agent-worktree-gc` 清理
+
+> ⚠️ v3.7 的 `.agent-lock.yaml` soft lock 機制已於 commit `10adbbe` (2026-05-09) 廢止。
+> 不要再用 `make agent-unlock` / `make agent-lock-gc` / `make agent-locks`，
+> 它們現在是 deprecated stub，會印 warning。
 
 ---
 
@@ -186,12 +189,14 @@ locked_files:
 
 ```bash
 make adr-new TITLE="..."              # 建立 ADR
-make spec-new TITLE="..."            # 建立 SPEC
-make agent-tracks                    # 查看並行軌道狀態
-make agent-handoff-list              # 查看待處理交接單
-make agent-locks                     # 確認文件鎖定狀態
-make agent-lock-gc                   # 清理過期鎖定
-make asp-enforcement-status          # 確認阻擋狀態
+make spec-new TITLE="..."             # 建立 SPEC
+make agent-tracks                     # 查看並行軌道狀態
+make agent-handoff-list               # 查看待處理交接單
+make agent-worktree-list              # v4.1+：列出當前所有 worktree
+make agent-worktree-gc                # v4.1+：清理 stale worktree (idle > 2h)
+make agent-worktree-gc-dry-run        # 預覽 GC 將清理的內容
+make agent-rollback                   # SPEC-004 rollback：discard in-flight worktree
+make asp-enforcement-status           # 確認阻擋狀態
 ```
 
 > 參考：`.asp/agents/team_compositions.yaml` → `NEW_FEATURE_complex`, `MODIFICATION_L3_L4`

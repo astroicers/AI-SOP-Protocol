@@ -84,10 +84,15 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 
 | 錯誤類型 | 退出碼 | 處理方式 |
 |----------|-------|----------|
-| Worktree 路徑指向 repo 外 | 1 | 拒絕建立，要求人類修正配置 |
-| Worker 修改超出 `scope.allow` | 2 | Worker 中止任務、寫入 `.asp-bypass-log.ndjson`，回報 Orchestrator |
-| Merge 衝突 | 3 | Orchestrator 暫停 converge、列出衝突檔案、等待人類解決 |
-| Worktree 殘留 > max_parallel | 4 | `make agent-worktree-gc` 清理（>2 小時 idle 視為異常） |
+| Worktree 路徑指向 repo 外 / 路徑驗證失敗 | 1 | 拒絕建立，要求人類修正配置 |
+| 引數錯誤 / manifest 解析失敗 / scope 違規（runtime 攔截，v4.2 實作 N2） | 2 | 任務中止、寫入 `.asp-bypass-log.ndjson`，回報 Orchestrator |
+| Merge / Rebase 衝突（task-vs-task 或 task-vs-base） | 3 | Orchestrator 暫停 converge、列出衝突檔案、寫 escalation log、等待人類解決 |
+| 磁碟空間不足（dispatch B4 預檢，v4.2 實作） | 4 | 拒絕 dispatch；目前 dispatch.sh 預留此退出碼但 v4.1 未觸發 |
+| scope.allow 重疊 | 5 | dispatch 階段拒絕、要求重新拆解 task |
+| max_parallel 超過上限 | 6 | dispatch 階段拒絕；mock 模式寫 escalation log |
+| ASP_AUDIT_ROOT 驗證失敗（fail-closed） | 7 | 任何 multi-agent 腳本立即拒絕、stderr 印明確原因 |
+| Rollback 後 base HEAD 意外被改動 | 8 | rollback.sh 偵測到 base 移動 → 立即 abort、不繼續清理 |
+| install.sh runtime precheck 失敗（git/bash/jq/python3 版本不符） | 13 | install.sh Phase 0 拒絕安裝；可用 ASP_SKIP_PRECHECK=1 強制 |
 
 ---
 
@@ -398,14 +403,14 @@ Feature: Multi-Agent Worktree 硬性隔離
 
 ## ✅ 驗收標準（Done When）
 
-1. [x] `make test-filter FILTER=spec-004` 全數通過（測試矩陣 7 P + 8 N + 6 B = 21 項全綠）— 5 個測試檔，96 assertions，含並行壓測；2026-05-10
+1. [⚠️] `make test-filter FILTER=spec-004` 通過（測試矩陣 7 P + 8 N + 6 B = 21 項中，**19 項覆蓋；2 項 partial**）— 6 個 spec-004 測試檔，113 assertions（+ install precheck 22 = 135）；含並行壓測 5 worker × 200 entry。**未完整覆蓋**：B4/S13（磁碟空間動態預檢，dispatch.sh Stage 4 是 placeholder，v4.2 補）+ N2/S7（Worker runtime 修改 forbid 路徑攔截，需要 PreToolUse hook，v4.1.x 補）。詳見 v4.1.1 review-fix CHANGELOG entry。
 2. [x] `make lint` 無 error — shellcheck -S warning 對所有 .asp/scripts/multi-agent/ + tests/ 通過；commit (this batch)
 3. [x] `multi_agent.md` 中所有指向 v4.1 worktree 的廢止警告改為指向已實作章節（不再用「將實作」字樣，且不用任何行號描述位置）— commit 5a91b8e
 4. [x] `multi_agent.md` 新增「Multi-agent worktree 隔離」章節，描述使用方式與限制 — commit 5a91b8e
 5. [x] `make agent-worktree-gc` Makefile target 實作完成 — commit 04e866f
 6. [x] `make agent-worktree-list` 顯示當前所有 worktree + age + task_id — commit 04e866f
 7. [x] `.asp/scripts/multi-agent/dispatch.sh` 與 `converge.sh` 實作 — commit 4257c0c (B2) + 761cc73 (B3)
-8. [x] 副作用連動已驗證（見 Side Effects 表中所有 P1-P7 / N1-N8 / B1-B6 驗證 ID）— B1+B2+B3+B4+B5 共 75 assertions cover 整個矩陣
+8. [⚠️] 副作用連動已驗證 — Side Effects 表中 P1-P7 / N1, N3-N8 / B1, B2, B3, B5, B6 全綠（19/21）。**未驗證**：N2（Worker runtime scope 違規攔截）、B4（dispatch 階段磁碟空間動態預檢），原因見 #1。
 9. [x] Rollback plan 已測試（`make spec-004-rollback-test`）— rollback.sh + 15 assertions cover 三個 task dispatch、partial converge、dry-run、空 repo、ASP_AUDIT_ROOT validation；commit (this batch)
 10. [x] 已更新 `docs/architecture.md`（multi-agent 子系統圖加入 worktree 層）— commit 5a91b8e
 11. [x] 已更新 `CHANGELOG.md`（v4.1 entry）— commit 5a91b8e
@@ -417,7 +422,13 @@ Feature: Multi-Agent Worktree 硬性隔離
 17. [x] `ASP_AUDIT_ROOT` Fail-Safe 兩階段驗證實作（dispatch 階段 + Worker 寫入階段；fail-closed 不 fallback）；`audit-write.sh` wrapper 為唯一寫入點；S20/S21 場景全綠 — commit 41d0bdd + 4257c0c
 18. [x] 提供 `docs/v4-decision-log.md` D6 條目（worktree 決策索引），確保 SPEC 引用可追溯 — commit c795684
 
-**v4.1.0 完成度**：18 / 18 = 100% ✅
+**v4.1.0 完成度（v4.1.1 review 後修正）**：
+
+- ✅ 完整完成：16 / 18 條（#3-#7, #9-#18）
+- ⚠️ Partial：2 / 18 條（#1 與 #8 — 缺 N2、B4 的 runtime/dispatch-stage 實作）
+- 📅 v4.2 規劃補完：N2 (PreToolUse hook 整合)、B4 (磁碟空間動態預檢)
+
+> **誠實註記（v4.1.1）**：v4.1.0 release 曾標記 18/18 = 100%，這是基於「實作 + 文件」的虛高計數，未檢驗 N2/B4 是否真的有測試。獨立 reality-checker 在 v4.1.1 前點出此差距。本次重新校對為 16+2partial。詳見 CHANGELOG.md [4.1.1] entry。
 
 ---
 
