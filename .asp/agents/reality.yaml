@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: reality
 name: "Reality Checker"
 department: quality
@@ -26,11 +38,7 @@ outputs:
 success_metrics:
   - false_positive_rate: "<10%"
   - false_negative_rate: "0%"
-scope_constraints:
-  can_modify: [verdict reports only]
-  cannot_modify: [source code, test files, SPECs, ADRs]
 escalation_target: orchestrator
-max_spawn_depth: 1
 decision_examples:
   evidence_requirement:
     good: |
@@ -49,6 +57,3 @@ decision_examples:
     bad: |
       G5 審查：coverage 退步 2%，「只是小幅退步，整體功能正確。」
       → 接受例外 = 破壞門檻一致性，後續每次都會有「例外」。
-profile_functions:
-  - "reality_check() from reality_checker.md"
-  - "evaluate_gate() participation from pipeline.md"

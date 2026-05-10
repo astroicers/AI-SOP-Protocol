@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: qa
 name: "QA Verifier"
 department: quality
@@ -27,11 +39,7 @@ outputs:
 success_metrics:
   - smuggled_changes_caught: "100%"
   - false_positive_rate: "<10%"
-scope_constraints:
-  can_modify: [test files (only when adding regression guards)]
-  cannot_modify: [production code, SPECs, ADRs]
 escalation_target: orchestrator
-max_spawn_depth: 1
 decision_examples:
   smuggling_check:
     good: |
@@ -57,6 +65,3 @@ inflight_todo:
     4. 「出具 QA_PASS / QA_FAIL 交接單」
     每項完成才標記 completed，不跳步，不批次更新
   rationale: "QA 的 4 步驗證流程容易在 smuggling 偵測後自認完成，todo list 強制逐步執行"
-profile_functions:
-  - "on_worker_done() independent verify from multi_agent.md"
-  - "qa_verify_module() from /asp-dev-qa-loop skill (v4.x; was dev_qa_loop.md before archive)"

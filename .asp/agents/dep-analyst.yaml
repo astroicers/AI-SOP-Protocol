@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: dep-analyst
 name: "Dependency Analyst"
 department: planning
@@ -30,11 +42,4 @@ outputs:
 success_metrics:
   - missed_dependencies: "0"
   - parallel_conflicts: "0"
-scope_constraints:
-  can_modify: [analysis artifacts only, no source]
-  cannot_modify: [source code, test files, docs]
 escalation_target: arch
-max_spawn_depth: 1
-profile_functions:
-  - "decompose() from task_orchestrator.md"
-  - "analyze_requirement() from task_orchestrator.md"

@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: tdd
 name: "Test Author"
 department: implementation
@@ -23,11 +35,7 @@ outputs:
 success_metrics:
   - done_when_coverage: "100%"
   - tests_fail_before_impl: "100%"
-scope_constraints:
-  can_modify: [test files only]
-  cannot_modify: [production source code, SPECs, ADRs]
 escalation_target: spec
-max_spawn_depth: 1
 inflight_todo:
   instruction: |
     接收 SPEC Done When 後，立即用 TodoWrite 建立測試清單：
@@ -36,6 +44,3 @@ inflight_todo:
     3. 開始寫每個測試前標記 in_progress
     4. 完成且確認 FAIL 後才標記 completed
   rationale: "Done When 覆蓋率 100% 是強制要求，飛行清單讓遺漏項目無所遁形"
-profile_functions:
-  - "execute_stage() Step 3 from autonomous_dev.md"
-  - "execute_new_feature() Phase 5 from task_orchestrator.md"

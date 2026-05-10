@@ -28,19 +28,17 @@
 Orchestrator 根據 `team_compositions.yaml` 選擇角色，取代通用 Worker-a/Worker-b：
 
 ```
-FUNCTION assign_roles(task_type, complexity, current_depth=0):
+FUNCTION assign_roles(task_type, complexity):
   scenario = match_scenario(task_type, complexity)  // from team_compositions.yaml
   team = scenario.agents
   FOR role IN team:
-    role_def = LOAD(".asp/agents/{role}.yaml")
-    VALIDATE role_def.scope_constraints
-    enforce_spawn_depth(role_def, current_depth)  // 深度超限時拋出 STOP
+    role_def = LOAD(".asp/agents/{role}.yaml")  // descriptive role card (v4.1.1+)
+    // role_def 提供 description / personality / capabilities / decision_examples
+    // 給 AI 作為 prompt material；scope/depth 強制由 dispatch.sh + worktree 負責
   RETURN team
-
-// Workers 呼叫 assign_roles 時必須傳入 current_depth + 1
-// Orchestrator 頂層呼叫傳 current_depth=0（不受限制）
-// Worker 頂層呼叫傳 current_depth=1 → enforce_spawn_depth 攔截再次派生
 ```
+
+> **v4.1.1 變動**：原本的 `VALIDATE role_def.scope_constraints` 與 `enforce_spawn_depth(role_def, current_depth)` 偽程式碼已移除——這兩個欄位（`scope_constraints` / `max_spawn_depth`）在 agent yaml 中是描述性的，從未有 enforcement 程式碼讀取。實際的 scope 強制在 SPEC-004 的 TASK manifest（`scope.allow` / `scope.forbid`）+ git worktree 檔案系統隔離；spawn depth 在 v4.1 沒有真正的 enforcement，靠 Orchestrator 的設計準則約束。詳見 `docs/archive/v4-refactor/disposition-matrix.md`。
 
 ---
 
@@ -58,9 +56,9 @@ FUNCTION assign_roles(task_type, complexity, current_depth=0):
 > ⚠️ v3.7 步驟 4「建立 `.agent-lock.yaml` 登記文件鎖定」已廢止（D-001, 2026-05-04）。
 > 改用 git worktree 硬性隔離（SPEC-004），每 agent 一個 worktree，無需檔案鎖。
 
-> **深度追蹤規則**：Orchestrator 是唯一以 `current_depth=0` 呼叫 `assign_roles` 的角色。
-> Worker 若需派生子 agent（如 impl 呼叫 Task 工具），必須以 `current_depth=1` 呼叫，
-> `enforce_spawn_depth` 會在此層攔截並要求上報 Orchestrator，而非繼續遞迴。
+> **深度追蹤準則（v4.1.1：設計約束、非執行性）**：Orchestrator 是任務拆解的入口。
+> Worker 應該避免遞迴派生子 agent（impl 呼叫 Task 工具時請改成上報 Orchestrator 重新分派）。
+> 此約束目前無自動 enforcement（v3.x 的 `enforce_spawn_depth` 從未實作），靠 AI 自律 + Orchestrator 的任務設計避免；v4.2 規劃中可能加入自動偵測。
 
 ### Task Manifest 格式
 
@@ -295,25 +293,17 @@ FUNCTION converge_tracks(completed_tracks, integ_agent):
 
 ---
 
-## Sub-Agent 深度限制（max_spawn_depth）
+## Sub-Agent 深度限制（設計準則，v4.1.1 無自動 enforcement）
 
 > **設計原則**（來自 Claude Code 架構分析）：控制迴圈越簡單，Debug 越容易。多層 agent 遞迴是最常見的「可運作但無法除錯」陷阱。
 
-**規則：所有 Worker agent 的 `max_spawn_depth: 1`**
+**準則：Worker agent 不應遞迴派生子 agent**
 
-```
-FUNCTION enforce_spawn_depth(agent, current_depth):
-  IF current_depth >= agent.max_spawn_depth:
-    STOP — 不得再派生子 agent
-    改為：上報 Orchestrator（escalation_target）
-  ELSE:
-    可產生最多一層子 agent（Task 工具呼叫）
-    子 agent 繼承 max_spawn_depth = 0（不可再派生）
-```
-
-- Orchestrator 本身不受此限制（負責分派整個 DAG）
-- Worker 遇到超出能力的子問題 → 上報 escalation_target，由 Orchestrator 重新分派
-- 子 agent 的結果注入主迴圈為 tool response，不建立新的 message history 分支
+- Orchestrator 是任務拆解唯一入口（負責分派整個 DAG）
+- Worker 遇到超出能力的子問題 → 上報 escalation_target，由 Orchestrator 重新分派；不得自行派生子 agent
+- 若 Worker 真的呼叫 Task 工具（例如 impl 呼叫 Explore agent 查資料），子 agent 結果應以 tool response 形式注入主迴圈，不可再派生第三層
+- v4.1.1 cleanup（2026-05-10）移除偽程式碼 `enforce_spawn_depth(agent, current_depth)` 與 agent yaml 的 `max_spawn_depth` 欄位（從未實作，造成「假裝有 enforcement」的誤導）。實際 enforcement 靠 Orchestrator 設計約束 + AI 自律
+- v4.2 規劃中：可能加入自動偵測（例如 telemetry 觀察「同一 worker 在單一 task 內派生 ≥ 2 次 Task」即升級警告）
 
 ---
 

@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: arch
 name: "Architect"
 department: planning
@@ -28,12 +40,4 @@ outputs:
 success_metrics:
   - adr_acceptance_rate: ">90%"
   - no_draft_with_code_violations: "0"
-scope_constraints:
-  can_modify: [docs/adr/, docs/architecture.md]
-  cannot_modify: [source code, test files]
 escalation_target: human
-max_spawn_depth: 1
-profile_functions:
-  - "assess_architecture_impact() from task_orchestrator.md"
-  # - "committee_debate() from committee.md"  # removed 2026-05-10 (committee deprecated)
-  - "batch_adr_review() from system_dev.md"

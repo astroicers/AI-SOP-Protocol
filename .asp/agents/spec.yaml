@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: spec
 name: "Spec Writer"
 department: planning
@@ -28,10 +40,4 @@ outputs:
 success_metrics:
   - spec_completeness: "7/7 fields"
   - done_when_testability: "100% binary"
-scope_constraints:
-  can_modify: [docs/specs/]
-  cannot_modify: [source code, test files, ADRs]
 escalation_target: arch
-max_spawn_depth: 1
-profile_functions:
-  - "execute_new_feature() Phase 2 from task_orchestrator.md"

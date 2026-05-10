@@ -1,3 +1,15 @@
+# ─── ASP v4.1.1 cleanup (2026-05-10) ───────────────────────────────
+# Descriptive role card for AI consumption (prompt material).
+# NOT a source of executable enforcement — scope/depth/function is
+# enforced by:
+#   - dispatch.sh + TASK manifest (scope.allow / scope.forbid)
+#   - git worktree filesystem isolation (SPEC-004)
+#   - audit-write.sh wrapper (Iron Rule B)
+# Removed fields (formerly here):
+#   - scope_constraints (replaced by TASK manifest scope.* + worktree)
+#   - max_spawn_depth   (no enforcement; was multi_agent.md pseudocode only)
+#   - profile_functions (descriptive cross-references, no parser ever)
+# ────────────────────────────────────────────────────────────────────
 id: impl
 name: "Implementer"
 department: implementation
@@ -28,11 +40,7 @@ success_metrics:
   - test_pass_rate: "100%"
   - lint_clean: "true"
   - scope_exceeded: "0"
-scope_constraints:
-  can_modify: [source code within Task Manifest scope]
-  cannot_modify: [test files (smuggling prevention), SPECs, ADRs]
 escalation_target: qa
-max_spawn_depth: 1
 decision_examples:
   scope_boundary:
     good: |
@@ -60,6 +68,3 @@ inflight_todo:
     3. 完成即標記 completed，不批次更新
     4. 發現需額外步驟時即時插入新 todo，不等到完成才補
   rationale: "防止 context rot：讓 LLM 在長任務中保持對最終目標的追蹤"
-profile_functions:
-  - "auto_fix_loop() from autonomous_dev.md"
-  - "execute_stage() Step 4 from autonomous_dev.md"
