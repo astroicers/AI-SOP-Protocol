@@ -261,10 +261,11 @@ Worker 繼承 autonomous 的「自主決策邊界」，但 scope 限縮為 Task 
 | 命名決策、pattern 選擇 | 需要新增外部依賴 |
 | scope 內文件更新 | 偵測到振盪/級聯/偷渡 |
 
-### Dev↔QA 迴路整合（v3.0）
+### Dev↔QA 迴路整合（v4.x：用 /asp-dev-qa-loop skill）
 
-> Worker 層搭配 `dev_qa_loop.md` 時，impl agent 不再等所有模組完成才觸發 agent-done，
-> 而是逐模組實作 + QA 驗證。詳見 `dev_qa_loop.md`。
+> Worker 層搭配 `/asp-dev-qa-loop` skill 時，impl agent 不再等所有模組完成才觸發 agent-done，
+> 而是逐模組實作 + QA 驗證。詳見 `.claude/skills/asp/asp-dev-qa-loop.md`
+> （v4.x 起 self-contained skill 取代已 archive 的 v3.x `dev_qa_loop.md` profile）。
 
 ### 升級的 auto_fix_loop
 

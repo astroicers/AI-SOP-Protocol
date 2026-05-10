@@ -59,4 +59,4 @@ inflight_todo:
   rationale: "QA 的 4 步驗證流程容易在 smuggling 偵測後自認完成，todo list 強制逐步執行"
 profile_functions:
   - "on_worker_done() independent verify from multi_agent.md"
-  - "qa_verify_module() from dev_qa_loop.md"
+  - "qa_verify_module() from /asp-dev-qa-loop skill (v4.x; was dev_qa_loop.md before archive)"

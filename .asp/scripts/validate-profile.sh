@@ -191,7 +191,7 @@ if [ "$MODE" = "multi-agent" ]; then
 fi
 if [ "$MODE" = "multi-agent" ] && [ "$AUTONOMOUS" = "enabled" ]; then
     echo "    • reality_checker.md（auto）"
-    echo "    • dev_qa_loop.md（auto）"
+    # dev_qa_loop.md archived 2026-05-10 → /asp-dev-qa-loop skill (self-contained)
     echo "    • agent_memory.md（auto）"
 fi
 [ "$MODE" = "committee" ]           && echo "    • committee.md"

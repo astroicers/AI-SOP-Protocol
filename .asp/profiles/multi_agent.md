@@ -290,7 +290,7 @@ FUNCTION converge_tracks(completed_tracks, integ_agent):
   // 整合測試
   result = EXECUTE("make test")
   IF result.failed:
-    dev_qa_loop(integration_task, integ_agent, qa_agent)
+    INVOKE_SKILL("/asp-dev-qa-loop", task=integration_task, dev=integ_agent, qa=qa_agent)
 ```
 
 ---

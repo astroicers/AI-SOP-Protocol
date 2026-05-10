@@ -98,7 +98,7 @@ graph TB
 | **實作** | Test Author | `tdd` | TDD 測試撰寫（必須 FAIL） | 主動 | `execute_stage()` Step 3 |
 | | Implementer | `impl` | 生產代碼（讓測試通過） | 主動 | `auto_fix_loop()`, `execute_stage()` Step 4 |
 | | Integrator | `integ` | 跨模組整合、軌道匯流 | 中立 | `converge_tracks()` |
-| **品質與驗證** | QA Verifier | `qa` | 獨立驗證、偷渡偵測 | 懷疑 | `on_worker_done()`, `dev_qa_loop()` |
+| **品質與驗證** | QA Verifier | `qa` | 獨立驗證、偷渡偵測 | 懷疑 | `on_worker_done()`, `/asp-dev-qa-loop` skill |
 | | Security Reviewer | `sec` | OWASP、憑證掃描、攻擊面 | 懷疑 | `committee_debate()` security 角色 |
 | | Reality Checker | `reality` | **預設 NEEDS_WORK**、品質門否決權 | 懷疑 | `reality_check()` |
 | **文件** | Doc Writer | `doc` | CHANGELOG、README、SPEC 追溯 | 主動 | `documentation_pipeline()` |
@@ -230,7 +230,7 @@ graph LR
 | 信任模型 | impl 信任自己 | qa **不信任** impl |
 | 防護 | 振盪/級聯/偷渡 | 偷渡 + 覆蓋率 + 獨立測試 |
 
-> 定義：`.asp/profiles/dev_qa_loop.md`
+> 定義：`.claude/skills/asp/asp-dev-qa-loop.md`（v4.x 起 self-contained skill；舊 v3.x `.asp/profiles/dev_qa_loop.md` 已 archive 至 `docs/archive/profiles/`）
 
 ---
 
@@ -465,11 +465,11 @@ SPEC
 │   ├── doc.yaml
 │   └── team_compositions.yaml      # 場景團隊表
 ├── profiles/
-│   ├── multi_agent.md              # 核心協調（v3.0 升級）
+│   ├── multi_agent.md              # 核心協調（v4.1 worktree 隔離）
 │   ├── pipeline.md                 # 6 階段管線 + 品質門
 │   ├── reality_checker.md          # 懷疑主義驗證
-│   ├── dev_qa_loop.md              # 即時品質迴路
-│   ├── escalation.md               # P0-P3 升級
+│   ├── # dev_qa_loop.md            # archived 2026-05-10 → /asp-dev-qa-loop skill
+│   ├── escalation.md               # P0-P3 升級（v4.x 縮成路由表，邏輯在 /asp-escalate skill）
 │   └── agent_memory.md             # Agent 學習記憶
 ├── templates/
 │   ├── handoff/                    # 5 種交接模板

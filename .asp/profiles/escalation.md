@@ -1,16 +1,18 @@
-# Escalation Profile — P0-P3 嚴重度路由
+# Escalation Profile — P0-P3 嚴重度路由（v4.x 縮版）
 
 <!-- requires: global_core -->
 <!-- optional: multi_agent, autonomous_dev, pipeline -->
 <!-- conflicts: (none) -->
 
-適用：agent 無法繼續時的分級升級。取代散佈各 profile 的 PAUSE_AND_REPORT()。
+適用：agent 無法繼續時的分級升級。提供「載入時的條件分支標記」+「觸發點映射表」。
+**P0-P3 詳細決策樹與處理流程已 100% 內嵌於 `/asp-escalate` skill**（self-contained）。
+
 載入條件：`mode: multi-agent` 或 `autonomous: enabled` 時自動載入
 
-> **設計原則**：
-> - 靈感來自 agency-agents 的 P0-P3 severity routing
-> - 安全漏洞和 lint warning 不該走同一條升級路線
-> - 所有升級產生 ESCALATION 交接單（結構化，可追蹤）
+> **v4.x 設計原則**（profile vs skill 分工）：
+> - **Profile（本檔）**：靜態定義 — 嚴重度表、觸發點映射、其他 profile 的 `IF escalation_loaded` 條件分支
+> - **Skill（`/asp-escalate`）**：動態執行 — P0-P3 流程、PAUSE_ALL_TRACKS / NOTIFY_HUMAN / 重派決策樹、escalation log YAML schema
+> - **取代歷史**：v3.x 的 escalation.md 含 84 行 P0-P3 pseudocode，與 skill 重複；v4.1.x cleanup 移除（commit 2026-05-10），保留路由表 + 觸發點映射 + 跨 profile 關係
 
 ---
 
@@ -23,69 +25,13 @@
 | **P2** | 中 | 單一模組 QA fail 3x；scope 超出；意外依賴 | 重新分派或增援 | Orchestrator |
 | **P3** | 低 | Tech debt 累積；文件過期；非阻斷警告 | 記入 backlog | 自動記錄 |
 
----
-
-## 升級函數
-
-```
-FUNCTION escalate(severity, reason, task_id=null, context=null):
-
-  handoff = create_handoff(ESCALATION,
-    severity   = severity,
-    task_id    = task_id,
-    reason     = reason,
-    attempted_fixes = context.fix_history IF context ELSE null,
-    context_snapshot = context  // 全量傳遞，不摘要
-  )
-
-  MATCH severity:
-
-    "P0":
-      // ─── 緊急：暫停一切 ───
-      IF mode == "multi-agent":
-        PAUSE_ALL_TRACKS()
-      NOTIFY_HUMAN(handoff)
-      LOG("🔴 P0 ESCALATION: {reason}")
-      // autopilot 模式：task 標記 failed + exit_reason = "P0_escalation"
-      IF autopilot_enabled:
-        update_autopilot_state(task_id, status="failed",
-          exit_reason="P0_escalation")
-
-    "P1":
-      // ─── 高：暫停當前軌道 ───
-      IF mode == "multi-agent":
-        PAUSE_TRACK(context.track IF context ELSE null)
-        LOG("🟡 P1 ESCALATION: Track {context.track} paused")
-      IF orchestrator_can_resolve(handoff):
-        resolution = orchestrator.resolve(handoff)
-        IF resolution.success:
-          RESUME_TRACK(context.track IF context ELSE null)
-        ELSE:
-          NOTIFY_HUMAN(handoff)
-      ELSE:
-        NOTIFY_HUMAN(handoff)
-
-    "P2":
-      // ─── 中：重新分派或增援 ───
-      IF can_reassign(context.task IF context ELSE null):
-        new_role = select_alternative_agent(context.task)
-        reassignment = create_handoff(REASSIGNMENT,
-          to_agent = new_role,
-          orchestrator_hint = "升級自 P2，前任 {context.from_agent} 失敗")
-        LOG("🟠 P2 ESCALATION: Reassigning {task_id} to {new_role}")
-      ELSE:
-        LOG("🟠 P2 → P1: Cannot reassign, promoting severity")
-        escalate(severity="P1", reason=reason, task_id=task_id, context=context)  // 升級到 P1
-
-    "P3":
-      // ─── 低：記入 backlog ───
-      LOG_TECH_DEBT("P3: {reason}")
-      LOG("⚪ P3 ESCALATION: Logged to tech-debt backlog")
-```
+詳細決策樹（PAUSE_ALL_TRACKS / NOTIFY_HUMAN / 升級規則）：見 `/asp-escalate` skill。
 
 ---
 
 ## 觸發點映射
+
+下游 profile / skill / hook 觸發 escalation 時的標準路由：
 
 | 觸發來源 | 原有機制 | 新的升級路由 |
 |----------|---------|------------|
@@ -100,16 +46,46 @@ FUNCTION escalate(severity, reason, task_id=null, context=null):
 | Dev↔QA 迴路模組 3x 失敗 | （無） | `escalate(P2)` |
 | 並行軌道不可解衝突 | （無） | `escalate(P1)` |
 | Tech debt 累積 | `LOG_TECH_DEBT()` | `escalate(P3)` |
+| SPEC-004 worktree 衝突無法 rebase | （v4.1 新增） | `escalate(P1)` — converge.sh 自動寫 escalation log |
+
+---
+
+## 升級函數（→ skill）
+
+profile 不再內嵌 `FUNCTION escalate(severity, reason, task_id, context)` 完整 pseudocode。
+AI 收到「需要 escalation」訊號時，請呼叫 `/asp-escalate` skill，傳入相同參數，由 skill 的決策樹處理：
+- P0 → PAUSE_ALL_TRACKS + NOTIFY_HUMAN + autopilot state 更新
+- P1 → PAUSE_TRACK + Orchestrator 嘗試解決 → 失敗則 NOTIFY_HUMAN
+- P2 → 嘗試 reassign → 不可則升 P1
+- P3 → LOG_TECH_DEBT
 
 ---
 
 ## 與其他 Profile 的關係
 
 ```
-escalation.md
+escalation.md（本檔，靜態路由表）
   ├── 取代 autonomous_dev.md 中的 PAUSE_AND_REPORT()
   ├── 取代 multi_agent.md 中的 escalate_to_human()
   ├── 整合 pipeline.md（品質門失敗的升級路由）
-  ├── 整合 dev_qa_loop.md（模組級失敗的升級路由）
-  └── 整合 autopilot.md（P0 時更新 autopilot state）
+  ├── 整合 /asp-dev-qa-loop skill（模組級失敗的升級路由；v4.x 取代 dev_qa_loop.md profile）
+  ├── 整合 autopilot.md（P0 時更新 autopilot state）
+  └── 整合 SPEC-004 converge.sh（worktree merge / rebase 衝突自動寫 escalation log）
+
+/asp-escalate skill（動態執行）
+  ├── 讀取本 profile 的觸發點映射表決定 severity
+  ├── 執行 P0-P3 決策樹
+  └── 寫入 .asp-escalation.ndjson（v4.1 SPEC-004 引入；audit-write.sh wrapper）
 ```
+
+`IF escalation_loaded` 條件分支（其他 profile 內）：
+- `autonomous_dev.md:143` — 若本 profile 已載入則用 `escalate()`，否則 fallback `PAUSE_AND_REPORT()`
+- `multi_agent.md:289-295` — 同上
+- 這些 fallback 永遠不會觸發（escalation 是 multi-agent / autonomous 的 auto-load 條件之一），但保留條件分支讓 profile 可以單獨在 L2 / L3 啟用
+
+---
+
+## 變更歷史
+
+- **2026-05-10 (v4.1.1 cleanup wave 3 group A)**：profile 從 115 行縮為 ~75 行。刪除 P0-P3 詳細 pseudocode（與 `/asp-escalate` skill 100% 重複），保留嚴重度表 + 觸發點映射 + 跨 profile 關係。新增 SPEC-004 converge 衝突的觸發點對應。
+- **2026-04-28 (v3.7.0)**：原 profile 引入 escalation 機制，含完整 P0-P3 pseudocode。

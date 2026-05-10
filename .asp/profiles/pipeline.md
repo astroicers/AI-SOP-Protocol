@@ -1,7 +1,8 @@
 # Pipeline Profile — 6 階段品質管線
 
 <!-- requires: global_core, system_dev, task_orchestrator -->
-<!-- optional: multi_agent, autonomous_dev, reality_checker, dev_qa_loop, escalation -->
+<!-- optional: multi_agent, autonomous_dev, reality_checker, escalation -->
+<!-- removed (v4.x archived): dev_qa_loop → /asp-dev-qa-loop skill -->
 <!-- conflicts: (none) -->
 
 適用：所有任務類型。將 task_orchestrator.md 的隱式工作流轉為顯式管線 + 品質門。
@@ -494,6 +495,6 @@ pipeline.md
   ├── 依賴 system_dev.md（pre_commit_checklist 用於 G6）
   ├── 可選 reality_checker.md（Reality Checker 參與 G2, G5, G6）
   ├── 可選 multi_agent.md（multi-agent 時各階段由不同 agent 負責）
-  ├── 可選 dev_qa_loop.md（BUILD + HARDEN 階段的 Dev↔QA 迴路）
+  ├── 可選 /asp-dev-qa-loop skill（BUILD + HARDEN 階段的 Dev↔QA 迴路；v4.x 取代 dev_qa_loop.md profile）
   └── 可選 escalation.md（品質門重試耗盡時的升級路由）
 ```

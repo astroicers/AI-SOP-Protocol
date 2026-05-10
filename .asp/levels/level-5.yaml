@@ -16,7 +16,7 @@ profiles:
   - multi_agent
   - task_orchestrator
   - escalation
-  - dev_qa_loop
+  # - dev_qa_loop  # archived 2026-05-10 → /asp-dev-qa-loop skill (self-contained superset)
   - reality_checker
   - agent_memory
   - autonomous_dev
