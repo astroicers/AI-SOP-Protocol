@@ -57,6 +57,7 @@ endif
 	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
 	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
+	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -710,6 +711,20 @@ asp-performance-review-update: ## Run monthly AI performance review and update t
 asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Promotion Gate checks)
 	@bash .asp/scripts/l0-audit.sh .
 .PHONY: asp-l0-audit
+
+# SPEC-004 multi-agent worktree management ──────────────────────────────
+
+agent-worktree-list: ## List all SPEC-004 worktrees with age + branch + status (requires ASP_AUDIT_ROOT)
+	@bash .asp/scripts/multi-agent/worktree-list.sh
+.PHONY: agent-worktree-list
+
+agent-worktree-gc: ## Garbage-collect stale SPEC-004 worktrees (idle > ASP_WORKTREE_IDLE_HOURS, default 2h)
+	@bash .asp/scripts/multi-agent/worktree-gc.sh
+.PHONY: agent-worktree-gc
+
+agent-worktree-gc-dry-run: ## Show what agent-worktree-gc would remove without removing
+	@bash .asp/scripts/multi-agent/worktree-gc.sh --dry-run
+.PHONY: agent-worktree-gc-dry-run
 
 security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	@if command -v semgrep &>/dev/null; then \
