@@ -3,8 +3,9 @@
 | 欄位 | 內容 |
 |------|------|
 | **規格 ID** | SPEC-003 |
-| **Status** | Accepted |
-| **Date** | 2026-04-29 |
+| **Status** | Shipped |
+| **Date** | 2026-04-29（建立） |
+| **交付日期** | 2026-05-09（v4.0.1 review gap-fill 後最後更新；v4.1.x 已完整 GA） |
 | **關聯 ADR** | ADR-002 (security), ADR-004 (telemetry) — ADR-003 (MCP) deliberately removed |
 | **估算複雜度** | 高 |
 | **HITL 等級** | standard |
@@ -180,8 +181,13 @@ python3 .asp/scripts/telemetry/report.py   # 查看統計
 
 ## Rollback Plan
 
+> ⚠️ **已 obsolete (Shipped 2026-05-09)**：SPEC-003 已完整交付，v4.1.x GA。
+> 以下 rollback 步驟保留作為「v4.0 重構期決策的歷史紀錄」，**現已不適用**：
+> - `CLAUDE.md.v3.7-backup` 於 2026-05-10 cleanup 移除（git history 仍可回查）
+> - 真要回退到 v3.7 請 `git checkout` v3.7 release tag
+
 ```bash
-# 回退 CLAUDE.md
+# (HISTORICAL) 回退 CLAUDE.md
 cp CLAUDE.md.v3.7-backup CLAUDE.md
 
 # 移除新 skill（保留原有 13 個）
