@@ -57,7 +57,7 @@ endif
 	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
 	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
-	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run"
+	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -725,6 +725,14 @@ agent-worktree-gc: ## Garbage-collect stale SPEC-004 worktrees (idle > ASP_WORKT
 agent-worktree-gc-dry-run: ## Show what agent-worktree-gc would remove without removing
 	@bash .asp/scripts/multi-agent/worktree-gc.sh --dry-run
 .PHONY: agent-worktree-gc-dry-run
+
+agent-perf: ## Run SPEC-004 perf benchmarks (dispatch/converge p95 + S18 stress)
+	@bash tests/perf/test_spec_004_perf.sh
+.PHONY: agent-perf
+
+agent-perf-json: ## Run SPEC-004 perf benchmarks, JSON output for CI integration
+	@bash tests/perf/test_spec_004_perf.sh --json
+.PHONY: agent-perf-json
 
 security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	@if command -v semgrep &>/dev/null; then \
