@@ -20,7 +20,7 @@
 >
 > ⚠️ **v3.7「Context 全量傳遞」機制已廢止（D-001, 2026-05-04）**：
 > 新作法採 `/clear` + scratchpad（檔案路徑 + hash + 邊界限制）取代 context dump，
-> 避免跨 agent prompt injection 污染。完整 worktree 隔離架構排程於 v4.1 實作。
+> 避免跨 agent prompt injection 污染。完整 worktree 隔離架構已於 v4.1 實作（SPEC-004 Accepted）。
 > 詳見 `docs/v4-architecture-sds.md` §5.4、D-001、與 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
 
 ### 角色分派
@@ -83,19 +83,50 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 
 ---
 
-## 衝突隔離（v4.0 起改為 worktree 模式）
+## 衝突隔離（v4.1 起：git worktree 硬性隔離）
 
-> ⚠️ **v3.7「文件鎖定」機制已廢止（D-001, 2026-05-04）**
->
-> 舊機制：`.agent-lock.yaml` + `make agent-lock-gc` 用檔案層級鎖防止 Worker 互相覆蓋。
-> 廢止理由：檔案鎖是 soft mechanism（靠 AI 自律檢查），W5 教過 hard mechanism 才可靠。
->
-> **新作法（SPEC-004，v4.1 實作）**：每個 Worker 在獨立 git worktree 中工作，
-> 由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。隔離由檔案系統層保證，
-> 不靠 AI 自律。
->
-> v4.0 過渡期：multi-agent 任務以「單軌序列執行 + 明確 scope.allow/forbid」運作，
-> 暫不啟用平行軌道。完整 worktree 機制見 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
+每個 Worker 在獨立的 git worktree 中工作，由 Orchestrator 在 `converge` 階段以
+git merge 匯流。隔離由檔案系統層保證，**不靠 AI 自律**。
+
+> 歷史脈絡：v3.7 的 `.agent-lock.yaml` + `make agent-lock-gc` soft lock 機制於
+> 2026-05-09（commit `10adbbe`）廢止。決策見 `docs/v4-decision-log.md` D6 與
+> `docs/v4-architecture-sds.md` §10 D-001 addendum。
+
+### 三個入口腳本
+
+```bash
+# 1. Dispatch：為每個 task 建 worktree + branch
+ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+    bash .asp/scripts/multi-agent/dispatch.sh --manifests <dir>
+
+# 2. Converge：rebase + merge 每個完成的 task
+ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+    bash .asp/scripts/multi-agent/converge.sh --task TASK-001 --task TASK-002
+
+# 3. List + GC（運維）
+make agent-worktree-list
+make agent-worktree-gc-dry-run
+make agent-worktree-gc
+```
+
+### 強制要求（Iron Rule B 連動）
+
+- 環境變數 **`ASP_AUDIT_ROOT` 必填**，必須是主 repo 的絕對路徑。未設定 / 相對路徑 /
+  非 git repo → 三個腳本都 exit 7、拒絕任何副作用。詳見
+  SPEC-004 §🚨 ASP_AUDIT_ROOT Fail-Safe.
+- 所有 Worker 寫入 bypass / telemetry / escalation log 一律走
+  `audit-write.sh` wrapper，禁止直接 `>>` append（避免相對路徑被 worktree cwd 拐進去）。
+- `max_parallel` 硬上限 10 個 worker；超過 → exit 6。
+- scope.allow 重疊偵測在 dispatch 階段就拒絕（exit 5），保證並行 task 之間
+  不會踩到對方檔案。
+
+### 完整規格
+
+- **規格書**：`docs/specs/SPEC-004-multi-agent-worktree-isolation.md`（Accepted）
+- **退出碼語意**：1=scope outside repo / 2=bad args / 3=conflict / 5=scope overlap
+  / 6=max_parallel / 7=ASP_AUDIT_ROOT invalid
+- **Telemetry events**：`multi_agent.dispatch / converge / fail / gc`（schema 見
+  `docs/telemetry.md`）
 
 ---
 

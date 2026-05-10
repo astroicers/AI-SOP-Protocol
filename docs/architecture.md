@@ -266,11 +266,48 @@ flowchart LR
 
 | 限制 | 影響 | 排程 |
 |------|------|------|
-| Multi-agent worktree 隔離未實作 | v4.0 multi-agent 改為單軌序列執行 | v4.1（D-001） |
-| `auto_fix_loop` 的 triage + orthogonal detector 未實作 | False positive / adversarial evasion 仍靠 AI 自律 | v4.1（D-003） |
+| ~~Multi-agent worktree 隔離未實作~~ | ~~v4.0 multi-agent 改為單軌序列執行~~ | ✅ v4.1 已實作（SPEC-004） |
+| `auto_fix_loop` 的 triage + orthogonal detector 未實作 | False positive / adversarial evasion 仍靠 AI 自律 | v4.1.x（D-003） |
 | Cross-session stateful 查詢需手動 grep | 例如「過去 30 天 bypass 多少次」 | v4.1 重評（ADR-003） |
+| Telemetry schema：`multi_agent.*` 平鋪 vs 其他事件 nested | report.py best-effort 顯示 multi_agent 事件計數 | v4.2 統一 schema（待 ADR） |
 
 完整路線圖：[`ROADMAP.md`](ROADMAP.md)。
+
+### v4.1 多代理執行架構（SPEC-004 交付）
+
+```mermaid
+sequenceDiagram
+    participant Orch as Orchestrator
+    participant Disp as dispatch.sh
+    participant Repo as 主 repo (.git)
+    participant W1 as Worktree task-001
+    participant W2 as Worktree task-002
+    participant Conv as converge.sh
+    participant Audit as audit-write.sh
+
+    Orch->>Disp: --manifests <dir> (ASP_AUDIT_ROOT 必填)
+    Disp->>Disp: validate_audit_root (Stage 1)
+    Disp->>Disp: scope.allow 重疊偵測
+    Disp->>Repo: git worktree add task-001 / task-002
+    Disp->>Audit: telemetry multi_agent.dispatch x2
+    Disp->>W1: 建立
+    Disp->>W2: 建立
+
+    Note over W1,W2: Workers 各自 commit
+    W1->>Audit: bypass log (cd worktree, ASP_AUDIT_ROOT 指主 repo)
+    Audit->>Repo: append 主 repo 的 .asp-bypass-log.ndjson
+
+    Orch->>Conv: --task TASK-001 --task TASK-002
+    Conv->>W1: rebase onto base
+    Conv->>Repo: merge --no-ff
+    Conv->>Repo: worktree remove (branch 保留供 PR review)
+    Conv->>Audit: telemetry multi_agent.converge
+```
+
+**核心保證**：
+- ASP_AUDIT_ROOT fail-closed（exit 7）：任何 Worker 寫 audit log 都通過 wrapper，禁止 silent fallback
+- 衝突分類：task-vs-task vs task-vs-base 用「本次 converge 已 merge 過幾個 task」區分
+- Stale worktree GC（`make agent-worktree-gc`）：HEAD commit > 2h 前 → 移除 worktree、annotate manifest abandoned: true、保留 branch
 
 ---
 

@@ -2,6 +2,53 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [4.1.0-alpha] - 2026-05-10
+
+SPEC-004 Multi-Agent Worktree 硬性隔離正式交付。Multi-agent 並行從 v4.0 過渡期的「單軌序列執行」升級為真正的檔案系統層級隔離，取代 v3.7 已廢止的 `.agent-lock.yaml` soft lock。
+
+### Added — SPEC-004 實作（D-001 / v4-decision-log D6）
+
+- **`.asp/scripts/multi-agent/audit-write.sh`**：fail-closed wrapper，所有 Worker 寫 bypass / telemetry / escalation log 的單一入口。POSIX `O_APPEND` atomicity 保證（< 4KB），ASP_AUDIT_ROOT 兩階段驗證（unset / 相對路徑 / 不存在 / 非 git repo 全部 exit 7）
+- **`.asp/scripts/multi-agent/_validate_audit_root.sh`**：可被 source 的共享驗證函式，dispatch / converge / GC / list 全部共用
+- **`.asp/scripts/multi-agent/dispatch.sh`**：Orchestrator 進入點。讀 task manifests、scope.allow 重疊偵測、為每個 task 建獨立 git worktree + branch、寫 telemetry `multi_agent.dispatch`。退出碼語意完全對齊 SPEC §📤
+- **`.asp/scripts/multi-agent/converge.sh`**：Orchestrator merge 階段。per-task rebase + merge --no-ff，衝突分類為 `task_merge_conflict`（本次 converge 已 merge 過某 task）vs `base_branch_rebase_conflict`（base 在 dispatch 後變動）。partial success 為 SPEC-mandated（已 merge 的 task 留在 base，後續失敗不 revert）。worktree 自動 cleanup，branch 保留供 PR review
+- **`.asp/scripts/multi-agent/worktree-list.sh` + `worktree-gc.sh`**：運維工具。list 顯示 TASK_ID / AGE / BRANCH / PATH / STATUS；GC 移除 stale worktree（HEAD commit > `ASP_WORKTREE_IDLE_HOURS` 前，預設 2h），annotate manifest `abandoned: true`，保留 branch，emit `multi_agent.gc` telemetry。支援 `--dry-run`
+- **Makefile targets**：`make agent-worktree-list / agent-worktree-gc / agent-worktree-gc-dry-run`
+- **Telemetry events**：新增 `multi_agent.dispatch / converge / fail / gc / dispatch_rejected` 五種事件型別（schema 見 `docs/telemetry.md`）
+
+### Changed
+
+- **`.asp/profiles/multi_agent.md`**：「衝突隔離」章節從「v4.1 將實作」改為實作後文件（三個入口腳本、強制要求、退出碼語意）
+- **`docs/architecture.md`**：§7 已知限制中 worktree 項標記為「✅ v4.1 已實作」；新增多代理執行架構 mermaid 序列圖
+- **`docs/telemetry.md`**：事件類型表加入 4 個 multi_agent.* 事件；schema 章節說明平鋪 vs nested 的格式差異
+
+### Fixed
+
+- **`audit-write.sh` 接受 escalation log type**（B3 整合需求）：原本只支援 bypass / telemetry，加入 escalation 後 converge 衝突可以記錄結構化 reason 而不靠 telemetry 重載
+
+### Tests
+
+新增 4 個 bash 測試檔案，共 75 個 assertions：
+- `test_spec_004_audit_write.sh`（B1 fail-safe wrapper）：23 項
+- `test_spec_004_dispatch.sh`（B2 dispatch + scope 驗證 + max_parallel 邊界）：20 項
+- `test_spec_004_audit_integration.sh`（B5 Iron Rule A 掛載 + 並行壓測 5×200）：13 項
+- `test_spec_004_converge.sh`（B3 衝突分類 + cleanup）：21 項
+- `test_spec_004_worktree_gc.sh`（B4 GC 閾值 + manifest annotation）：21 項
+
+專案總測試：bash 136 + pytest 50 = **186 passing**。
+
+### Done When 進度（SPEC-004 共 18 條）
+
+- ✅ #5 `agent-worktree-gc` / #6 `agent-worktree-list` / #7 dispatch + converge 實作 / #12 telemetry events / #16 ASP_AUDIT_ROOT 機制 / #17 fail-safe 兩階段驗證
+- ⏳ 剩 #1 spec-004 全測試套（依賴 #15 benchmarks 提供基準環境量測） / #4 multi_agent.md 章節（本版完成）/ #10 architecture.md（本版完成） / #11 CHANGELOG（本版即是）/ #13 install.sh 預檢 / #15 benchmarks.md / #18 D6 entry
+- 餘下項目排程於 v4.1.0 正式版
+
+### Known Limitations
+
+- 並行壓測在測試中縮為 5 worker × 200 entry（1000 行）以兼顧 CI 速度。SPEC §S18 全量 10×1000 留給 `SPEC-004-benchmarks.md`
+- N2（Worker 修改 forbid 路徑）需要 PreToolUse hook 整合，本版未實作；scope 違規目前在 dispatch 階段透過 scope.allow/forbid 宣告擋下，runtime 強制留待 v4.1.x
+- Telemetry schema 在 `multi_agent.*`（平鋪）與既有事件（nested data）不一致，v4.2 統一
+
 ## [4.0.1] - 2026-05-09
 
 對照 v4.0 四份核心設計文件（`docs/v4-architecture-sds.md`、`docs/production-ops-playbook.md`、`docs/v4-refactor-prompts.md`、`~/docs/cs146s-study-notes.md`）執行 review，補齊 v4.0 ship 後遺留的 gap。
