@@ -5,7 +5,7 @@
 | 欄位 | 內容 |
 |------|------|
 | **規格 ID** | SPEC-004 |
-| **關聯 ADR** | SDS §10 D-001 addendum (2026-05-10)；v4-decision-log D6（worktree 索引）；ADR-002（Iron Rules） |
+| **關聯 ADR** | SDS §10 D-001 addendum (2026-05-10)；`docs/archive/v4-refactor/v4-decision-log.md` D6（worktree 索引）；ADR-002（Iron Rules） |
 | **估算複雜度** | 中 |
 | **建議模型** | Sonnet（涉及 git plumbing + multi-agent orchestration，需要精準 shell 操作） |
 | **HITL 等級** | strict（涉及 worktree 建立 + 跨 branch merge，需人類審查） |
@@ -16,7 +16,7 @@
 
 ## 🎯 目標（Goal）
 
-讓 multi-agent 並行任務真正以**檔案系統層級隔離**運作：每個 Worker 在獨立的 git worktree 中工作，由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。取代 v3.7 廢止的 `.agent-lock.yaml` 軟性檔案鎖（決策見 SDS §10 D-001 addendum 與 v4-decision-log D6；v4.0 已標記廢止但未實作替代方案）。
+讓 multi-agent 並行任務真正以**檔案系統層級隔離**運作：每個 Worker 在獨立的 git worktree 中工作，由 Orchestrator 在 `converge_tracks` 階段以 git merge 匯流。取代 v3.7 廢止的 `.agent-lock.yaml` 軟性檔案鎖（決策見 SDS §10 D-001 addendum 與 `docs/archive/v4-refactor/v4-decision-log.md` D6；v4.0 已標記廢止但未實作替代方案）。
 
 **為誰有價值**：跑 multi-agent 並行任務的 L4-L5 使用者。目前 v4.0 處於「無隔離機制」狀態，必須改為單軌序列執行才安全；本 SPEC 解放並行能力。
 
@@ -420,7 +420,7 @@ Feature: Multi-Agent Worktree 硬性隔離
 15. [x] 提供 `docs/specs/SPEC-004-benchmarks.md` — 含基準環境實測數據（含 WSL2 / NFS / 大型 repo 偏離結果）— 本版交付
 16. [x] `ASP_AUDIT_ROOT` 環境變數機制實作 + 文件化（dispatch.sh 注入、bypass log / telemetry 寫入點 resolve）— commit 41d0bdd
 17. [x] `ASP_AUDIT_ROOT` Fail-Safe 兩階段驗證實作（dispatch 階段 + Worker 寫入階段；fail-closed 不 fallback）；`audit-write.sh` wrapper 為唯一寫入點；S20/S21 場景全綠 — commit 41d0bdd + 4257c0c
-18. [x] 提供 `docs/v4-decision-log.md` D6 條目（worktree 決策索引），確保 SPEC 引用可追溯 — commit c795684
+18. [x] 提供 `docs/archive/v4-refactor/v4-decision-log.md` D6 條目（worktree 決策索引），確保 SPEC 引用可追溯 — commit c795684（檔案於 2026-05-10 cleanup wave 2 archive）
 
 **v4.1.0 完成度（v4.1.1 review 後修正）**：
 
@@ -497,8 +497,8 @@ Feature: Multi-Agent Worktree 硬性隔離
 ## 📎 參考資料（References）
 
 - **相關決策**：
-  - `docs/v4-architecture-sds.md` §10 D-001 addendum (2026-05-10) — 完整 alternatives + rationale
-  - `docs/v4-decision-log.md` D6 — worktree 決策索引
+  - `docs/archive/v4-refactor/v4-architecture-sds.md` §10 D-001 addendum (2026-05-10) — 完整 alternatives + rationale
+  - `docs/archive/v4-refactor/v4-decision-log.md` D6 — worktree 決策索引
 - **被取代的機制**：v3.7 `.agent-lock.yaml` + `make agent-lock-gc`（已於 commit `10adbbe` 廢止）
 - **現有設計**：`docs/multi-agent-architecture.md` v3.0 角色制（保留，本 SPEC 只變動隔離層）
 - **git worktree 文件**：https://git-scm.com/docs/git-worktree

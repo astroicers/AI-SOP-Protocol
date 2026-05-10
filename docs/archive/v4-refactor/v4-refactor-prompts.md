@@ -920,7 +920,7 @@ git commit -m "rollback: restore ASP v3.7 in-project deployment"
 
 **重要關聯**：
 
-- 設計依據參考：`docs/v4-architecture-sds.md` 對應章節
+- 設計依據參考：`v4-architecture-sds.md` 對應章節（同 archive 目錄）
 - 學習依據參考：`~/docs/cs146s-study-notes.md` (personal notes, not in repo) 各週內容
 - Production 維運後續工作：跑完 v4.0 重構後對應 `docs/production-ops-playbook.md` Track G
 

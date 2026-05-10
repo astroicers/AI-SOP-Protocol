@@ -86,6 +86,6 @@
 
 **理由：** worktree 是 git 原生功能、跨平台一致、與 D-001 的「`/clear` + scratchpad」context 隔離精神對齊（Worker 看到的是獨立 tree，與其他 Worker 的工作完全隔離）。同時 worktree 共享 `.git/` 讓 Iron Rule A hooks 透過 `.claude/settings.json` 自動繼承。
 
-**實作範圍：** v4.0 標記廢止 v3.7 機制（commit `10adbbe`，2026-05-09），v4.1 實作見 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。完整 trade-off 與替代方案分析見 `docs/v4-architecture-sds.md` §10 D-001 addendum (2026-05-10)。
+**實作範圍：** v4.0 標記廢止 v3.7 機制（commit `10adbbe`，2026-05-09），v4.1 實作見 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。完整 trade-off 與替代方案分析見 `v4-architecture-sds.md` §10 D-001 addendum (2026-05-10)（同 archive 目錄）。
 
 > **註：** 本條目是 SDS §10 D-001 addendum 在 v4-decision-log 的對應索引，避免 SPEC-004 引用 D-001 時找不到 worktree 決策內容。詳細 alternatives + rationale 仍以 SDS §10 D-001 為準。

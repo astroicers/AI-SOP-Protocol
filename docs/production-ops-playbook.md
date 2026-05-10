@@ -1,13 +1,17 @@
 # ASP Production Operations Playbook — 全自動維運手冊
 
+> ⚠️ **本文件 Status: Reference (2026-05-10 起)**
+>
+> v4.0 ops 設計脈絡。Track G 的 ToDo 已部分實作（見 `.asp/ai-performance/`、`session-audit.sh`、SPEC-004 worktree），剩餘章節保留作為「ops 設計參考」。**不再主動更新**，新的 ops 變動請更新 `docs/architecture.md` 或開新 SPEC。
+
 > **本檔案定位**：用 AI 自動維運個人專案的長期 playbook (操作手冊)。
 >
 > **使用方式**：每個專案進入 production 前/後查此檔案決定啟用哪些子系統。日常操作指引。
 >
 > **與其他三份檔案的分工**：
 > - `~/docs/cs146s-study-notes.md` (personal notes, not in repo) — 學什麼、學會了什麼（學習過程）
-> - `docs/v4-architecture-sds.md` — 為什麼這樣設計（v4.0 框架重構）
-> - `docs/v4-refactor-prompts.md` — 怎麼執行（v4.0 重構步驟）
+> - `docs/archive/v4-refactor/v4-architecture-sds.md` — 為什麼這樣設計（v4.0 框架重構，已 archive）
+> - `docs/archive/v4-refactor/v4-refactor-prompts.md` — 怎麼執行（v4.0 重構步驟，已 archive）
 > - `docs/production-ops-playbook.md` ← **本檔案** — 框架完成後怎麼用 AI 維運
 
 ---
@@ -17,17 +21,17 @@
 | 欄位 | 值 |
 |-----|---|
 | Version | v1.0 |
-| Status | Active |
+| Status | Reference（原為 Active，2026-05-10 改） |
 | 起源 | CS146S W6/W7/W8 學習 + 與 astroicers 的設計對談 |
 | Owner | astroicers |
 | 起始日期 | 2026-05-04 |
-| 最後更新 | 2026-05-04 |
-| 適用 ASP 版本 | v4.0+ |
+| 最後更新 | 2026-05-10（Status frontmatter 與 archive 連結同步） |
+| 適用 ASP 版本 | v4.0+（v4.1 部分內容已被取代） |
 
 ### 跨檔案索引
 
-- 對應 ASP v4.0 設計憲章：`docs/v4-architecture-sds.md` §3.1 盲點 4 / §6.1 Track G / §10 D-005~D-007
-- 對應 v4.0 執行 prompt：`docs/v4-refactor-prompts.md` (Track G 對應的 prompt 將另外擴充)
+- 對應 ASP v4.0 設計憲章：`docs/archive/v4-refactor/v4-architecture-sds.md` §3.1 盲點 4 / §6.1 Track G / §10 D-005~D-007
+- 對應 v4.0 執行 prompt：`docs/archive/v4-refactor/v4-refactor-prompts.md` (Track G 對應的 prompt 將另外擴充)
 - 對應學習依據：`~/docs/cs146s-study-notes.md` (personal notes, not in repo) W6 (Closed-Loop Remediation) + W7 (Reviewer Trust Boundary) + W8 (Production Boundary)
 
 ---

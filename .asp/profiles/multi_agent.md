@@ -21,7 +21,7 @@
 > ⚠️ **v3.7「Context 全量傳遞」機制已廢止（D-001, 2026-05-04）**：
 > 新作法採 `/clear` + scratchpad（檔案路徑 + hash + 邊界限制）取代 context dump，
 > 避免跨 agent prompt injection 污染。完整 worktree 隔離架構已於 v4.1 實作（SPEC-004 Accepted）。
-> 詳見 `docs/v4-architecture-sds.md` §5.4、D-001、與 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
+> 詳見 `docs/archive/v4-refactor/v4-architecture-sds.md` §5.4、D-001、與 `docs/specs/SPEC-004-multi-agent-worktree-isolation.md`。
 
 ### 角色分派
 
@@ -89,8 +89,8 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 git merge 匯流。隔離由檔案系統層保證，**不靠 AI 自律**。
 
 > 歷史脈絡：v3.7 的 `.agent-lock.yaml` + `make agent-lock-gc` soft lock 機制於
-> 2026-05-09（commit `10adbbe`）廢止。決策見 `docs/v4-decision-log.md` D6 與
-> `docs/v4-architecture-sds.md` §10 D-001 addendum。
+> 2026-05-09（commit `10adbbe`）廢止。決策見 `docs/archive/v4-refactor/v4-decision-log.md` D6 與
+> `docs/archive/v4-refactor/v4-architecture-sds.md` §10 D-001 addendum。
 
 ### 三個入口腳本
 
