@@ -50,10 +50,11 @@ LOG_TYPE="$1"
 PAYLOAD="$2"
 
 case "$LOG_TYPE" in
-    bypass)    LOG_FILE=".asp-bypass-log.ndjson" ;;
-    telemetry) LOG_FILE=".asp-telemetry.ndjson" ;;
+    bypass)      LOG_FILE=".asp-bypass-log.ndjson" ;;
+    telemetry)   LOG_FILE=".asp-telemetry.ndjson" ;;
+    escalation)  LOG_FILE=".asp-escalation.ndjson" ;;
     *)
-        echo "audit-write: unknown log_type '$LOG_TYPE' (expected: bypass|telemetry)" >&2
+        echo "audit-write: unknown log_type '$LOG_TYPE' (expected: bypass|telemetry|escalation)" >&2
         exit 2
         ;;
 esac
