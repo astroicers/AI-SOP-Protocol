@@ -32,6 +32,104 @@ SED_INPLACE() {
   if [ "$(uname)" = "Darwin" ]; then sed -i '' "$@"; else sed -i "$@"; fi
 }
 
+# ─── Runtime precheck (SPEC-004 Done When #13) ───────────────────
+#
+# v4.1 multi-agent worktree (SPEC-004) 依賴：
+#   git    ≥ 2.20  (worktree 成熟版本，--porcelain 含 branch/HEAD 行)
+#   bash   ≥ 4.4   (associative array、$BASH_REMATCH 穩定行為)
+#   jq     ≥ 1.6   (-c 模式輸出 NDJSON、telemetry 解析)
+#   python3 ≥ 3.10 (telemetry/ai-performance 腳本用 type hints)
+#
+# 缺少任一者 → abort 安裝（fail-closed）。允許 user 用 ASP_SKIP_PRECHECK=1
+# 強制跳過，但會印警告。
+#
+# 版本比較用 sort -V（GNU sort，BSD sort 也支援自 macOS 10.10+）。
+
+version_at_least() {
+    # version_at_least <required> <actual>  →  exit 0 iff actual >= required
+    local required="$1" actual="$2"
+    [ "$actual" = "$required" ] && return 0
+    [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -1)" = "$required" ]
+}
+
+precheck_runtime() {
+    if [ "${ASP_SKIP_PRECHECK:-0}" = "1" ]; then
+        warn "ASP_SKIP_PRECHECK=1 set — bypassing v4.1 runtime checks"
+        return 0
+    fi
+
+    local missing=0
+
+    # git
+    if ! command -v git >/dev/null 2>&1; then
+        echo "  ✗ git not installed (required: ≥ 2.20)" >&2
+        missing=$((missing + 1))
+    else
+        local git_v
+        git_v=$(git --version 2>/dev/null | sed -n 's/^git version \([0-9.]*\).*/\1/p')
+        if ! version_at_least "2.20" "$git_v"; then
+            echo "  ✗ git $git_v < 2.20 (worktree --porcelain stability)" >&2
+            missing=$((missing + 1))
+        else
+            success "git $git_v ≥ 2.20"
+        fi
+    fi
+
+    # bash
+    if ! command -v bash >/dev/null 2>&1; then
+        echo "  ✗ bash not installed (required: ≥ 4.4)" >&2
+        missing=$((missing + 1))
+    else
+        local bash_v
+        bash_v=$(bash --version 2>/dev/null | head -1 | sed -n 's/.*version \([0-9.]*\).*/\1/p')
+        if ! version_at_least "4.4" "$bash_v"; then
+            echo "  ✗ bash $bash_v < 4.4" >&2
+            missing=$((missing + 1))
+        else
+            success "bash $bash_v ≥ 4.4"
+        fi
+    fi
+
+    # jq
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "  ✗ jq not installed (required: ≥ 1.6)" >&2
+        echo "    install: apt-get install jq  /  brew install jq" >&2
+        missing=$((missing + 1))
+    else
+        local jq_v
+        jq_v=$(jq --version 2>/dev/null | sed -n 's/^jq-\([0-9.]*\).*/\1/p')
+        if ! version_at_least "1.6" "$jq_v"; then
+            echo "  ✗ jq $jq_v < 1.6" >&2
+            missing=$((missing + 1))
+        else
+            success "jq $jq_v ≥ 1.6"
+        fi
+    fi
+
+    # python3
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "  ✗ python3 not installed (required: ≥ 3.10)" >&2
+        missing=$((missing + 1))
+    else
+        local py_v
+        py_v=$(python3 --version 2>/dev/null | sed -n 's/^Python \([0-9.]*\).*/\1/p')
+        if ! version_at_least "3.10" "$py_v"; then
+            echo "  ✗ python3 $py_v < 3.10" >&2
+            missing=$((missing + 1))
+        else
+            success "python3 $py_v ≥ 3.10"
+        fi
+    fi
+
+    if [ "$missing" -gt 0 ]; then
+        echo "" >&2
+        echo "ERROR: $missing runtime requirement(s) missing for ASP v4.1 (SPEC-004)." >&2
+        echo "       Install missing dependencies, OR set ASP_SKIP_PRECHECK=1 to bypass" >&2
+        echo "       (multi-agent worktree features will not work without them)." >&2
+        exit 13
+    fi
+}
+
 # ─── 偵測專案類型 ─────────────────────────────────────────────────
 detect_type() {
   if [ -f "docker-compose.yml" ] && [ -d "docs/adr" ]; then echo "architecture"; return; fi
@@ -70,9 +168,17 @@ apply_preset() {
 # 開場
 # ═══════════════════════════════════════════════════════════════════
 echo ""
-echo "🤖 AI-SOP-Protocol 安裝程式 v4.0"
+echo "🤖 AI-SOP-Protocol 安裝程式 v4.1"
 echo "======================================"
 echo "  架構：User-level（~/.claude/asp/）— 所有專案共用"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 0：Runtime precheck (SPEC-004 Done When #13)
+# ═══════════════════════════════════════════════════════════════════
+echo "🔍 Phase 0：runtime 環境檢查（SPEC-004 v4.1 multi-agent worktree 依賴）"
+echo "──────────────────────────────────────"
+precheck_runtime
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════

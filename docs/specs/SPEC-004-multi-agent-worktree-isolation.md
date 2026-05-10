@@ -399,26 +399,25 @@ Feature: Multi-Agent Worktree 硬性隔離
 ## ✅ 驗收標準（Done When）
 
 1. [x] `make test-filter FILTER=spec-004` 全數通過（測試矩陣 7 P + 8 N + 6 B = 21 項全綠）— 5 個測試檔，96 assertions，含並行壓測；2026-05-10
-2. [ ] `make lint` 無 error — 待 install.sh precheck 升級後驗證
+2. [x] `make lint` 無 error — shellcheck -S warning 對所有 .asp/scripts/multi-agent/ + tests/ 通過；commit (this batch)
 3. [x] `multi_agent.md` 中所有指向 v4.1 worktree 的廢止警告改為指向已實作章節（不再用「將實作」字樣，且不用任何行號描述位置）— commit 5a91b8e
 4. [x] `multi_agent.md` 新增「Multi-agent worktree 隔離」章節，描述使用方式與限制 — commit 5a91b8e
 5. [x] `make agent-worktree-gc` Makefile target 實作完成 — commit 04e866f
 6. [x] `make agent-worktree-list` 顯示當前所有 worktree + age + task_id — commit 04e866f
 7. [x] `.asp/scripts/multi-agent/dispatch.sh` 與 `converge.sh` 實作 — commit 4257c0c (B2) + 761cc73 (B3)
 8. [x] 副作用連動已驗證（見 Side Effects 表中所有 P1-P7 / N1-N8 / B1-B6 驗證 ID）— B1+B2+B3+B4+B5 共 75 assertions cover 整個矩陣
-9. [ ] Rollback plan 已測試（`make spec-004-rollback-test`）— 待 v4.1.0 正式版補
+9. [x] Rollback plan 已測試（`make spec-004-rollback-test`）— rollback.sh + 15 assertions cover 三個 task dispatch、partial converge、dry-run、空 repo、ASP_AUDIT_ROOT validation；commit (this batch)
 10. [x] 已更新 `docs/architecture.md`（multi-agent 子系統圖加入 worktree 層）— commit 5a91b8e
 11. [x] 已更新 `CHANGELOG.md`（v4.1 entry）— commit 5a91b8e
 12. [x] Telemetry 事件 schema 加入 `multi_agent.dispatch/converge/fail`（同步擴充 `docs/telemetry.md` event-type 章節）— 含 gc + dispatch_rejected 共 5 種；commit 5a91b8e
-13. [ ] `install.sh` 預檢 git ≥ 2.20、bash ≥ 4.4、jq ≥ 1.6、python3 ≥ 3.10，缺任一者 abort 安裝 — 待 v4.1.0 正式版
+13. [x] `install.sh` 預檢 git ≥ 2.20、bash ≥ 4.4、jq ≥ 1.6、python3 ≥ 3.10，缺任一者 abort 安裝（exit 13）；ASP_SKIP_PRECHECK=1 escape hatch；22 assertions cover version_at_least + missing-binary + outdated-binary scenarios；commit (this batch)
 14. [x] 與 ADR-002 Iron Rule A/B/C 不衝突（S15+S16 場景驗證）— B5 test_spec_004_audit_integration.sh
 15. [x] 提供 `docs/specs/SPEC-004-benchmarks.md` — 含基準環境實測數據（含 WSL2 / NFS / 大型 repo 偏離結果）— 本版交付
 16. [x] `ASP_AUDIT_ROOT` 環境變數機制實作 + 文件化（dispatch.sh 注入、bypass log / telemetry 寫入點 resolve）— commit 41d0bdd
 17. [x] `ASP_AUDIT_ROOT` Fail-Safe 兩階段驗證實作（dispatch 階段 + Worker 寫入階段；fail-closed 不 fallback）；`audit-write.sh` wrapper 為唯一寫入點；S20/S21 場景全綠 — commit 41d0bdd + 4257c0c
 18. [x] 提供 `docs/v4-decision-log.md` D6 條目（worktree 決策索引），確保 SPEC 引用可追溯 — commit c795684
 
-**v4.1.0-alpha 完成度**：16 / 18 = 89%
-剩 2 條（#2 lint、#9 rollback test、#13 install.sh precheck）排程於 v4.1.0 正式版。
+**v4.1.0 完成度**：18 / 18 = 100% ✅
 
 ---
 

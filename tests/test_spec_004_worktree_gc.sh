@@ -65,7 +65,7 @@ assert_dir_absent() {
 }
 
 setup_with_dispatched_task() {
-  rm -rf "$TEST_DIR"/*
+  rm -rf "${TEST_DIR:?}"/*
   unset ASP_AUDIT_ROOT 2>/dev/null || true
   git init -q -b main "$TEST_DIR/main-repo"
   cd "$TEST_DIR/main-repo"
@@ -123,7 +123,7 @@ assert_contains "list shows branch" "$LIST_OUT" "feat/spec-004-task-001"
 
 # ── Test 3: list on empty repo → no error, prints empty/none ──
 echo "── Test 3: list on repo with no worktrees ──"
-rm -rf "$TEST_DIR"/*
+rm -rf "${TEST_DIR:?}"/*
 git init -q -b main "$TEST_DIR/main-repo"
 cd "$TEST_DIR/main-repo" && git config user.email t@t && git config user.name t
 echo x > x && git add x && git commit -q -m init && cd "$ASP_ROOT"
@@ -200,7 +200,7 @@ assert_dir_exists "fresh worktree preserved" \
 
 # ── Test 8: GC under empty .asp-worktrees/ → exits 0, no error ──
 echo "── Test 8: GC on empty worktree dir → silent success ──"
-rm -rf "$TEST_DIR"/*
+rm -rf "${TEST_DIR:?}"/*
 git init -q -b main "$TEST_DIR/main-repo"
 cd "$TEST_DIR/main-repo" && git config user.email t@t && git config user.name t
 echo x > x && git add x && git commit -q -m init && cd "$ASP_ROOT"

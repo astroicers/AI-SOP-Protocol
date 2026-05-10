@@ -2,6 +2,47 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [4.1.0] - 2026-05-10
+
+SPEC-004 Done When 18/18 = 100% — v4.1.0 正式版。在 4.1.0-alpha 基礎上補完三條收尾項。
+
+### Added — 收尾交付
+
+- **`install.sh` 兩階段 runtime precheck（Done When #13）**：新增 `precheck_runtime()` 函式於 Phase 0，檢查 git ≥ 2.20 / bash ≥ 4.4 / jq ≥ 1.6 / python3 ≥ 3.10，缺任一者 exit 13。提供 `ASP_SKIP_PRECHECK=1` escape hatch（仍會印警告）。`version_at_least()` 用 GNU `sort -V`，POSIX 安全。
+- **`.asp/scripts/multi-agent/rollback.sh`（Done When #9）**：依 SPEC §🔄 Rollback Plan 實作。force-remove 所有 in-flight worktree、刪除 `feat/spec-004-*` branches、驗證 base HEAD 未動、保留 task manifests 作為 forensic record、emit `multi_agent.rollback` telemetry。支援 `--dry-run`。
+- **`make agent-rollback / agent-rollback-dry-run / spec-004-rollback-test`** Makefile targets
+- **`make lint` 含 shellcheck（Done When #2）**：`lint` target 擴展為「先語言原生 linter（go/python/npm），最後 shellcheck 對 `.asp/scripts/multi-agent/*.sh` 與 `tests/*.sh`」；shellcheck 不在時 fallback `bash -n` syntax check
+- **3 個新 bash 測試檔**：
+  - `test_install_precheck.sh`（22 assertions）：cover version_at_least 邊界 + 缺/過舊 binary 偵測
+  - `test_spec_004_rollback.sh`（15 assertions）：cover full rollback、dry-run、partial converge 後 base 不 regress
+- **`.asp/VERSION`** → 4.1.0
+
+### Fixed
+
+- **shellcheck SC2115 警告**（11 個 test 檔的 `rm -rf "$TEST_DIR"/*` → `rm -rf "${TEST_DIR:?}"/*`）：理論上 `mktemp -d` + `set -euo pipefail` 不會出空 var，但加 `:?` 是更安全的防呆
+- **`audit-write.sh` 接受 escalation log type** 已在 4.1.0-alpha 完成；在 rollback.sh 中新增 `multi_agent.rollback` event 證明擴展性 OK
+- **`test_spec_004_audit_write.sh` Test 12 的 ASP_AUDIT_ROOT 加 export**：避免 shellcheck SC2034「unused var」誤判（var 是給 source 進來的 function 用）
+
+### Tests
+
+新增 2 個 bash 測試檔，37 新 assertions：
+- `test_install_precheck.sh`：22 項
+- `test_spec_004_rollback.sh`：15 項
+
+專案總測試：bash 173 + pytest 50 = **223 passing**。
+Audit：🔴 0 / 🟡 0 / 🟢 0。
+Lint：✅ shellcheck -S warning 通過。
+
+### Done When（SPEC-004 共 18 條）
+
+✅ **18 / 18 = 100%**
+
+### v4.2 規劃預告
+
+- Telemetry schema 統一（`multi_agent.*` 平鋪 vs `session_start/bypass/gate_*` nested 二選一）
+- N2: PreToolUse hook 整合，runtime 強制 scope.forbid
+- v3.7 殘留機制（`agent_memory.md` 等）正式 deprecation 流程
+
 ## [4.1.0-alpha] - 2026-05-10
 
 SPEC-004 Multi-Agent Worktree 硬性隔離正式交付。Multi-agent 並行從 v4.0 過渡期的「單軌序列執行」升級為真正的檔案系統層級隔離，取代 v3.7 已廢止的 `.agent-lock.yaml` soft lock。

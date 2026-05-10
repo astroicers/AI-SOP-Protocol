@@ -39,7 +39,7 @@ assert_file_exists() {
 }
 
 setup_repo_with_worktree() {
-  rm -rf "$TEST_DIR"/*
+  rm -rf "${TEST_DIR:?}"/*
   unset ASP_AUDIT_ROOT 2>/dev/null || true
   git init -q -b main "$TEST_DIR/main-repo"
   cd "$TEST_DIR/main-repo"

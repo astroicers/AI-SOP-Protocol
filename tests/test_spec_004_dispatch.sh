@@ -84,7 +84,7 @@ run_dispatch() {
 
 # Setup: minimal git repo
 setup_repo() {
-  rm -rf "$TEST_DIR"/*
+  rm -rf "${TEST_DIR:?}"/*
   unset ASP_AUDIT_ROOT 2>/dev/null || true
   git init -q -b main "$TEST_DIR/main-repo"
   cd "$TEST_DIR/main-repo"

@@ -20,7 +20,7 @@ cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
 setup_project() {
-  rm -rf "$TEST_DIR"/*
+  rm -rf "${TEST_DIR:?}"/*
   mkdir -p "$TEST_DIR/.asp/templates"
   cp "$ASP_ROOT/.asp/Makefile.inc" "$TEST_DIR/.asp/Makefile.inc"
 

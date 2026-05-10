@@ -18,7 +18,7 @@ trap cleanup EXIT
 
 # ── Helper: set up a minimal project with ASP ──
 setup_project() {
-  rm -rf "$TEST_DIR"/*
+  rm -rf "${TEST_DIR:?}"/*
   mkdir -p "$TEST_DIR/.asp/templates" "$TEST_DIR/.asp/profiles" "$TEST_DIR/docs/adr"
 
   # Copy templates (they don't exist yet in TDD — create stubs)

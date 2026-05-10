@@ -92,7 +92,7 @@ run_wrapper() {
 
 # Setup: a real git repo we can use as ASP_AUDIT_ROOT
 setup_repo() {
-  rm -rf "$TEST_DIR"/*
+  rm -rf "${TEST_DIR:?}"/*
   unset ASP_AUDIT_ROOT 2>/dev/null || true
   git init -q "$TEST_DIR/main-repo"
   cd "$TEST_DIR/main-repo"
@@ -199,7 +199,7 @@ echo "── Test 12: validator can be sourced for reuse in dispatch.sh ──"
 setup_repo
 set +e
 (
-  ASP_AUDIT_ROOT="$TEST_DIR/main-repo"
+  export ASP_AUDIT_ROOT="$TEST_DIR/main-repo"
   # shellcheck source=/dev/null
   . "$VALIDATOR"
   validate_audit_root  # should be defined as a function

@@ -57,7 +57,7 @@ endif
 	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
 	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
-	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf"
+	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf | agent-rollback"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -129,10 +129,37 @@ coverage:
 
 lint:
 	@echo "🔍 Linting..."
-	@golangci-lint run ./... 2>/dev/null && exit 0 || true
-	@flake8 . 2>/dev/null && exit 0 || true
-	@npm run lint 2>/dev/null && exit 0 || true
-	@echo "⚠️  未偵測到 Lint 工具"
+	@LINT_RAN=0; LINT_FAIL=0; \
+	if [ -f "go.mod" ] && command -v golangci-lint >/dev/null 2>&1; then \
+		echo "── go ──"; LINT_RAN=1; golangci-lint run ./... || LINT_FAIL=1; \
+	fi; \
+	if command -v flake8 >/dev/null 2>&1 && ls *.py >/dev/null 2>&1; then \
+		echo "── python ──"; LINT_RAN=1; flake8 . || LINT_FAIL=1; \
+	fi; \
+	if [ -f "package.json" ] && grep -q '"lint"' package.json 2>/dev/null; then \
+		echo "── npm ──"; LINT_RAN=1; npm run lint || LINT_FAIL=1; \
+	fi; \
+	if ls .asp/scripts/multi-agent/*.sh tests/*.sh >/dev/null 2>&1; then \
+		LINT_RAN=1; \
+		if command -v shellcheck >/dev/null 2>&1; then \
+			echo "── shellcheck (.asp + tests) ──"; \
+			shellcheck -S warning -e SC1090,SC1091,SC2086,SC2207 \
+				.asp/scripts/multi-agent/*.sh tests/*.sh \
+				|| LINT_FAIL=1; \
+		else \
+			echo "── bash -n (shellcheck not installed) ──"; \
+			for f in .asp/scripts/multi-agent/*.sh tests/*.sh; do \
+				bash -n "$$f" || { echo "syntax error: $$f"; LINT_FAIL=1; }; \
+			done; \
+		fi; \
+	fi; \
+	if [ $$LINT_RAN -eq 0 ]; then \
+		echo "⚠️  No applicable linter found for this project"; \
+	elif [ $$LINT_FAIL -ne 0 ]; then \
+		echo "❌ lint failures (see above)"; exit 1; \
+	else \
+		echo "✅ lint passed"; \
+	fi
 
 #---------------------------------------------------------------------------
 # i18n Check（type: content 時隱藏）
@@ -733,6 +760,18 @@ agent-perf: ## Run SPEC-004 perf benchmarks (dispatch/converge p95 + S18 stress)
 agent-perf-json: ## Run SPEC-004 perf benchmarks, JSON output for CI integration
 	@bash tests/perf/test_spec_004_perf.sh --json
 .PHONY: agent-perf-json
+
+agent-rollback: ## SPEC-004 rollback — discard in-flight worktrees + branches (base preserved)
+	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/rollback.sh
+.PHONY: agent-rollback
+
+agent-rollback-dry-run: ## Show what agent-rollback would do
+	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/rollback.sh --dry-run
+.PHONY: agent-rollback-dry-run
+
+spec-004-rollback-test: ## SPEC-004 Done When #9: full rollback regression suite
+	@bash tests/test_spec_004_rollback.sh
+.PHONY: spec-004-rollback-test
 
 security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	@if command -v semgrep &>/dev/null; then \
