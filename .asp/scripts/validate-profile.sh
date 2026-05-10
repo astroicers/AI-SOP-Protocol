@@ -153,7 +153,7 @@ fi
 
 # 規則 9：mode 值驗證
 if [ -n "$MODE" ] && [ "$MODE" != "single" ] && [ "$MODE" != "auto" ] && [ "$MODE" != "multi-agent" ] && [ "$MODE" != "committee" ]; then
-  echo "  🔴 ERROR: mode 值無效：「$MODE」（允許值：single | auto | multi-agent | committee）"
+  echo "  🔴 ERROR: mode 值無效：「$MODE」（允許值：single | auto | multi-agent；committee 已於 2026-05-10 deprecated）"
   ERRORS=$((ERRORS + 1))
 fi
 if [ "$MODE" = "auto" ]; then
@@ -192,9 +192,9 @@ fi
 if [ "$MODE" = "multi-agent" ] && [ "$AUTONOMOUS" = "enabled" ]; then
     echo "    • reality_checker.md（auto）"
     # dev_qa_loop.md archived 2026-05-10 → /asp-dev-qa-loop skill (self-contained)
-    echo "    • agent_memory.md（auto）"
+    # agent_memory.md archived 2026-05-10 (never used; v4.2 ROADMAP item)
 fi
-[ "$MODE" = "committee" ]           && echo "    • committee.md"
+[ "$MODE" = "committee" ]           && echo "    • ⚠️  committee.md (DEPRECATED 2026-05-10 — archived to docs/archive/profiles/; please use single/auto/multi-agent)"
 [ "$WORKFLOW" = "vibe-coding" ]     && echo "    • vibe_coding.md"
 [ "$RAG" = "enabled" ]              && echo "    • rag_context.md"
 [ "$DESIGN" = "enabled" ]           && echo "    • design_dev.md" && echo "    • frontend_quality.md（auto）"

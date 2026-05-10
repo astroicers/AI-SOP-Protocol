@@ -46,9 +46,9 @@ ASP 的開發分為兩個階段，每個階段有不同的模式可選：
 | 模式 | 設定 | 適用場景 | AI 行為 |
 |------|------|----------|---------|
 | **auto**（預設） | `mode: auto` | 大多數專案 | AI 獨立分析，產出 ADR Draft → 人類審核 Accepted |
-| **committee** | `mode: committee` | 換 DB、重構核心架構等高風險決策 | 多角色（architect/security/devops/qa）辯論 → 產出 ADR Draft → 人類審核 |
+| ~~**committee**~~ | ~~`mode: committee`~~ | ~~換 DB、重構核心架構等高風險決策~~ | ~~多角色（architect/security/devops/qa）辯論 → 產出 ADR Draft → 人類審核~~ → **DEPRECATED 2026-05-10**：profile 從未實際被使用，已 archive 至 `docs/archive/profiles/committee.md`。高風險決策請改用 `/asp-plan` skill 的 ADR 工作流（同樣產 ADR Draft → 人類 Accepted） |
 
-> ADR 不強制使用 committee。`mode: single` 下 AI 就能獨立產出 ADR，只是少了多角色交叉質疑。
+> ADR 不強制使用任何特殊 mode。`mode: single` 或 `mode: auto` 下 AI 就能獨立產出 ADR Draft，由人類審核。
 
 ---
 

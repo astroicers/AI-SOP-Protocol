@@ -418,7 +418,7 @@ agent-escalation-log: ## 顯示升級歷史
 			grep -E "^(severity|task_id|reason|timestamp):" "$$f"; \
 		done || echo "  (無升級記錄)"
 
-agent-memory-show: ## 顯示 Agent 學習記憶
+agent-memory-show: ## DEPRECATED (2026-05-10) — 顯示 Agent 學習記憶 (.asp-agent-memory.yaml 從未實際使用，v4.2 ROADMAP)
 	@echo "═══ Agent Memory ═══"
 	@if [ -f .asp-agent-memory.yaml ]; then \
 		cat .asp-agent-memory.yaml; \
@@ -426,7 +426,7 @@ agent-memory-show: ## 顯示 Agent 學習記憶
 		echo "  (無記憶——首次執行)"; \
 	fi
 
-agent-memory-prune: ## 修剪過期記憶 (AGE=90 天)
+agent-memory-prune: ## DEPRECATED (2026-05-10) — 修剪過期記憶 (AGE=90 天)
 	@echo "修剪超過 $(or $(AGE),90) 天的記憶..."
 	@if [ -f .asp-agent-memory.yaml ]; then \
 		python3 -c " \
@@ -470,7 +470,7 @@ else: \
 	fi
 
 # ─── Agent Init（v3.3）───────────────────────────────────────────
-agent-memory-init: ## 初始化 Agent Memory
+agent-memory-init: ## DEPRECATED (2026-05-10) — 初始化 Agent Memory (機制從未實際使用；v4.2 ROADMAP 規劃 stateful MCP 取代)
 	@if [ -f .asp-agent-memory.yaml ]; then \
 		echo "⚠️ .asp-agent-memory.yaml 已存在，跳過"; \
 	else \

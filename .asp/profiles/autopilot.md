@@ -192,7 +192,7 @@ FUNCTION autopilot_main():
       blocked: []
     }
 
-  // ═══ Phase 0.5: Load Agent Memory（v3.0）═══
+  // ═══ Phase 0.5: Load Agent Memory（v3.0；v4.1.1 起 agent_memory profile 已 archive，此 IF 永遠 false → 走 ELSE 空 init；v4.2 將正式 deprecate）═══
   IF exists(".asp-agent-memory.yaml"):
     agent_memory = LOAD(".asp-agent-memory.yaml")
     LOG("📚 Agent memory 已載入（{LEN(agent_memory.fix_strategies)} 個修復策略，{LEN(agent_memory.common_failures)} 個常見失敗模式）")

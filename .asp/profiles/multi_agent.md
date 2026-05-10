@@ -7,9 +7,9 @@
 適用：並行任務分治、大型功能拆解、自動化 CI/CD 整合。
 載入條件：`mode: multi-agent`
 
-> **與 committee 模式的區別**：
+> **與 committee 模式的區別**（committee mode 已於 2026-05-10 deprecated，僅作概念對比保留）：
 > - `multi-agent`：實作期使用。需求已確定，拆分為並行子任務加速執行。
-> - `committee`：決策期使用。需求模糊或風險高，多角色辯論後才進入實作。
+> - ~~`committee`：決策期使用。需求模糊或風險高，多角色辯論後才進入實作。~~ → 已 archive；高風險決策請改用 `/asp-plan` skill 的 ADR 工作流 + 人類 review
 
 ---
 

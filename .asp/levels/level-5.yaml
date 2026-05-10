@@ -18,7 +18,7 @@ profiles:
   - escalation
   # - dev_qa_loop  # archived 2026-05-10 → /asp-dev-qa-loop skill (self-contained superset)
   - reality_checker
-  - agent_memory
+  # - agent_memory  # archived 2026-05-10 → see ROADMAP v4.2 deprecation; profile never used (no .asp-agent-memory.yaml in git history)
   - autonomous_dev
   - autopilot
   - rag_context

@@ -175,7 +175,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
 
 ```yaml
 type: system              # system | content | architecture
-mode: auto                # auto | single | multi-agent | committee（auto: AI 自動判斷是否並行）
+mode: auto                # auto | single | multi-agent（auto: AI 自動判斷是否並行；committee 已於 2026-05-10 deprecated）
 workflow: standard        # standard | vibe-coding
 rag: disabled             # enabled | disabled
 guardrail: disabled       # enabled | disabled
@@ -214,7 +214,7 @@ name: your-project
 | AI 自主開發 | `autonomous: enabled` | 精確邊界內自主決策，關鍵點才暫停 |
 | 強制並行分工 | `mode: multi-agent` | 即使簡單任務也嘗試多角色並行 |
 | AI 持續執行 ROADMAP | `autopilot: enabled` | 讀 ROADMAP 零確認持續執行至完成 |
-| 多角色辯論 | `mode: committee` | 高風險決策前多角色辯論，輸出 ADR 草稿 |
+| ~~多角色辯論~~ | ~~`mode: committee`~~ | ~~高風險決策前多角色辯論，輸出 ADR 草稿~~ → DEPRECATED；改用 `/asp-plan` skill 的 ADR 工作流 |
 | 強制逐步確認 | `mode: single` | 每步都暫停確認（最保守） |
 
 > 所有模式都繼承 ASP 鐵則（ADR 先於實作、測試先於代碼、部署必須確認）。

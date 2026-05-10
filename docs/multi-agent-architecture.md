@@ -92,14 +92,14 @@ graph TB
 
 | 部門 | 角色 | ID | 職責 | 立場 | 對應 Profile 函數 |
 |------|------|-----|------|------|-----------------|
-| **架構與規劃** | Architect | `arch` | ADR 建立、架構影響評估 | 中立 | `assess_architecture_impact()`, `committee_debate()` |
+| **架構與規劃** | Architect | `arch` | ADR 建立、架構影響評估 | 中立 | `assess_architecture_impact()` |
 | | Spec Writer | `spec` | SPEC 七欄位撰寫 | 中立 | `execute_new_feature()` Phase 2 |
 | | Dependency Analyst | `dep-analyst` | 依賴圖、並行標記、風險評分 | 中立 | `decompose()`, `analyze_requirement()` |
 | **實作** | Test Author | `tdd` | TDD 測試撰寫（必須 FAIL） | 主動 | `execute_stage()` Step 3 |
 | | Implementer | `impl` | 生產代碼（讓測試通過） | 主動 | `auto_fix_loop()`, `execute_stage()` Step 4 |
 | | Integrator | `integ` | 跨模組整合、軌道匯流 | 中立 | `converge_tracks()` |
 | **品質與驗證** | QA Verifier | `qa` | 獨立驗證、偷渡偵測 | 懷疑 | `on_worker_done()`, `/asp-dev-qa-loop` skill |
-| | Security Reviewer | `sec` | OWASP、憑證掃描、攻擊面 | 懷疑 | `committee_debate()` security 角色 |
+| | Security Reviewer | `sec` | OWASP、憑證掃描、攻擊面 | 懷疑 | `/asp-security` skill |
 | | Reality Checker | `reality` | **預設 NEEDS_WORK**、品質門否決權 | 懷疑 | `reality_check()` |
 | **文件** | Doc Writer | `doc` | CHANGELOG、README、SPEC 追溯 | 主動 | `documentation_pipeline()` |
 
@@ -355,7 +355,7 @@ Orchestrator 重派 Worker 時，自動查詢 Project Memory：
 2. 按成功率排序
 3. 寫入 REASSIGNMENT 交接單的 `memory_ref` 欄位
 
-> 定義：`.asp/profiles/agent_memory.md`
+> 定義：~~`.asp/profiles/agent_memory.md`~~ → archived 2026-05-10 (`docs/archive/profiles/agent_memory.md`)；機制從未實際使用，v4.2 ROADMAP 規劃 stateful MCP 取代
 
 ---
 
@@ -395,7 +395,7 @@ Bug 進來 → 偵測領域 → 查詢記憶 → 修復前
 - `common_failures` 新增 `domain` 欄位
 - `team_effectiveness` 新增 `domains_encountered` 欄位
 
-> 定義：`.asp/profiles/agent_memory.md`（`proactive_memory_check()` 函數）
+> 定義：~~`.asp/profiles/agent_memory.md`~~ → archived 2026-05-10 (`docs/archive/profiles/agent_memory.md`)；機制從未實際使用，v4.2 ROADMAP 規劃 stateful MCP 取代（`proactive_memory_check()` 函數）
 
 ---
 
@@ -470,7 +470,7 @@ SPEC
 │   ├── reality_checker.md          # 懷疑主義驗證
 │   ├── # dev_qa_loop.md            # archived 2026-05-10 → /asp-dev-qa-loop skill
 │   ├── escalation.md               # P0-P3 升級（v4.x 縮成路由表，邏輯在 /asp-escalate skill）
-│   └── agent_memory.md             # Agent 學習記憶
+│   └── # agent_memory.md           # archived 2026-05-10 (never used; v4.2 ROADMAP)
 ├── templates/
 │   ├── handoff/                    # 5 種交接模板
 │   │   ├── TASK_COMPLETE.yaml

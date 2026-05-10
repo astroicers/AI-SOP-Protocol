@@ -308,4 +308,4 @@ autonomous_dev.md
 單獨啟用 → AI 單 agent 全自動開發（現有行為不變）。
 搭配 multi_agent → 每個 Worker 以 autonomous 規則運作，Orchestrator 負責協調。
 搭配 task_orchestrator → 任務自動分類路由 + 首次介入時自動審計並補齊缺失。
-`committee.md` 可搭配使用（決策期不衝突）。
+~~`committee.md` 可搭配使用（決策期不衝突）。~~ → committee mode 已於 2026-05-10 deprecated；高風險決策改走 `/asp-plan` ADR 工作流 + 人類 review。

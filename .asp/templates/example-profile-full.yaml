@@ -14,10 +14,12 @@ frontend_quality: enabled
 autopilot: disabled
 name: full-stack-platform
 
-# committee 角色（mode: committee 時生效）
-committee:
-  roles:
-    - architect
-    - security
-    - devops
-    - qa
+# committee 角色設定 — DEPRECATED 2026-05-10
+# committee mode 已 archive，此設定塊保留作為「歷史範例」。新專案請刪除。
+# 高風險決策請改用 /asp-plan skill + ADR 工作流 + 人類 review。
+# committee:
+#   roles:
+#     - architect
+#     - security
+#     - devops
+#     - qa
