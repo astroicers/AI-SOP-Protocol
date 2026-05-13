@@ -31,7 +31,7 @@ ADR-008 + SPEC-005 草案完成後，使用者**手動**叫了 `/asp-gate G1+G2`
 
 若 review automation 維持 opt-in，下次：
 - 使用者沒提醒 → AI 可能直接 `/asp-ship`，WARN 2.6 級的問題會跟著 commit
-- AI 自以為「ADR/SPEC 看起來夠扎實」→ 同上
+- AI 自以為「ADR/SPEC 看起來夠紮實」→ 同上
 
 這違反 ASP「硬機制優先」精神（CLAUDE.md 鐵則架構），是**強制力與信賴度的缺口**。
 
@@ -43,7 +43,7 @@ ADR-008 + SPEC-005 草案完成後，使用者**手動**叫了 `/asp-gate G1+G2`
 
 - **優點**：零實作成本；人類判斷靈活；不會誤觸發。
 - **缺點**：依賴人類記得、依賴 AI 自我抑制趕進度的衝動；已知會被跳過（剛才的 session 就靠使用者主動提醒）。
-- **風險**：累積到大型 ADR/SPEC 時漏報嚴重，技術債回冲。
+- **風險**：累積到大型 ADR/SPEC 時漏報嚴重，技術債回沖。
 
 ### 選項 B：P2 — AI 自律 spawn（本 ADR 選擇）
 
@@ -69,7 +69,7 @@ ADR-008 + SPEC-005 草案完成後，使用者**手動**叫了 `/asp-gate G1+G2`
 ### 選項 D：P2+P3 混合
 
 - **機制**：P2 為日常路徑；只在「ADR Status 從 Draft 改 Accepted」這一次 commit 時走 P3 強制。
-- **優點**：把硬攐用在最高價值的 transition 點。
+- **優點**：把硬擋用在最高價值的 transition 點。
 - **缺點**：需要先建好 P2 基礎設施；P3 偵測 Status 變更的 hook 邏輯不簡單（需 git diff 解析 YAML/Markdown frontmatter）；複雜度高。
 - **風險**：實作前無法驗證假設「Accepted transition 那次最重要」是否成立。
 
@@ -107,7 +107,7 @@ ADR Draft commit 是常態（CLAUDE.md 明示允許），P3 每次都阻擋 → 
 - `asp-plan` Step 5 變慢（+ 2-3 分鐘等 subagent）— 但通常是 plan 流程的結尾，使用者已準備等待 review，影響可接受。
 - subagent API cost +每次 plan ~2 次 call × sonnet 用量 — 對個人/小型專案可忽略，企業需要編列預算。
 - `.asp-gate-log/` 目錄需要長期維護（暫定保留全部，後續視大小可加 retention policy）。
-- 「AI 自律」依賴 prompt 紀律，較硬攐有更大 false-negative 空間（AI 仍可能 rationalize 跳過）。
+- 「AI 自律」依賴 prompt 紀律，較硬擋有更大 false-negative 空間（AI 仍可能 rationalize 跳過）。
 - 「跳過理由清單」維護負擔：新的 rationalization pattern 出現要更新 asp-plan.md。
 
 ### 後續追蹤
@@ -120,7 +120,7 @@ ADR Draft commit 是常態（CLAUDE.md 明示允許），P3 每次都阻擋 → 
   - 跳過率 > 0% → 開 ADR-010 評估升級到 P3 或 D 混合
   - 訊噪比 < 1.0 → prompt 工程迭代 G1/G2 模板，再跑 ≥ 3 個 distinct plans
 - [ ] **3 個月後**：評估 G3（test gate）是否值得用同 pattern 自動化
-- [ ] **6 個月後**：評估 `.asp-gate-log/` 累積資料是否能支撞 telemetry 報告（ADR-004 對接點）
+- [ ] **6 個月後**：評估 `.asp-gate-log/` 累積資料是否能支撐 telemetry 報告（ADR-004 對接點）
 
 ---
 
@@ -152,7 +152,7 @@ ADR Draft commit 是常態（CLAUDE.md 明示允許），P3 每次都阻擋 → 
   - SKILL.md 路由表（既有 `/asp-gate` 條目）— 不修改，繼續為 G3-G6 提供手動入口
 
 - **協調（Coordinates-with）**：
-  - **ADR-008**：共用 `asp-ship` Step 9 區段。ADR-008 佔 Step 9.5（diagram WARN），本 ADR 佔 Step 9.6（gate-log 後驗）。若 ADR-008 被否決 → 本 ADR Step 9.6 還原為 9.5（無實質衝突）
+  - **ADR-008**：共用 `asp-ship` Step 9 區段。ADR-008 占 Step 9.5（diagram WARN），本 ADR 占 Step 9.6（gate-log 後驗）。若 ADR-008 被否決 → 本 ADR Step 9.6 還原為 9.5（無實質衝突）
 
 ## 開放問題（Open Questions — 留給 SPEC-006 / Accept 前的人類裁決）
 
