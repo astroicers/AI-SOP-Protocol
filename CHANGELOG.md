@@ -220,10 +220,10 @@ v4.0 ship 時為了發布，幾個 P1-P2 等級的不一致先暫時擱置：（
 - **Anti-Rationalization Tables**: 借鑒 agent-skills 的反合理化設計。在 asp-ship、asp-plan、asp-gate、asp-reality-check、asp-level 五個 skill 新增 `## Common Rationalizations` 段落，系統性封堵 AI 常見繞過藉口
 - **Evidence-Based Gate Output**: Gate 與 Ship 輸出升級為結構化證據模式
   - 每個檢查項目必須附 `command` + `exit_code` + `evidence_excerpt`
-  - Skip 事件必須寫入 `.asp-bypass-log.json`(append-only)
+  - Skip 事件必須寫入 `.asp-bypass-log.json`（append-only）
   - 預設摘要模式 + verbose 詳情模式
 - **Bypass Log 系統**
-  - 新增 `.asp-bypass-log.json`(append-only 紀錄所有 skip 事件)
+  - 新增 `.asp-bypass-log.json`（append-only 紀錄所有 skip 事件）
   - 新增 Makefile targets: `asp-bypass-review`、`asp-bypass-record`
   - `asp-enforcement-status` 顯示近 7 天 bypass 統計
 - **Specialist Subagent Personas**: 擴充 `reality-checker` 模式
