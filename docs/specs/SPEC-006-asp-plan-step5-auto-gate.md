@@ -498,7 +498,7 @@ done
 - 建立 `.asp-gate-log/.gitignore` 內容為 `*.tmp` 與 `*.in-progress`（排除暫存檔）
 - `.asp-gate-log/*.md` 本身**進** version control（審計痕跡）
 
-### A.6 測試骸架
+### A.6 測試骨架
 
 `tests/test_auto_gate_glob_matcher.sh` 範例（其他測試類推）：
 
