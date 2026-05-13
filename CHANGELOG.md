@@ -2,6 +2,17 @@
 
 All notable changes to AI-SOP-Protocol will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Windows 原生安裝支援**：新增 `.asp/scripts/install.ps1` 與 `uninstall.ps1`（PowerShell 5.1+），對應 `install.sh` 的兩階段安裝流程。Hook command 透過 Git for Windows 的 `bash.exe` 執行 `.sh` 腳本。
+- **Windows 安裝文件**：`docs/install-windows.md` 涵蓋 WSL2 推薦路線、PowerShell + Git Bash 原生路線、驗證、移除、FAQ。
+
+### Changed
+
+- **README 大幅精簡**：從 438 行縮至 ~120 行，聚焦安裝、三步啟動、預設行為、鐵則四項精華；深入內容指引至 `docs/`。原內容（強制力四層、Iron Rules 7 條、23 個 skill 分類、worktree 元件表、profile 分層樹、設計哲學）改以連結指向既有文件。
+
 ## [4.1.1] - 2026-05-10
 
 獨立 reality-checker 對 v4.1.0 GA 做 holistic review，抓出 4 個真實問題 + v3.7 殘留 + SPEC Done When 虛報。本版誠實修正。
@@ -209,10 +220,10 @@ v4.0 ship 時為了發布，幾個 P1-P2 等級的不一致先暫時擱置：（
 - **Anti-Rationalization Tables**: 借鑒 agent-skills 的反合理化設計。在 asp-ship、asp-plan、asp-gate、asp-reality-check、asp-level 五個 skill 新增 `## Common Rationalizations` 段落，系統性封堵 AI 常見繞過藉口
 - **Evidence-Based Gate Output**: Gate 與 Ship 輸出升級為結構化證據模式
   - 每個檢查項目必須附 `command` + `exit_code` + `evidence_excerpt`
-  - Skip 事件必須寫入 `.asp-bypass-log.json`（append-only）
+  - Skip 事件必須寫入 `.asp-bypass-log.json`(append-only)
   - 預設摘要模式 + verbose 詳情模式
 - **Bypass Log 系統**
-  - 新增 `.asp-bypass-log.json`（append-only 紀錄所有 skip 事件）
+  - 新增 `.asp-bypass-log.json`(append-only 紀錄所有 skip 事件)
   - 新增 Makefile targets: `asp-bypass-review`、`asp-bypass-record`
   - `asp-enforcement-status` 顯示近 7 天 bypass 統計
 - **Specialist Subagent Personas**: 擴充 `reality-checker` 模式
