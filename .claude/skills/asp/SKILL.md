@@ -18,6 +18,9 @@ description: |
 
 # ASP Skill Router
 
+> **注意**：此目錄（`.claude/skills/asp/`）為 **source copy**（版本控制）。
+> 安裝後的 active 版本在 `~/.claude/skills/asp/`，由 `bash ~/.claude/scripts/asp-sync.sh` 同步。
+
 AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自動路由到對應的子 skill。
 
 ## 子 Skill 路由表

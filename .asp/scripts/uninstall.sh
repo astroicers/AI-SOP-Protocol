@@ -18,6 +18,11 @@
 
 set -uo pipefail
 
+# ─── 跨平台 sed -i（與 install.sh 一致）─────────────────────────────
+SED_INPLACE() {
+  if [ "$(uname)" = "Darwin" ]; then sed -i '' "$@"; else sed -i "$@"; fi
+}
+
 # ─── 旗標解析 ───────────────────────────────────────────────────────
 DRY_RUN=false
 USER_LEVEL=false
@@ -96,7 +101,7 @@ clean_makefile() {
     if [ "$DRY_RUN" = true ]; then
       dry "Makefile（移除 ASP include 行）"
     else
-      sed -i '/# ASP targets/d; /Makefile\.inc/d' Makefile
+      SED_INPLACE '/# ASP targets/d; /Makefile\.inc/d' Makefile
       success "清理 Makefile — 移除 ASP include 行"
     fi
   fi

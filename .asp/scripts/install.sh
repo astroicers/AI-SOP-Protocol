@@ -197,7 +197,7 @@ fi
 
 # clone ASP repo
 echo "  從 GitHub 下載 ASP..."
-if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>/dev/null; then
+if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   NEW_VERSION=$(cat "$TMP_DIR/.asp/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
   NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
@@ -329,11 +329,11 @@ fi
 # 舊架構清理提示
 if [ -d ".asp" ]; then
   warn ".asp/ 偵測到舊架構 — 自動清理"
-  rm -rf ".asp"
+  rm -rf "${PWD:?}/.asp"
   success "移除 .asp/（已由 ~/.claude/asp/ 取代）"
 fi
 if [ -d ".claude/skills/asp" ]; then
-  rm -rf ".claude/skills/asp"
+  rm -rf "${PWD:?}/.claude/skills/asp"
   success "移除 .claude/skills/asp/（已由 ~/.claude/skills/asp/ 取代）"
 fi
 

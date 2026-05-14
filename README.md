@@ -24,13 +24,15 @@ ASP **不管你做什麼**（產品方向、功能優先序、時程規劃自己
 bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
 ```
 
+> macOS 用戶：系統預設 bash 3.2 不符需求，請先執行 `brew install bash`。
+
 ### Windows — PowerShell + Git Bash
 
 ```powershell
 irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
 ```
 
-> 需要 [Git for Windows](https://git-scm.com/download/win)（提供 bash.exe）、Python 3.10+、jq 1.6+。
+> 需要 [Git for Windows](https://git-scm.com/download/win)（提供 bash.exe）、Python 3.10+、jq 1.6+、curl。
 
 ### Windows — WSL2（推薦）
 
@@ -96,6 +98,8 @@ make asp-unlock-commit        # 解除 Draft ADR 動態 commit deny
 make help                     # 顯示全部
 ```
 
+> 沒有 `make audit-health` 的專案（未安裝 Makefile.inc）：直接請 Claude 執行 `/asp-audit`，自動 fallback 到 `~/.claude/asp/scripts/audit-fallback.sh`。
+
 ---
 
 ## 鐵則（不可被任何 profile 覆蓋）
@@ -127,12 +131,12 @@ make help                     # 顯示全部
 
 ```bash
 # macOS / Linux
-bash <(curl -fsSL .../uninstall.sh)            # 當前專案
-bash <(curl -fsSL .../uninstall.sh) --user-level  # user-level
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh)            # 當前專案
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh) --user-level  # user-level
 
 # Windows
-irm .../uninstall.ps1 | iex
-$env:ASP_USER_LEVEL='1'; irm .../uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.ps1 | iex
+$env:ASP_USER_LEVEL='1'; irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.ps1 | iex
 ```
 
 保留 `.ai_profile`、`docs/adr/`、`docs/specs/` 等使用者撰寫的內容。
