@@ -24,7 +24,7 @@
 ### ADR 狀態
 
 ```
-Draft → Proposed → Accepted → Deprecated / Superseded by ADR-XXX
+Draft → FIRM（人類填 Verification Evidence）→ Accepted → Deprecated / Superseded by ADR-XXX
 ```
 
 ### 執行規則
@@ -196,11 +196,11 @@ hotfix/描述        緊急修復，從 main 建立，修復後合併回 main
 
 2. ADR 確認（僅架構變更時）
    └── 🛑 ADR Checkpoint：撰寫 ADR 前先輸出「問題假設清單」，等使用者確認方向後再展開 ADR 正文
-   └── make adr-list → 有相關 ADR 且為 Accepted → 繼續
+   └── make adr-list → 有相關 ADR 且為 Accepted 或 FIRM（🟡）→ 繼續
        └── 無相關 ADR → make adr-new TITLE="..."
 
 3. ADR↔SPEC 連動（僅涉及架構變更時）
-   └── ADR 狀態為 Accepted → 才能建立對應 SPEC
+   └── ADR 狀態為 Accepted 或 FIRM（🟡）→ 才能建立對應 SPEC
        ├── SPEC「關聯 ADR」欄位必須填入 ADR-NNN
        └── ADR 為 Draft → 先完成 ADR 審議，不建 SPEC、不寫生產代碼
 
@@ -268,7 +268,7 @@ hotfix/描述        緊急修復，從 main 建立，修復後合併回 main
 **豁免路徑**（需在回覆中明確說明）：
 - trivial（單行/typo/配置）→ 直接修復，說明理由
 - 原型驗證 → 標記 `tech-debt: spec-pending`，24h 內補 SPEC
-- autonomous 模式既有架構延伸 → 可由 AI 建立 SPEC 後直接實作，前提是對應 ADR 已 Accepted
+- autonomous 模式既有架構延伸 → 可由 AI 建立 SPEC 後直接實作，前提是對應 ADR 已 Accepted 或 FIRM
 
 > 此規則依賴 AI 自律執行，無 Hook 技術強制。
 
@@ -479,7 +479,7 @@ AI 提議新增外部依賴時（autonomous 模式：暫停點），必須提供
 ```
 □ 環境變數完整（對照 .env.example）
 □ 所有測試通過（make test）
-□ ADR 已標記 Accepted
+□ ADR 已標記 Accepted 或 FIRM（🟡 需後續升級）
 □ architecture.md 與當前代碼一致
 □ Dockerfile 無明顯優化缺失
 ```
