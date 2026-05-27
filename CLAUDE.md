@@ -39,7 +39,7 @@
 |------|------|
 | **破壞性操作防護** | `git push / rebase / rm -rf / docker push` 必須先列出變更並等待人類確認 |
 | **敏感資訊保護** | 禁止輸出 API Key、密碼、憑證（任何包裝方式）。`asp-ship` Step 9 掃描 |
-| **ADR 未定案禁止實作** | Draft ADR 狀態下禁止寫生產代碼；`session-audit.sh` 動態注入 `git commit` deny |
+| **ADR 未定案禁止實作** | `Draft` ADR 禁止生產代碼；`FIRM` ADR 允許 commit（需 Verification Evidence，audit 輸出 🟡）；`session-audit.sh` 動態注入 deny |
 | **外部事實驗證防護** | 涉及第三方 API/版本/法規 → 必須執行 `asp-fact-verify`，記錄至 `.asp-fact-check.md` |
 
 ---
@@ -49,7 +49,7 @@
 | Layer | 機制 | 強制力 |
 |-------|------|--------|
 | L1: SessionStart | `session-audit.sh` → `.asp-session-briefing.json` | 硬（啟動時輸出 BLOCKER） |
-| L2: Dynamic Deny | Draft ADR / 測試未過 → 動態阻擋 `git commit` | 硬（VSCode deny dialog） |
+| L2: Dynamic Deny | `Draft` ADR / 測試未過 → 動態阻擋 `git commit`；`FIRM` ADR → 允許但記錄 bypass log | 硬（VSCode deny dialog） |
 | L3: Skill Gates | `asp-ship`(10步) + `asp-gate`(G1-G6) | 結構化軟性 |
 | L4: Subagent QA | `asp-reality-check` 獨立驗證 | 中等 |
 
