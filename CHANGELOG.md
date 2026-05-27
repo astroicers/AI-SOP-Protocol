@@ -167,7 +167,7 @@ SPEC-004 Multi-Agent Worktree 硬性隔離正式交付。Multi-agent 並行從 v
 ### Rationale
 v4.0 ship 時為了發布，幾個 P1-P2 等級的不一致先暫時擱置：（1）測試與 audit 腳本對 bash-first 專案的覆蓋率盲點；（2）profile 中與 SDS 決策矛盾的舊 v3.7 機制描述；（3）SDS §9 進度追蹤滯後於實際交付。本次 review 一次補齊，使 audit baseline 反映真實狀態，profile 與 SDS 不再對 AI 下達矛盾指令。
 
-## [Unreleased] - 2026-05-05
+## [4.1.0] - 2026-05-05
 
 ### Added
 - **Domain Vocabulary Mechanism（CONTEXT.md）**: ASP v4.1 核心補強。完整的術語一致性執行鏈：

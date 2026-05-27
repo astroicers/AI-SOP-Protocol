@@ -140,6 +140,7 @@ fi
 # 3. ADR Draft 掃描（A3: 鐵則）
 # ═══════════════════════════════════════════
 DRAFT_ADRS=()
+FIRM_ADRS=()
 ADR_DIR=""
 for dir in "$PROJECT_DIR/docs/adr" "$PROJECT_DIR/docs/ADR" "$PROJECT_DIR/adr"; do
     [ -d "$dir" ] && ADR_DIR="$dir" && break
@@ -148,9 +149,10 @@ done
 if [ -n "$ADR_DIR" ]; then
     while IFS= read -r adr_file; do
         [ -f "$adr_file" ] || continue
-        if grep -qiE "^Status:\s*(Draft|draft|DRAFT)" "$adr_file" 2>/dev/null; then
+        if grep -qiE "^Status:\s*(Draft|draft|DRAFT)|\`Draft\`|\`DRAFT\`" "$adr_file" 2>/dev/null; then
             DRAFT_ADRS+=("$(basename "$adr_file")")
-        # FIRM 狀態：不阻擋 commit，只在 audit-health 輸出 YELLOW FLAG
+        elif grep -qiE "^\*\*Status:\*\*\s*FIRM|\`FIRM\`|\|\s*\`FIRM\`\s*\|" "$adr_file" 2>/dev/null; then
+            FIRM_ADRS+=("$(basename "$adr_file")")
         fi
     done < <(find "$ADR_DIR" -name "ADR-*.md" -o -name "adr-*.md" 2>/dev/null)
 fi
@@ -160,19 +162,23 @@ if [ ${#DRAFT_ADRS[@]} -gt 0 ]; then
     DYNAMIC_DENY+=("Bash(git commit *)" "Bash(git commit)")
 fi
 
+if [ ${#FIRM_ADRS[@]} -gt 0 ]; then
+    WARNINGS+=("A3.2 FIRM ADR: [${FIRM_ADRS[*]}] — 允許 commit，audit 輸出 🟡 YELLOW FLAG（需 Verification Evidence）")
+fi
+
 # ═══════════════════════════════════════════
 # 4. Tech Debt 過期掃描（A8: 7 rules）
 # ═══════════════════════════════════════════
 OVERDUE_COUNT=0
 TODAY=$(date +%Y-%m-%d)
 
-# 掃描 src/ 和根目錄的 tech-debt 標記
+# 掃描整個專案的 tech-debt 標記（排除 .git）
 while IFS= read -r line; do
     due_date=$(echo "$line" | grep -oP 'DUE:\s*\K\d{4}-\d{2}-\d{2}' || true)
     if [ -n "$due_date" ] && [[ "$due_date" < "$TODAY" ]]; then
         OVERDUE_COUNT=$((OVERDUE_COUNT + 1))
     fi
-done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$PROJECT_DIR/src/" "$PROJECT_DIR/lib/" 2>/dev/null || true)
+done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$PROJECT_DIR" --include="*.md" --include="*.sh" --include="*.yaml" --include="*.json" --exclude-dir=".git" 2>/dev/null || true)
 
 if [ "$OVERDUE_COUNT" -gt 0 ]; then
     WARNINGS+=("A8.3: $OVERDUE_COUNT 筆 HIGH tech-debt 已逾期")
@@ -243,6 +249,7 @@ fi
   "warnings": $(if [ ${#WARNINGS[@]} -gt 0 ]; then printf '%s\n' "${WARNINGS[@]}" | jq -R . | jq -s .; else echo '[]'; fi),
   "infos": $(if [ ${#INFOS[@]} -gt 0 ]; then printf '%s\n' "${INFOS[@]}" | jq -R . | jq -s .; else echo '[]'; fi),
   "draft_adrs": $(if [ ${#DRAFT_ADRS[@]} -gt 0 ]; then printf '%s\n' "${DRAFT_ADRS[@]}" | jq -R . | jq -s .; else echo '[]'; fi),
+  "firm_adrs": $(if [ ${#FIRM_ADRS[@]} -gt 0 ]; then printf '%s\n' "${FIRM_ADRS[@]}" | jq -R . | jq -s .; else echo '[]'; fi),
   "missing_files": $(if [ ${#MISSING_FILES[@]} -gt 0 ]; then printf '%s\n' "${MISSING_FILES[@]}" | jq -R . | jq -s .; else echo '[]'; fi),
   "overdue_tech_debt_count": $OVERDUE_COUNT,
   "loose_dependency_count": $LOOSE_DEP_COUNT,
