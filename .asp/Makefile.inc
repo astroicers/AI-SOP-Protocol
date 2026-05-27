@@ -259,7 +259,13 @@ adr-list:
 	ls docs/adr/ADR-*.md 2>/dev/null | while read f; do \
 		STATUS=$$(grep -m1 "狀態" $$f | grep -o '`[^`]*`' | tr -d '`'); \
 		TITLE=$$(head -1 $$f | sed 's/# //'); \
-		echo "  $$TITLE [$$STATUS]"; \
+		case "$$STATUS" in \
+			Draft)    ICON="🔴";; \
+			FIRM)     ICON="🟡";; \
+			Accepted) ICON="✅";; \
+			*)        ICON="⬜";; \
+		esac; \
+		echo "  $$ICON $$TITLE [$$STATUS]"; \
 	done || echo "  (無 ADR)"
 
 #---------------------------------------------------------------------------
@@ -884,12 +890,17 @@ audit-health:
 	for f in docs/adr/ADR-*.md; do \
 		[ -f "$$f" ] || continue; \
 		STATUS=$$(grep -m1 "狀態" "$$f" 2>/dev/null | grep -o '`[^`]*`' | tr -d '`'); \
+		ADR_ID=$$(basename "$$f" .md | grep -o 'ADR-[0-9]*'); \
 		if [ "$$STATUS" = "Draft" ]; then \
-			ADR_ID=$$(basename "$$f" .md | grep -o 'ADR-[0-9]*'); \
 			if grep -r "$$ADR_ID" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" . >/dev/null 2>&1; then \
 				echo "  🔴 BLOCKER: $$ADR_ID 狀態為 Draft 但已有實作代碼（鐵則違反）"; \
 				BLOCKERS=$$((BLOCKERS + 1)); \
 				DRAFT_WITH_CODE=$$((DRAFT_WITH_CODE + 1)); \
+			fi; \
+		elif [ "$$STATUS" = "FIRM" ]; then \
+			if grep -r "$$ADR_ID" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" . >/dev/null 2>&1; then \
+				echo "  🟡 WARNING: $$ADR_ID 狀態為 FIRM（POC 驗證中）— 允許 commit，待人類升級至 Accepted"; \
+				WARNINGS=$$((WARNINGS + 1)); \
 			fi; \
 		fi; \
 	done; \
@@ -1022,11 +1033,15 @@ audit-quick:
 	for f in docs/adr/ADR-*.md; do \
 		[ -f "$$f" ] || continue; \
 		STATUS=$$(grep -m1 "狀態" "$$f" 2>/dev/null | grep -o '`[^`]*`' | tr -d '`'); \
+		ADR_ID=$$(basename "$$f" .md | grep -o 'ADR-[0-9]*'); \
 		if [ "$$STATUS" = "Draft" ]; then \
-			ADR_ID=$$(basename "$$f" .md | grep -o 'ADR-[0-9]*'); \
 			if grep -r "$$ADR_ID" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" . >/dev/null 2>&1; then \
 				echo "  🔴 BLOCKER: $$ADR_ID Draft 但有實作代碼"; \
 				BLOCKERS=$$((BLOCKERS + 1)); \
+			fi; \
+		elif [ "$$STATUS" = "FIRM" ]; then \
+			if grep -r "$$ADR_ID" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" . >/dev/null 2>&1; then \
+				echo "  🟡 FIRM: $$ADR_ID POC 驗證中（允許 commit）"; \
 			fi; \
 		fi; \
 	done; \

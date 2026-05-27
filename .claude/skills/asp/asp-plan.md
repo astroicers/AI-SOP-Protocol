@@ -67,11 +67,21 @@ grep -r "ADR-舊編號" docs/
 
 ### 🛑 關鍵鐵則
 
-**ADR 必須保持 Draft 狀態，直到人類明確審核並改為 Accepted。**
-**AI 不可自行將 ADR 從 Draft 改為 Accepted。**
-**Draft ADR 存在時，不可撰寫對應的生產代碼。**
+**ADR 狀態只能由人類變更。AI 不可自行升級任何 ADR 狀態。**
 
-等待人類 Accept ADR 後，再繼續 Step 4。
+| 狀態 | 誰可設定 | 允許的行為 |
+|------|---------|-----------|
+| `Draft` | AI 建立時自動設定 | 禁止寫生產代碼；`session-audit.sh` 動態阻擋 `git commit` |
+| `FIRM` | **人類**（需填入 Verification Evidence） | 允許 commit；`audit-health` 輸出 🟡 YELLOW FLAG |
+| `Accepted` | **人類** | 完全放行 |
+
+**FIRM 升級條件（缺一不可）：**
+ADR 內必須包含 `## Verification Evidence` 區塊，且至少填入：
+- POC 分支名稱 或 初步測試結果
+- 驗證日期
+- 驗證者
+
+等待人類將 ADR 升級至 FIRM 或 Accepted 後，再繼續 Step 4。
 
 ---
 

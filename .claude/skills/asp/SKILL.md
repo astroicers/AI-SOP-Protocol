@@ -33,6 +33,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | 提交前檢查 | ship, commit, 提交, pre-commit, 準備提交 | asp-ship |
 | 健康審計 | audit, health check, 審計, 健康, project status | asp-audit |
 | 程式碼審查 | review, code review, 審查, 幫我看 | asp-review |
+| 審查清單 / 面向定義 / 反模式庫 | review checklist, 審查清單, review dimensions, finding format, 面向定義 | asp-review-checklist |
 | 自動執行 ROADMAP | autopilot, run roadmap, 自動執行, 續接, resume | asp-autopilot |
 
 ### Multi-Agent 協作（v3.0）

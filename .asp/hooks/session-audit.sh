@@ -150,6 +150,7 @@ if [ -n "$ADR_DIR" ]; then
         [ -f "$adr_file" ] || continue
         if grep -qiE "^Status:\s*(Draft|draft|DRAFT)" "$adr_file" 2>/dev/null; then
             DRAFT_ADRS+=("$(basename "$adr_file")")
+        # FIRM 狀態：不阻擋 commit，只在 audit-health 輸出 YELLOW FLAG
         fi
     done < <(find "$ADR_DIR" -name "ADR-*.md" -o -name "adr-*.md" 2>/dev/null)
 fi

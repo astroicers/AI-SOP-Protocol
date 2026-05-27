@@ -33,12 +33,13 @@ description: |
 
 **檢查項目：**
 1. 是否需要 ADR？（判斷標準：影響 2+ 模組、引入新依賴、變更 API 介面）
-   - 需要且已存在 Accepted ADR → PASS
-   - 需要但 ADR 為 Draft → FAIL
+   - 需要且已存在 `Accepted` ADR → PASS
+   - 需要且 ADR 為 `FIRM`（含 Verification Evidence）→ CONDITIONAL PASS（輸出 🟡 YELLOW FLAG，允許繼續但記錄至 bypass log）
+   - 需要但 ADR 為 `Draft` → FAIL（禁止實作）
    - 不需要（trivial 變更）→ PASS（記錄理由）
 2. 相關 ADR 無衝突
 
-**通過條件：** 所有 production code 相關的 ADR 狀態為 Accepted 或不需要 ADR
+**通過條件：** 所有 production code 相關的 ADR 狀態為 Accepted（或 FIRM + Verification Evidence）或不需要 ADR
 
 ---
 
@@ -249,7 +250,8 @@ chart 的 image tag 還原到上一個 commit（即觸發 ArgoCD 反向 rollback
 [4] Assertion >= Gherkin ✅ 15 >= 5 scenarios
 ================================
 結果：🔴 GATE_FAIL
-原因：測試全部通過表示可能未覆蓋新功能。請確認測試確實測試了 SPEC 中的 Done When 條件。
+原因：測試全部通過表示可能未覆蓋新功能。
+remediation: 確認 Done When 條件對應的測試案例確實先 FAIL，再實作功能後 PASS。
 ```
 
 ---
@@ -269,6 +271,8 @@ chart 的 image tag 還原到上一個 commit（即觸發 ArgoCD 反向 rollback
 | `exit_code` | 指令 exit code（0 = 成功） |
 | `evidence_excerpt` | stdout/stderr 的關鍵片段（≤5 行） |
 | `status` | PASS / FAIL / WARN / SKIPPED |
+| `severity` | HIGH / MED / LOW（FAIL 時必填；HIGH = 阻擋合規） |
+| `remediation` | FAIL/WARN 時必填：具體修復步驟（位置 + 做什麼） |
 | `skipped_reason` | 若 SKIPPED，填入理由（**非空則會寫入 bypass log**） |
 
 ### 範例 JSON 片段（寫入 `.asp-gate-state.json` 的 `gates.GX.checks`）
@@ -293,7 +297,9 @@ chart 的 image tag 還原到上一個 commit（即觸發 ArgoCD 反向 rollback
           "command": "make lint",
           "exit_code": 0,
           "evidence_excerpt": "0 errors, 2 warnings (non-blocking)",
-          "status": "PASS"
+          "status": "PASS",
+          "severity": null,
+          "remediation": null
         },
         {
           "name": "scope compliance",
