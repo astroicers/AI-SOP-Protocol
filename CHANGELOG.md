@@ -6,6 +6,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Added
 
+- **ADR FIRM 中間態完整落實**：Draft → FIRM → Accepted 三態機制傳播至 13 個執行路徑檔案（7 個 profiles、3 個 skills、2 個 scripts、2 個 CLAUDE.md）。FIRM ADR 可合法 commit（需 Verification Evidence），audit 輸出 🟡 YELLOW FLAG；Draft 鐵則（禁止生產代碼）維持不變。新增 `asp-review-checklist.md`（6 面向審查清單 + 結構化 finding 格式），`asp-review.md` 精簡為流程控制器（91 行）。
 - **Windows 原生安裝支援**：新增 `.asp/scripts/install.ps1` 與 `uninstall.ps1`（PowerShell 5.1+），對應 `install.sh` 的兩階段安裝流程。Hook command 透過 Git for Windows 的 `bash.exe` 執行 `.sh` 腳本。
 - **Windows 安裝文件**：`docs/install-windows.md` 涵蓋 WSL2 推薦路線、PowerShell + Git Bash 原生路線、驗證、移除、FAQ。
 
