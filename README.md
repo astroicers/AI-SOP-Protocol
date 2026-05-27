@@ -127,6 +127,53 @@ make help                     # 顯示全部
 
 ---
 
+## 更新 ASP
+
+ASP 的核心邏輯（profiles / hooks / skills / templates）存在 `~/.claude/` 下，透過 `asp-sync.sh` 從 repo 同步。
+
+### 流程：這台電腦（本機有 repo）
+
+```bash
+cd ~/AI-SOP-Protocol
+git pull                    # 拉取最新版本
+make asp-update             # 同步到 ~/.claude/
+```
+
+`make asp-update` 等同於 `bash ~/.claude/scripts/asp-sync.sh`，會顯示差異並詢問確認。
+
+### 流程：其他電腦（沒有 repo / 全新安裝）
+
+重新執行安裝指令即可，安裝腳本會自動覆蓋舊版：
+
+```bash
+# macOS / Linux / WSL2
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
+```
+
+安裝腳本會把 repo clone 到 `~/AI-SOP-Protocol/`，日後在那台電腦也可用 `make asp-update` 更新。
+
+### 確認版本
+
+```bash
+cat ~/.claude/asp/VERSION
+```
+
+### 哪些東西會被更新 / 不會被更新
+
+| 內容 | 更新時行為 |
+|------|-----------|
+| `~/.claude/asp/`（profiles/hooks/templates） | ✅ 覆蓋更新 |
+| `~/.claude/skills/asp/`（所有 skill 檔案） | ✅ 覆蓋更新 |
+| `~/.claude/CLAUDE.md` | ✅ 若是 ASP 版本則更新；使用者自訂版本則**跳過** |
+| `.ai_profile`（你的專案設定） | ❌ **不動**（使用者撰寫） |
+| `docs/adr/`、`docs/specs/`（你的文件） | ❌ **不動** |
+| `.claude/settings.json`（專案 Claude 設定） | ❌ **不動** |
+
+---
+
 ## 移除
 
 ```bash
