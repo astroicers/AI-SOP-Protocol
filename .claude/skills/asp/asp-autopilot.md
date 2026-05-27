@@ -66,7 +66,7 @@ make autopilot-validate
 驗證內容：
 - ROADMAP.yaml 格式正確
 - 所有任務的 SPEC 存在（或標記為 spec-pending）
-- Draft ADR 不阻擋非依賴任務
+- Draft ADR 不阻擋非依賴任務；FIRM ADR 不阻擋任何任務（標記 🟡）
 - 更新 CLAUDE.md 的「專案概覽」區塊
 
 ### 1c. 顯示任務佇列
@@ -100,6 +100,7 @@ make autopilot-status
 | 條件 | 處理 |
 |------|------|
 | 對應 ADR 為 Draft | 標記 `blocked`，跳過，繼續下一任務 |
+| 對應 ADR 為 FIRM  | 標記 `🟡 yellow`，允許執行，輸出警告 |
 | 缺少 SPEC | 自動建立：`make spec-new TITLE="[task title]"` |
 | 依賴任務未完成 | 標記 `blocked`，跳過 |
 
@@ -206,6 +207,7 @@ Autopilot 模式下，以下情況**不暫停詢問**（自動處理）：
 | 缺少 SPEC | 自動 `make spec-new` |
 | 測試失敗（≤3 次）| 自動修復後重試 |
 | Draft ADR 阻擋 | 自動標記 blocked，跳至下一任務 |
+| FIRM ADR       | 自動標記 🟡，允許執行，記錄至 session briefing |
 | Context 達 60% | 自動存檔，繼續執行 |
 | Context 達 75% | 自動存檔，主動退出 |
 
