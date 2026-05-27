@@ -99,7 +99,7 @@ grep -r "SPEC-{NNN}" . --include="*.{ts,tsx,js,jsx,py,go,java,md}"
 
 ## L3 — ADR 推翻
 
-**必須暫停，等待人類確認後才執行。新 ADR Accepted 後才能開始新方向的實作。**
+**必須暫停，等待人類確認後才執行。新 ADR 升至 FIRM 或 Accepted 後才能開始新方向的實作。**
 
 ```
 步驟：
@@ -118,9 +118,9 @@ grep -r "SPEC-{NNN}" . --include="*.{ts,tsx,js,jsx,py,go,java,md}"
    ├── 仍有效（技術方向變但功能需求不變）→ 更新「關聯 ADR」指向新 ADR
    └── 不再有效 → 按 L2 流程處理
 
-5. [等待人類確認] 新 ADR 進入 Accepted 狀態
+5. [等待人類確認] 新 ADR 進入 FIRM 或 Accepted 狀態
 
-6. 新 ADR Accepted 後，才能開始基於新方向的實作
+6. 新 ADR FIRM 或 Accepted 後，才能開始基於新方向的實作
    → 影響 team_pick：大概率需要升級至 MODIFICATION_L3_L4 場景
 ```
 
