@@ -148,6 +148,19 @@ SPEC：docs/specs/SPEC-NNN-[title].md
 | 「Rollback Plan 暫不填，之後補」 | 有 schema / migration / feature flag 的 SPEC，Rollback Plan 是必填。沒有回滾計畫就上線 = 單向門。 |
 | 「這個 ADR 影響的檔案很少，Consequences 留空」 | Consequences 不是檔案清單，是 trade-off 與引入風險。空白代表你沒有評估負面影響。 |
 
+## 規劃反模式（Planning Anti-patterns）
+
+> 以下是常見的「看起來完成了，實際上沒有」的規劃失敗模式。AI 執行 asp-plan 時必須主動偵測並拒絕。
+
+| 反模式 | 識別信號 | 正確做法 |
+|--------|---------|---------|
+| **Done When 虛報** | 驗收條件寫「功能實作完成」「介面設計完成」等任務描述 | 必須是 binary 可驗證：「`make test` 通過且 API 回傳 `{status: ok}`」 |
+| **ADR 範圍偷縮** | 把跨模組變更拆成多個小 SPEC，每個都避開 ADR 門檻 | 評估功能整體影響，而非每個 SPEC 單獨判斷 |
+| **Rollback Plan 流於形式** | schema 變更的 Rollback Plan 只寫「git revert」 | 必須包含 migration down script、資料保留策略、下游服務通知方式 |
+| **Edge Cases 只寫正常邊界** | 列了空值、最大值，但無 timeout、網路中斷、concurrent write | 每個外部呼叫都需要對應的失敗場景 |
+| **Alternatives Considered 走形式** | 每個替代方案只有一句「效能差」「不符需求」，無實質評估 | 誠實列出每個方案的優點，再說明為何最終未選 |
+| **SPEC 補寫（post-hoc）** | SPEC 建立時間晚於對應 commit，內容是對已有代碼的描述 | SPEC 必須先於實作；若確實補寫，必須標記 `post-hoc: true` 並說明原因 |
+
 ## 常用指令參考
 
 ```bash
