@@ -1,85 +1,91 @@
 # AI-SOP-Protocol (ASP)
 
-> 把開發文化寫成機器可讀的約束，讓 AI 自動遵守。
-> 不用每次提醒 AI「記得寫測試」「不要亂推版」「更新文件」。
+把開發規範寫成機器可讀的約束，讓 Claude 自動遵守——不用每次提醒「記得寫測試」「先建 ADR」「不要亂推版」。
 
-**v4.1.1**（2026-05-10）｜ 詳見 [CHANGELOG](CHANGELOG.md)
-
----
-
-## 一句話：ASP 是什麼
-
-ASP 規範**怎麼做**——ADR 先於實作、測試先於代碼、部署必須確認、文件同步更新。
-ASP **不管你做什麼**（產品方向、功能優先序、時程規劃自己決定）。
-
-> 你決定蓋什麼房子，ASP 確保施工流程不出錯。
+**v4.1.1** · [CHANGELOG](CHANGELOG.md) · [架構文件](docs/architecture.md) · [入門指引](docs/where-to-start.md)
 
 ---
 
-## 安裝（依你的作業系統挑一條）
+## 它解決什麼問題
 
-### macOS / Linux
+你每次開新 session，Claude 都忘記你的開發規範。ASP 把規範固化成 hooks + profiles + skills，session 啟動時自動載入，無需重複交代。
+
+| 沒有 ASP | 有 ASP |
+|---------|-------|
+| 每次提醒「先寫測試」 | G3 Gate 強制：測試先 FAIL 才能實作 |
+| ADR 說好不實作，AI 還是動了 | Draft ADR → `git commit` 動態阻擋 |
+| 推版前忘記掃密碼 | `/asp-ship` 10 步驟含敏感資訊掃描 |
+| 不知道 AI 改了什麼範圍 | SPEC Done When 是二元驗收條件 |
+
+---
+
+## 安裝
+
+ASP 分兩層：**User-level**（所有專案共用，裝一次）和 **Project-level**（每個專案的設定，輕量）。
+
+### Step 1 — User-level 核心（每台電腦一次）
+
+**macOS / Linux / WSL2**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
+```
+
+> macOS：系統預設 bash 3.2 不符，請先 `brew install bash`。
+
+**Windows（PowerShell）**
+```powershell
+irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
+```
+
+> 需要 Git for Windows、Python 3.10+、jq 1.6+。詳見 [docs/install-windows.md](docs/install-windows.md)。
+
+安裝後：`~/.claude/asp/`（profiles/hooks）和 `~/.claude/skills/asp/`（24 個 skills）即可用於所有專案。
+
+### Step 2 — Project-level 設定（每個專案一次，在專案根目錄執行）
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
 ```
 
-> macOS 用戶：系統預設 bash 3.2 不符需求，請先執行 `brew install bash`。
+同一支腳本，第二次在**專案目錄**跑時，會偵測已有 user-level 並只執行 Phase 2：建立 `.ai_profile`、`CLAUDE.md`、`.claude/settings.json`（hooks 設定）。
 
-### Windows — PowerShell + Git Bash
-
-```powershell
-irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
-```
-
-> 需要 [Git for Windows](https://git-scm.com/download/win)（提供 bash.exe）、Python 3.10+、jq 1.6+、curl。
-
-### Windows — WSL2（推薦）
-
-進入 WSL 後執行上方 macOS/Linux 指令即可。
-
-> 📖 Windows 完整指引（前置、驗證、移除、FAQ）：[`docs/install-windows.md`](docs/install-windows.md)
+安裝腳本會問兩題：**專案類型**（system / content / architecture）→ **成熟度等級（L1–L5）**。全按 Enter 用預設值。
 
 ---
 
-## 三步啟動
+## 啟動
 
 ```bash
-# 1. 安裝（一次安裝 user-level，每個專案再跑一次建立輕量設定）
-bash <(curl -fsSL .../install.sh)   # 或 PowerShell 版本
-
-# 2. 進入 Claude Code，貼一行：
-#    「請讀取 CLAUDE.md，依照 .ai_profile 載入對應 Profile，後續遵循 ASP 協議。」
-
-# 3. 確認 AI 回覆中提到已載入 Profile 名稱
+# 在 Claude Code session 開始時貼這一行：
+# 「請讀取 CLAUDE.md，依照 .ai_profile 載入對應 Profile，後續遵循 ASP 協議。」
 ```
 
-安裝會問兩題：**專案類型** → **成熟度等級（L1–L5）**。全按 Enter 用預設值。
+AI 回覆會列出已載入的 Profile 名稱，和當前 session 的 BLOCKER / WARNING。
 
 ---
 
-## 預設行為（不用記，AI 會自動執行）
+## 預設行為（AI 自動執行，不用記）
 
 | 時機 | AI 做的事 |
 |------|---------|
-| Commit 前 | `/asp-ship` 十步檢查（測試、文件、敏感資訊） |
-| 跨模組變更 | 先建 ADR；Draft 狀態下 `git commit` 被動態阻擋 |
+| Session 啟動 | 讀 `.asp-session-briefing.json`，報告 BLOCKER |
+| 跨模組變更 | 先建 ADR；`Draft` 狀態下 `git commit` 被動態阻擋 |
 | 寫測試前 | `/asp-gate G1,G2`；寫完跑 G3；實作完跑 G4 |
+| Commit 前 | `/asp-ship` 十步驟（測試、文件、敏感資訊掃描） |
 | 第三方 API / 版本 | `/asp-fact-verify` 記錄至 `.asp-fact-check.md` |
-| Session 啟動 | 自動讀 `.asp-session-briefing.json`，報告 BLOCKER |
 
 ---
 
-## .ai_profile 最小範例
+## 專案設定（.ai_profile）
 
-安裝會自動建立。要改行為時改這個檔，**開新 session 生效**。
+安裝自動建立，要改行為時編輯它，**開新 session 生效**。
 
 ```yaml
 type: system        # system | content | architecture
-level: 1            # L0 Spike | L1 Starter | L2 Disciplined | L3 Test-First | L4 Collaborative | L5 Autonomous
+level: 1            # L1 Starter → L5 Autonomous
 mode: auto          # auto（推薦） | single | multi-agent
 hitl: standard      # minimal | standard | strict
-autopilot: disabled # enabled 時讀 ROADMAP.yaml 零確認執行
+autopilot: disabled # enabled 時讀 ROADMAP.yaml 自動執行
 ```
 
 完整欄位：`~/.claude/asp/templates/example-profile-full.yaml`
@@ -89,101 +95,88 @@ autopilot: disabled # enabled 時讀 ROADMAP.yaml 零確認執行
 ## 常用指令
 
 ```bash
-make adr-new TITLE="..."      # 新增 ADR（架構決策）
-make spec-new TITLE="..."     # 新增 SPEC（功能規格）
-make test                     # 跑測試
+make adr-new TITLE="..."      # 新增架構決策記錄（ADR）
+make spec-new TITLE="..."     # 新增功能規格（SPEC）
 make audit-health             # 9 維度健康審計
-make audit-quick              # 只看 blocker
-make asp-unlock-commit        # 解除 Draft ADR 動態 commit deny
-make help                     # 顯示全部
+make audit-quick              # 只看 blocker（快速）
+make asp-unlock-commit        # 解除 Draft ADR 動態 commit 阻擋
+make asp-update               # 更新 ASP 核心到最新版
+make help                     # 顯示全部指令
 ```
 
-> 沒有 `make audit-health` 的專案（未安裝 Makefile.inc）：直接請 Claude 執行 `/asp-audit`，自動 fallback 到 `~/.claude/asp/scripts/audit-fallback.sh`。
+> 專案沒有 `make`：直接請 Claude 執行 `/asp-audit`，自動 fallback 到 `~/.claude/asp/scripts/audit-fallback.sh`。
 
 ---
 
-## 鐵則（不可被任何 profile 覆蓋）
+## ADR 狀態機
 
-- 破壞性操作（`git push / rebase / rm -rf / docker push`）必須人類確認
+ASP 用三個狀態管理架構決策的生命週期：
+
+| 狀態 | 誰可設定 | 允許行為 |
+|------|---------|---------|
+| `Draft` | AI 建立時自動設定 | 禁止生產代碼；`git commit` 動態阻擋 |
+| `FIRM` | 人類（需填 Verification Evidence） | 允許 commit；`audit-health` 輸出 🟡 |
+| `Accepted` | 人類 | 完全放行 |
+
+---
+
+## 鐵則（不可被任何設定覆蓋）
+
+- `git push / rebase / rm -rf / docker push` 必須人類確認
 - 禁止輸出 API Key / 密碼 / 憑證
-- ADR Draft 狀態下禁止實作（commit 動態阻擋）
-- 第三方事實（API / 版本 / 法規）必須 `asp-fact-verify`
+- ADR `Draft` 狀態下禁止實作（commit 動態阻擋）
+- 涉及第三方 API / 版本 / 法規 → 必須 `asp-fact-verify`
 
-詳全部 7 條：[`CLAUDE.md`](CLAUDE.md)。
-
----
-
-## 想深入了解
-
-| 主題 | 文件 |
-|------|------|
-| 不確定該下哪個指令 | [`docs/where-to-start.md`](docs/where-to-start.md) |
-| 從零建 MVP / 大型功能 / 事故應急 | [`docs/runbooks/`](docs/runbooks/) |
-| 成熟度等級（L0–L5） | `~/.claude/asp/levels/level-N.yaml` |
-| Multi-Agent worktree 隔離（v4.1 GA） | [`docs/specs/SPEC-004-multi-agent-worktree-isolation.md`](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |
-| Autopilot（ROADMAP 驅動） | [`docs/autopilot.md`](docs/autopilot.md) |
-| 架構總覽（含序列圖） | [`docs/architecture.md`](docs/architecture.md) |
-| 完整 Profile schema | `~/.claude/asp/templates/example-profile-full.yaml` |
+完整 7 條：[CLAUDE.md](CLAUDE.md)
 
 ---
 
 ## 更新 ASP
 
-ASP 的核心邏輯（profiles / hooks / skills / templates）存在 `~/.claude/` 下，透過 `asp-sync.sh` 從 repo 同步。
-
-### 流程：這台電腦（本機有 repo）
+### 這台電腦（有 repo）
 
 ```bash
 cd ~/AI-SOP-Protocol
-git pull                    # 拉取最新版本
-make asp-update             # 同步到 ~/.claude/
+git pull
+make asp-update
 ```
 
-`make asp-update` 等同於 `bash ~/.claude/scripts/asp-sync.sh`，會顯示差異並詢問確認。
+### 其他電腦（全新安裝）
 
-### 流程：其他電腦（沒有 repo / 全新安裝）
+重新執行 Step 1 安裝指令，腳本自動覆蓋舊版並 clone repo 到 `~/AI-SOP-Protocol/`。
 
-重新執行安裝指令即可，安裝腳本會自動覆蓋舊版：
+| 內容 | 更新時 |
+|------|--------|
+| `~/.claude/asp/`、`~/.claude/skills/asp/` | ✅ 覆蓋 |
+| `~/.claude/CLAUDE.md`（ASP 版本） | ✅ 更新 |
+| `.ai_profile`、`docs/adr/`、`docs/specs/` | ❌ 不動 |
 
-```bash
-# macOS / Linux / WSL2
-bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
+---
 
-# Windows PowerShell
-irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
-```
+## 深入了解
 
-安裝腳本會把 repo clone 到 `~/AI-SOP-Protocol/`，日後在那台電腦也可用 `make asp-update` 更新。
-
-### 確認版本
-
-```bash
-cat ~/.claude/asp/VERSION
-```
-
-### 哪些東西會被更新 / 不會被更新
-
-| 內容 | 更新時行為 |
-|------|-----------|
-| `~/.claude/asp/`（profiles/hooks/templates） | ✅ 覆蓋更新 |
-| `~/.claude/skills/asp/`（所有 skill 檔案） | ✅ 覆蓋更新 |
-| `~/.claude/CLAUDE.md` | ✅ 若是 ASP 版本則更新；使用者自訂版本則**跳過** |
-| `.ai_profile`（你的專案設定） | ❌ **不動**（使用者撰寫） |
-| `docs/adr/`、`docs/specs/`（你的文件） | ❌ **不動** |
-| `.claude/settings.json`（專案 Claude 設定） | ❌ **不動** |
+| 主題 | 位置 |
+|------|------|
+| 不確定下什麼指令 | [docs/where-to-start.md](docs/where-to-start.md) |
+| MVP / 大型功能 / 事故應急 | [docs/runbooks/](docs/runbooks/) |
+| 成熟度等級 L0–L5 | `~/.claude/asp/levels/level-N.yaml` |
+| Multi-Agent worktree 隔離 | [docs/specs/SPEC-004-multi-agent-worktree-isolation.md](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |
+| Autopilot（ROADMAP 驅動） | [docs/autopilot.md](docs/autopilot.md) |
+| 架構總覽（含序列圖） | [docs/architecture.md](docs/architecture.md) |
 
 ---
 
 ## 移除
 
 ```bash
-# macOS / Linux
-bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh)            # 當前專案
-bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh) --user-level  # user-level
+# macOS / Linux — 當前專案
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh)
+# macOS / Linux — user-level
+bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.sh) --user-level
 
 # Windows
 irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.ps1 | iex
 $env:ASP_USER_LEVEL='1'; irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/uninstall.ps1 | iex
 ```
 
-保留 `.ai_profile`、`docs/adr/`、`docs/specs/` 等使用者撰寫的內容。
+移除保留 `.ai_profile`、`docs/adr/`、`docs/specs/` 等你自己撰寫的內容。
