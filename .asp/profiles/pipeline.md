@@ -54,9 +54,15 @@ FUNCTION evaluate_G1(artifacts):
   checks = []
 
   IF artifacts.requires_adr:
-    IF NOT exists(artifacts.adr) OR artifacts.adr.status != "Accepted":
-      RETURN GATE_FAIL("ADR 不存在或非 Accepted 狀態（鐵則）")
-    checks.append("ADR Accepted ✅")
+    IF NOT exists(artifacts.adr):
+      RETURN GATE_FAIL("ADR 不存在（鐵則）")
+    IF artifacts.adr.status == "Draft":
+      RETURN GATE_FAIL("ADR 為 Draft 狀態，禁止實作（鐵則）")
+    IF artifacts.adr.status == "FIRM":
+      checks.append("ADR FIRM 🟡（POC 驗證中，允許繼續，記錄 bypass log）")
+      YELLOW_FLAG("ADR 尚未正式 Accepted，請盡快升級")
+    ELSE:
+      checks.append("ADR Accepted ✅")
 
   IF artifacts.dependency_graph:
     IF has_cycle(artifacts.dependency_graph):
@@ -470,7 +476,7 @@ GATE G[N] 量化摘要
 SPEC 欄位數       | = 7              | 7         | ✅ PASS
 Done When 數量    | ≥ 3              | 2         | ❌ FAIL
 Gherkin 場景      | ≥ 2              | 3         | ✅ PASS
-Draft ADR 數      | = 0              | 0         | ✅ PASS
+Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 [UNVERIFIED] 標注 | = 0              | 1         | ❌ BLOCKER
 ```
 
