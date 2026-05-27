@@ -255,6 +255,9 @@ FUNCTION autopilot_main():
         LOG("Task {task.id}: ADR {task.adr} 不存在 → 自動建立 Draft ADR")
         EXECUTE("make adr-new TITLE=\"{task.adr}\"")
         blocked_by_adr.append(task.id)  // Draft ADR → 無法實作，標記 blocked
+      ELIF adr.status == "FIRM":
+        LOG("Task {task.id}: ADR {task.adr} 為 FIRM（POC 驗證中）→ 允許執行，標記 🟡")
+        yellow_flag_tasks.append(task.id)
       ELIF adr.status != "Accepted":
         LOG("Task {task.id}: {task.adr} 狀態為 {adr.status} → 標記 blocked")
         blocked_by_adr.append(task.id)
@@ -510,6 +513,7 @@ Autopilot 模式下不暫停人類，所有情境自動處理：
 | **前置文件缺失** | 自動執行 `make srs-new` 等指令建立模板 |
 | **ADR 不存在** | 自動建立 Draft ADR，標記相關 task 為 blocked 並跳過 |
 | **ADR 未 Accepted** | 標記相關 task 為 blocked 並跳過（不違反鐵則） |
+| **ADR 為 FIRM** | 允許執行，任務標記 🟡，輸出 bypass log |
 | **依賴循環** | 標記涉及的 tasks 為 blocked，繼續其他獨立 task |
 | **git push** | 不 push，僅 commit。結束時報告 "N commits ready to push" |
 | **git rebase** | 禁止。使用 merge |
