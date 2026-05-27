@@ -124,7 +124,7 @@ REALITY CHECK — 量化摘要（Gate G[N]）
 Lint 錯誤             | = 0              | 0         | ✅ PASS
 Done When 覆蓋        | = 100%           | 100%      | ✅ PASS
 Draft ADR 數          | = 0              | 1         | ❌ BLOCKER
-| FIRM ADR 數           | ≥ 0（監控）      | —         | 🟡 YELLOW（非 BLOCKER）|
+FIRM ADR 數           | ≥ 0（監控）      | —         | 🟡 YELLOW（非 BLOCKER）
 [UNVERIFIED] 標注     | = 0              | 0         | ✅ PASS
 文件新鮮度            | ≤ 7 天           | 3 天      | ✅ PASS
 健康分數 blocker 數   | ≤ 基準值         | +1        | ❌ FAIL

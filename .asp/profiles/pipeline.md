@@ -484,7 +484,7 @@ Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 
 | Gate | 關鍵閾值 |
 |------|---------|
-| G1 | Draft ADR = 0；依賴圖無環 |
+| G1 | Draft ADR = 0；FIRM ADR = 🟡（允許但記錄）；依賴圖無環 |
 | G2 | SPEC 7 欄位；≥3 Done When；≥2 Gherkin 場景；[UNVERIFIED] = 0 |
 | G3 | 所有測試實作前 FAIL；無編譯錯誤 |
 | G4 | 覆蓋率 ≥ 80%；認知複雜度 ≤ 10；Lint 錯誤 = 0 |
