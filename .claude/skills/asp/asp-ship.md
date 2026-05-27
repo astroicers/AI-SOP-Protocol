@@ -120,6 +120,7 @@ make adr-list
 **判斷：**
 - 所有 `Accepted` ADR 的決策是否在此次變更中被遵守
 - 是否有 `Draft` ADR 對應的生產代碼被加入 → 🔴 **BLOCK**（鐵則）
+- 是否有 `FIRM` ADR 對應的生產代碼被加入 → 🟡 **YELLOW**（允許，需記錄 bypass log）
 - 無違反 → 繼續
 
 ---
@@ -240,6 +241,7 @@ Step 10 記錄結果       ✅ .asp-test-result.json 已更新
 | 「CHANGELOG 等 release 時一次寫」 | CHANGELOG 的 `## Unreleased` 段落正是為了隨時追加。延後等於資訊遺失。 |
 | 「lint warning 不會真的 break，先跳過」 | Step 8 區分 error（BLOCK）與 warning（WARN），warning 允許通過。若 lint error 被當 warning 處理，就是在隱藏問題。 |
 | 「Draft ADR 還在討論，先把對應代碼 push 上去」 | 🔴 鐵則違反。Draft ADR 對應的生產代碼是專案憲法禁止項，不論時間壓力。解除方式：完成 ADR 審核或 `make asp-unlock-commit`（需人類批准）。 |
+| 「ADR 是 FIRM，可以合法 commit」 | ✅ 正確。FIRM + Verification Evidence = 允許 commit，但需在 bypass log 記錄，並在下次 session 前升級至 Accepted。 |
 | 「硬編碼 API key 只是暫時本地測試」 | Step 9 一律 BLOCK。即使只是暫時，git 歷史會永久保留。改用環境變數或 `.env`（並確認在 `.gitignore`）。 |
 | 「SPEC Traceability 之後再補」 | Step 5 允許 WARN-GO 但會進入 `.asp-bypass-log.json`。連續 3 次以上會在下次 audit 觸發 blocker。 |
 | 「Session briefing 不存在，直接開始 commit」 | Step 0 BLOCK。briefing 不存在代表 SessionStart hook 未執行或被跳過，這時你不知道有哪些動態 deny。先 `make asp-refresh`。 |
@@ -252,4 +254,5 @@ Step 10 記錄結果       ✅ .asp-test-result.json 已更新
 | 敏感檔案 | 加入 `.gitignore` 並從 staging 移除 |
 | CHANGELOG 未更新 | 在 `## Unreleased` 下新增條目 |
 | Draft ADR 對應生產代碼 | 等 ADR Accept 後再提交，或移除對應代碼 |
+| FIRM ADR 對應生產代碼 | 允許，記錄至 bypass log，盡快升至 Accepted |
 | Tech Debt 格式錯誤 | 修正為 `# tech-debt: HIGH test-pending desc (DUE: YYYY-MM-DD)` |
