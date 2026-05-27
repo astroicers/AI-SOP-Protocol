@@ -11,6 +11,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Changed
 
+- **`make diagram` 改為 HTML 輸出**：移除 `mmdc`（mermaid-cli）依賴，改為純 bash 生成 HTML，透過 mermaid.js CDN 渲染。同時支援 `docs/architecture.md`（4 個圖）與 `docs/multi-agent-architecture.md`（6 個圖），輸出至 `docs/architecture.html`（gitignore，不追蹤）。修復原 awk 實作將多個 mermaid 區塊拼接成單一檔案的 bug。
 - **README 大幅精簡**：從 438 行縮至 ~120 行，聚焦安裝、三步啟動、預設行為、鐵則四項精華；深入內容指引至 `docs/`。原內容（強制力四層、Iron Rules 7 條、23 個 skill 分類、worktree 元件表、profile 分層樹、設計哲學）改以連結指向既有文件。
 
 ## [4.1.1] - 2026-05-10

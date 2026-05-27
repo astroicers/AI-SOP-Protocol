@@ -61,3 +61,6 @@ __pycache__/
 
 # Bypass log NDJSON (Iron Rule B append-only — local audit trail)
 .asp-bypass-log.ndjson
+
+# Generated diagram output (make diagram)
+docs/architecture.html

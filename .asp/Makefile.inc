@@ -210,10 +210,25 @@ i18n-check:
 
 diagram:
 	@echo "📐 Generating architecture diagram..."
-	@# 從 architecture.md 提取 mermaid 區塊再餵給 mmdc
-	@awk '/```mermaid/{flag=1;next}/```/{flag=0}flag' docs/architecture.md > /tmp/arch.mmd 2>/dev/null || true
-	@mmdc -i /tmp/arch.mmd -o docs/architecture.png 2>/dev/null || \
-	echo "⚠️  請安裝 mermaid-cli: npm install -g @mermaid-js/mermaid-cli"
+	@{ \
+	  echo '<!DOCTYPE html>'; \
+	  echo '<html lang="zh-TW"><head><meta charset="UTF-8">'; \
+	  echo '<title>ASP Architecture Diagrams</title>'; \
+	  echo '<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>'; \
+	  echo '<style>body{font-family:sans-serif;max-width:1200px;margin:0 auto;padding:2rem}'; \
+	  echo 'h2{border-bottom:2px solid #333;padding-bottom:.5rem;margin-top:3rem}'; \
+	  echo '.mermaid{background:#f8f8f8;padding:1rem;border-radius:8px;margin:1rem 0}</style>'; \
+	  echo '</head><body>'; \
+	  echo '<h1>ASP Architecture Diagrams</h1>'; \
+	  for src in docs/architecture.md docs/multi-agent-architecture.md; do \
+	    [ -f "$$src" ] || continue; \
+	    echo "<h2>$$src</h2>"; \
+	    awk '/^```mermaid$$/{found=1; block=""; next} found && /^```$$/{print "<div class=\"mermaid\">\n" block "</div>"; found=0; next} found{block=block $$0 "\n"}' "$$src"; \
+	  done; \
+	  echo '<script>mermaid.initialize({startOnLoad:true,theme:"default"});</script>'; \
+	  echo '</body></html>'; \
+	} > docs/architecture.html
+	@echo "✅ docs/architecture.html 已產生（在瀏覽器開啟即可查看）"
 
 else
 # --- content 類型的 stub targets（避免 make: *** No rule to make target 錯誤）---
