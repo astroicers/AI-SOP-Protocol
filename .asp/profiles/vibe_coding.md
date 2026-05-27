@@ -84,7 +84,7 @@ FUNCTION should_pause(operation, hitl_level):
 | 建立/修改 SPEC 範圍內的檔案 | 刪除任何非暫存檔案 |
 | 跟隨既有 pattern 做命名/結構決策 | 新增 pyproject.toml / package.json 依賴 |
 | `make test` 失敗後自動修復（≤3次） | 修改 DB schema（除非 SPEC 明確指定）|
-| 建立新 SPEC（前提：ADR 已 Accepted） | 發現需求超出 SPEC/版本範圍 |
+| 建立新 SPEC（前提：ADR 已 Accepted 或 FIRM） | 發現需求超出 SPEC/版本範圍 |
 | 更新文件（ROADMAP、README、CHANGELOG） | git push / rebase（鐵則） |
 | | 設計不存在或與需求不一致（Design Gate 需確認） |
 
