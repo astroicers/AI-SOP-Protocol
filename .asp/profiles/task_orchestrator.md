@@ -124,6 +124,8 @@ FUNCTION project_health_audit():
   FOR adr IN adrs:
     IF adr.status == "Draft" AND has_implementation_code(adr):
       report.add(BLOCKER, "ADR-{adr.id} 狀態為 Draft 但已有實作代碼（鐵則違反）")
+    IF adr.status == "FIRM" AND has_implementation_code(adr):
+      report.add(WARNING, "ADR-{adr.id} 狀態為 FIRM（🟡）— 允許，待升級至 Accepted")
 
   // ─── 4. 文件完整性 ───
   required_docs = ["README.md", "CHANGELOG.md"]
@@ -324,7 +326,9 @@ FUNCTION execute_new_feature(request):
     adr = EXECUTE("make adr-new TITLE=\"{request.title}\"")
     FILL adr from request context
     PAUSE("ADR 需要人類審核（AI 不可自行 Accept ADR — 鐵則）")
-    WAIT_UNTIL adr.status == "Accepted" OR timeout(30_minutes):
+    WAIT_UNTIL adr.status IN ["Accepted", "FIRM"] OR timeout(30_minutes):
+      IF adr.status == "FIRM":
+        PRESENT("🟡 ADR-{adr.id} 為 FIRM 狀態，允許繼續執行（建議盡快升至 Accepted）")
       ON_TIMEOUT:
         PRESENT("⚠️ ADR-{adr.id} 等待超過 30 分鐘仍為 Draft。")
         PRESENT("  (1) 繼續等待  (2) 暫存進度並終止  (3) 跳過（標記 tech-debt: adr-pending）")
