@@ -242,10 +242,61 @@ cd "$ASP_ROOT"
 assert_eq "exit 6 on max_parallel exceeded" "$DISPATCH_RC" "6"
 assert_contains "stderr explains parallel limit" "$DISPATCH_STDERR" "max_parallel"
 
+# ── Test 9: B4/S13 — disk precheck: sufficient space passes ──
+echo "── Test 9: B4/S13 — disk precheck: sufficient space passes ──"
+setup_repo
+mkdir -p "$TEST_DIR/manifests"
+write_manifest "$TEST_DIR/manifests/TASK-001.yaml" "TASK-001" "src/store/"
+
+cd "$TEST_DIR/main-repo"
+# Inject huge available space via env override so test is deterministic
+ASP_AUDIT_ROOT="$TEST_DIR/main-repo" \
+  ASP_MOCK_DISK_AVAIL_MB=99999 \
+  run_dispatch --manifests "$TEST_DIR/manifests"
+cd "$ASP_ROOT"
+
+assert_eq "exit 0 when disk sufficient" "$DISPATCH_RC" "0"
+
+# ── Test 10: B4/S13 — disk precheck: below hard limit rejects (exit 4) ──
+echo "── Test 10: B4/S13 — disk precheck: insufficient space rejected ──"
+setup_repo
+mkdir -p "$TEST_DIR/manifests"
+write_manifest "$TEST_DIR/manifests/TASK-001.yaml" "TASK-001" "src/store/"
+write_manifest "$TEST_DIR/manifests/TASK-002.yaml" "TASK-002" "src/api/"
+
+cd "$TEST_DIR/main-repo"
+# Mock: only 1 MB available — well below any threshold
+ASP_AUDIT_ROOT="$TEST_DIR/main-repo" \
+  ASP_MOCK_DISK_AVAIL_MB=1 \
+  run_dispatch --manifests "$TEST_DIR/manifests"
+cd "$ASP_ROOT"
+
+assert_eq "exit 4 on insufficient disk" "$DISPATCH_RC" "4"
+assert_contains "stderr mentions disk" "$DISPATCH_STDERR" "disk"
+
+# ── Test 11: B4/S13 — disk precheck: warning zone (between 1.2x and 1.5x) ──
+echo "── Test 11: B4/S13 — disk precheck: warning zone proceeds with warning ──"
+setup_repo
+mkdir -p "$TEST_DIR/manifests"
+write_manifest "$TEST_DIR/manifests/TASK-001.yaml" "TASK-001" "src/store/"
+
+cd "$TEST_DIR/main-repo"
+# max_parallel=1, repo_size=100 MB → budget=100 MB
+# hard_limit = 100×1.2 = 120 MB, warn_limit = 100×1.5 = 150 MB
+# avail=130 MB → 120 < 130 < 150 → warning zone
+ASP_AUDIT_ROOT="$TEST_DIR/main-repo" \
+  ASP_MOCK_DISK_AVAIL_MB=130 \
+  ASP_MOCK_REPO_SIZE_MB=100 \
+  run_dispatch --manifests "$TEST_DIR/manifests" --max-parallel 1
+cd "$ASP_ROOT"
+
+assert_eq "exit 0 in warning zone (proceeds)" "$DISPATCH_RC" "0"
+assert_contains "stderr has disk warning" "$DISPATCH_STDERR" "disk"
+
 # ── Summary ──
 echo ""
 echo "═══════════════════════════════════════"
-echo "  B2 Results: $PASS/$TOTAL passed, $FAIL failed"
+echo "  Results: $PASS/$TOTAL passed, $FAIL failed"
 echo "═══════════════════════════════════════"
 
 [ $FAIL -eq 0 ]
