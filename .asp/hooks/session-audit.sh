@@ -220,7 +220,20 @@ else
 fi
 
 # ═══════════════════════════════════════════
-# 7. 測試結果檢查（A4.7: commit 前需 test）
+# 7. Task Inbox 自動注入（inbox-ingest.sh）
+# ═══════════════════════════════════════════
+INBOX_FILE="${PROJECT_DIR}/.asp-task-inbox.json"
+INBOX_SCRIPT="${PROJECT_DIR}/.asp/scripts/inbox-ingest.sh"
+if [ -f "$INBOX_FILE" ] && [ -f "$INBOX_SCRIPT" ]; then
+    INBOX_PENDING=$(jq '[.[] | select(.status == "pending")] | length' "$INBOX_FILE" 2>/dev/null || echo 0)
+    if [ "$INBOX_PENDING" -gt 0 ]; then
+        bash "$INBOX_SCRIPT" 2>&1 | grep -v "^$" || true
+        INFOS+=("A15.1: Task Inbox 自動注入 ${INBOX_PENDING} 個任務至 ROADMAP.yaml")
+    fi
+fi
+
+# ═══════════════════════════════════════════
+# 8. 測試結果檢查（A4.7: commit 前需 test）
 # ═══════════════════════════════════════════
 TEST_RESULT_EXISTS=false
 if [ -f "$PROJECT_DIR/.asp-test-result.json" ]; then
@@ -232,7 +245,7 @@ if [ -f "$PROJECT_DIR/.asp-test-result.json" ]; then
 fi
 
 # ═══════════════════════════════════════════
-# 8. 產生 briefing JSON
+# 9. 產生 briefing JSON
 # ═══════════════════════════════════════════
 {
     # 用 heredoc 構建 JSON 避免複雜的 jq 參數傳遞
@@ -262,7 +275,7 @@ JSONEOF
 } > "$BRIEFING_FILE" 2>/dev/null || true
 
 # ═══════════════════════════════════════════
-# 9. 注入動態 deny 到 settings.json
+# 10. 注入動態 deny 到 settings.json
 # ═══════════════════════════════════════════
 if [ ${#DYNAMIC_DENY[@]} -gt 0 ] && [ -f "$SETTINGS_FILE" ]; then
     # 備份

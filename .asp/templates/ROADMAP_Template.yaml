@@ -96,6 +96,12 @@ milestones:
         depends_on: []           # 前置任務 ID 列表（如 [T001, T002]）
         status: pending          # pending | in_progress | completed | failed | blocked | skipped
         estimated_complexity: medium  # low | medium | high
+        # 任務來源（由 inbox-ingest.sh 自動填入，手動任務可留空）
+        source_type: manual      # manual | github_issue | company_decision | customer_bug | monitoring_alert
+        source_ref: ""           # 來源參考 URL 或識別碼（用於去重）
+        triggered_by: manual     # manual | customer | ops | monitoring | product
+        sla_hours: 72            # 0=P0 hotfix, 24=P1, 72=P2, >72=P3
+        imported_at: ""          # inbox 注入時間（ISO 8601），手動任務留空
         description: |
           任務描述。autopilot 會將此內容傳入 task_orchestrator，
           若有 srs_ref 會交叉引用 SRS 中對應的需求細節來填充 SPEC。

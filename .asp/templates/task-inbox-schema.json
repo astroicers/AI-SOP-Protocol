@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/astroicers/AI-SOP-Protocol/task-inbox-schema.json",
+  "title": "ASP Task Inbox",
+  "description": "外部事件轉譯後的待注入任務清單。由 ASP-Operator 或手動寫入，由 inbox-ingest.sh 合併進 ROADMAP.yaml。",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "title", "type", "priority", "status"],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^INBOX-[0-9]+$",
+        "description": "唯一識別碼，格式 INBOX-001"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "簡短任務標題（對應 ROADMAP task.title）"
+      },
+      "type": {
+        "type": "string",
+        "enum": ["NEW_FEATURE", "BUGFIX", "MODIFICATION", "GENERAL"],
+        "description": "任務類型（對應 ROADMAP task.type）"
+      },
+      "priority": {
+        "type": "string",
+        "enum": ["critical", "high", "medium", "low"],
+        "description": "優先度（供排序參考，最終由 sla_hours 決定 ROADMAP priority 數值）"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["pending", "ingested", "rejected"],
+        "description": "pending=待注入；ingested=已注入 ROADMAP；rejected=人工拒絕"
+      },
+      "sla_hours": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "服務等級目標（小時）。0=P0 hotfix，24=P1，72=P2，>72=P3"
+      },
+      "source": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "github_issue",
+              "company_decision",
+              "customer_bug",
+              "monitoring_alert",
+              "manual"
+            ],
+            "description": "事件來源類型"
+          },
+          "ref": {
+            "type": "string",
+            "description": "來源參考（URL 或識別碼），用於去重"
+          },
+          "imported_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "注入時間戳（ISO 8601）"
+          }
+        }
+      },
+      "triggered_by": {
+        "type": "string",
+        "enum": ["customer", "ops", "monitoring", "product", "manual"],
+        "description": "觸發者類型"
+      },
+      "description": {
+        "type": "string",
+        "description": "任務詳細描述（對應 ROADMAP task.description）"
+      },
+      "ingested_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "實際注入 ROADMAP 的時間（由 inbox-ingest.sh 自動填寫）"
+      }
+    }
+  },
+  "examples": [
+    [
+      {
+        "id": "INBOX-001",
+        "title": "Fix login timeout on mobile Safari",
+        "type": "BUGFIX",
+        "priority": "high",
+        "status": "pending",
+        "sla_hours": 24,
+        "source": {
+          "type": "customer_bug",
+          "ref": "https://zendesk.example.com/tickets/4291",
+          "imported_at": "2026-05-28T10:00:00Z"
+        },
+        "triggered_by": "customer",
+        "description": "iOS Safari 使用者登入後 30 秒自動登出，影響約 15% 的行動端用戶。"
+      },
+      {
+        "id": "INBOX-002",
+        "title": "Add dark mode support",
+        "type": "NEW_FEATURE",
+        "priority": "medium",
+        "status": "pending",
+        "sla_hours": 168,
+        "source": {
+          "type": "company_decision",
+          "ref": "meeting-2026-05-28-product-review",
+          "imported_at": "2026-05-28T14:00:00Z"
+        },
+        "triggered_by": "product",
+        "description": "Q2 產品會議決議：在 v2.3 加入深色模式支援。"
+      }
+    ]
+  ]
+}
