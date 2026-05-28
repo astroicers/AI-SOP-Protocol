@@ -72,6 +72,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | 需求變更回溯 | change cascade, 需求變更, scope change | asp-change-cascade |
 | 領域詞彙管理 / CONTEXT.md 建立與更新 | context, 詞彙, vocabulary, 術語, domain, grill-with-docs, context 不存在, 術語衝突 | asp-context |
 | 外部 AI 跨廠商 review（Layer 3） | external review, Layer 3, cross-vendor review, 外部審查, 跨廠商審查, crypto review, high-stakes review | asp-external-review |
+| 版本發布 / CHANGELOG / Release PR | release, 發布, 版本, version bump, tag, changelog, CHANGELOG, release pr | asp-release |
 
 ## 執行後 — 主動提示下一步（v3.5）
 
@@ -92,6 +93,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | `asp-level-check`（通過） | 👉 下一步：`make asp-level-upgrade` 準備升級（需使用者確認） |
 | `asp-context`（初始化完成） | 👉 下一步：執行 `asp-plan` 新功能時術語已備妥；或在 `asp-gate G2` 做術語審查 |
 | `asp-context`（Mode C 發現衝突） | 👉 下一步：修正 ADR/SPEC 中的術語 → 重跑 `/asp-gate G2` |
+| `asp-release`（PR 建立後） | 👉 下一步：人工審查 CHANGELOG → Merge PR → `git tag v{ver} && git push origin v{ver}` |
 
 ### 原則
 
