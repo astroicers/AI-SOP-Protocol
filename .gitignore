@@ -64,3 +64,4 @@ __pycache__/
 
 # Generated diagram output (make diagram)
 docs/architecture.html
+.asp-daily-report.md

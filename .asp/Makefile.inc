@@ -24,7 +24,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         asp-unlock-commit asp-refresh asp-enforcement-status \
         runbook-list runbook-view \
         asp-performance-review asp-performance-review-update \
-        ci-install
+        ci-install \
+        daily-audit
 
 #---------------------------------------------------------------------------
 # Help
@@ -61,6 +62,7 @@ endif
 	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
 	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf | agent-rollback"
 	@echo "🔧 CI:          ci-install (copy GitHub Actions workflow to .github/workflows/)"
+	@echo "📆 Daily:       daily-audit (generate .asp-daily-report.md; see cron-setup.md)"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -819,7 +821,7 @@ security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	    echo "[ASP] semgrep not installed — skip security scan"; \
 	    echo "[ASP] Install: pip install semgrep"; \
 	fi
-.PHONY: security-scan ci-install
+.PHONY: security-scan ci-install daily-audit
 
 ci-install: ## Install ASP CI workflow to .github/workflows/asp-ci.yml (P2)
 	@DEST=".github/workflows/asp-ci.yml"; \
@@ -1244,6 +1246,10 @@ profile-validate:
 	@bash .asp/scripts/validate-profile.sh
 
 # ─── Telemetry ───────────────────────────────────────────────────────────────
+daily-audit: ## Generate daily health report to .asp-daily-report.md (P3)
+	@CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/scripts/daily-audit.sh
+.PHONY: daily-audit
+
 asp-telemetry-collect:
 	@python3 .asp/scripts/telemetry/collect.py
 	@echo "[ASP] Telemetry event collected"
