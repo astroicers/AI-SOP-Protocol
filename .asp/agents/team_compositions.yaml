@@ -1,6 +1,6 @@
 # Team Compositions — Scenario-based agent selection
 # Used by: recommend_team() in task_orchestrator.md
-# Referenced by: multi_agent_dispatch() in multi_agent.md
+# Referenced by: multi_agent_dispatch() in task_orchestrator.md Part G
 
 scenarios:
   NEW_FEATURE_simple:

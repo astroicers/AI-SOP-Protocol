@@ -7,7 +7,7 @@ description: |
   multi-agent dispatch, QA verification, security review, reality checks, impact analysis,
   pipeline gate evaluation, enforcement status.
   Triggers: asp-plan, asp-ship, asp-audit, asp-review, asp-autopilot,
-  asp-dispatch, asp-qa, asp-security, asp-reality-check, asp-impact, asp-gate,
+  asp-dispatch, asp-dev-qa-loop, asp-reality-check, asp-impact, asp-gate,
   plan feature, new feature, create ADR, write SPEC, pre-commit check, ready to commit,
   code review, health audit, check project health, autopilot, run roadmap,
   dispatch, assign, verify, qa, security, reality check, impact analysis,
@@ -41,8 +41,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | 用戶意圖 | 觸發詞 | 載入的 Skill |
 |---------|--------|------------|
 | 多 Agent 任務分派 | dispatch, assign, 分派, 指派, 組隊 | asp-dispatch |
-| 獨立品質驗證 | verify, qa, 驗證, 品質, quality check | asp-qa |
-| 安全審查 | security, security review, 安全, 安全審查, 資安 | asp-security |
+| 獨立品質驗證 / Dev↔QA 迴路 | verify, qa, 驗證, 品質, quality check, dev qa loop, qa loop | asp-dev-qa-loop |
 | 懷疑主義驗收 | reality check, 夠了嗎, is this ready, 能交了嗎, final check | asp-reality-check |
 | 依賴影響分析 | impact, impact analysis, 影響, 影響分析, what does this affect | asp-impact |
 
@@ -64,7 +63,7 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 |---------|--------|------------|
 | 任務交接 / Agent handoff | handoff, 交接, 任務移交, session bridge | asp-handoff |
 | 推薦執行團隊 | team pick, 組團隊, 推薦 agent, who should work | asp-team-pick |
-| 升級處理 / 緊急問題 | escalate, P0, P1, 緊急, 卡住, critical | asp-escalate |
+| 升級處理 / 緊急問題 | escalate, P0, P1, 緊急, 卡住, critical | asp-handoff |
 | Dev↔QA 品質迴路 | dev qa loop, qa loop, 開發品質迴路 | asp-dev-qa-loop |
 | 領域詞彙管理 / CONTEXT.md 建立與更新 | context, 詞彙, vocabulary, 術語, domain, grill-with-docs, context 不存在, 術語衝突 | asp-context |
 | 外部 AI 跨廠商 review（Layer 3） | external review, Layer 3, cross-vendor review, 外部審查, 跨廠商審查, crypto review, high-stakes review | asp-external-review |
@@ -113,8 +112,8 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | arch | asp-plan | ADR + 架構影響評估 |
 | spec | asp-plan | SPEC 七欄位撰寫 |
 | dep-analyst | asp-impact | 依賴圖 + 並行標記 |
-| qa | asp-qa | 獨立驗證 + 偷渡偵測 |
-| sec | asp-security | OWASP + 憑證掃描 |
+| qa | asp-dev-qa-loop | 獨立驗證 + 偷渡偵測 |
+| sec | asp-ship (Step 9) | OWASP + 憑證掃描 |
 | reality | asp-reality-check | 懷疑主義品質門驗收 |
 | doc | asp-ship | 文件管線 + 提交前檢查 |
 | tdd | (由 asp-plan 的 TDD 步驟覆蓋) | TDD 測試撰寫 |

@@ -500,7 +500,7 @@ pipeline.md
   ├── 依賴 task_orchestrator.md（execute_*() 是管線階段的實際邏輯）
   ├── 依賴 system_dev.md（pre_commit_checklist 用於 G6）
   ├── 可選 reality_checker.md（Reality Checker 參與 G2, G5, G6）
-  ├── 可選 multi_agent.md（multi-agent 時各階段由不同 agent 負責）
+  ├── 可選 task_orchestrator.md Part G（multi-agent 時各階段由不同 agent 負責；v4.3 起 multi_agent.md 已合入）
   ├── 可選 /asp-dev-qa-loop skill（BUILD + HARDEN 階段的 Dev↔QA 迴路；v4.x 取代 dev_qa_loop.md profile）
   └── 可選 escalation.md（品質門重試耗盡時的升級路由）
 ```

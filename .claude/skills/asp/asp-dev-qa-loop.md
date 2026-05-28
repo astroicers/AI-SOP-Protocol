@@ -1,12 +1,14 @@
 ---
 name: asp-dev-qa-loop
 description: |
-  Use when running the Dev↔QA quality loop in multi-agent ASP workflows.
+  Use when running the Dev↔QA quality loop in ASP workflows, or for
+  independent QA verification of a completed task.
   Handles: module-by-module Dev→QA→Fix iteration, checksum smuggling detection,
-  independent QA verification, integration validation, QA_FAIL escalation.
+  independent QA verification, integration validation, QA_FAIL escalation,
+  coverage analysis.
   Triggers: dev qa loop, dev-qa, qa loop, 開發品質迴路, 跑 dev qa,
   dev qa 迴路, 模組驗證, module verification, qa verify, dev qa cycle,
-  impl qa loop, 邊做邊驗.
+  impl qa loop, 邊做邊驗, verify, qa, 驗證, 品質, quality check.
 ---
 
 # ASP Dev-QA Loop Skill
@@ -18,7 +20,7 @@ description: |
 - **邊做邊驗**（而非做完再驗）：每個模組完成後立刻由 QA 獨立驗證
 - **不信任 impl 的自我回報**：QA 獨立執行測試，不接受 impl 的 claimed_test_output
 - **偷渡偵測**：QA 對比 impl 的測試 checksum，防止 impl 偷改測試讓測試通過
-- **3× 失敗升級**：單一模組連續 3 次 QA FAIL → 觸發 asp-escalate P2
+- **3× 失敗升級**：單一模組連續 3 次 QA FAIL → 觸發 asp-handoff ESCALATION 類型，severity=P2
 
 ## auto_fix_loop vs dev_qa_loop
 
@@ -61,7 +63,7 @@ FOR 每個 module IN affected_modules:
       retry += 1
 
     IF retry >= 3:
-      → 觸發 asp-escalate P2
+      → 觸發 asp-handoff ESCALATION 類型，severity=P2
         reason: "模組 {module} 在 Dev↔QA 迴路中 3 次驗證失敗"
       CONTINUE（跳至下一模組）
 
@@ -171,13 +173,24 @@ make test    # 全量測試（非 test-filter）
 
 ## 進入條件
 
-以下條件須**全部**滿足才能啟動 dev_qa_loop：
+### 模式 A：Dev↔QA 迴路（multi-agent）
 
-1. `mode: multi-agent`（需要 impl 和 qa 是不同 agent）
+以下條件須**全部**滿足：
+
+1. `mode: multi-agent`（impl 和 qa 是不同 agent）
 2. 團隊包含 `qa` 角色
-3. task 的 SPEC 有明確的 `affected_modules`（或視整個 task 為單一 module）
+3. task 的 SPEC 有明確的 `affected_modules`
 
-若不滿足（單 agent 模式）：qa 驗證改由同一 agent 執行，但仍須遵循 3 個檢查步驟的邏輯。
+### 模式 B：獨立 QA 驗證（單 agent 或手動觸發）
+
+直接由使用者觸發，或 impl agent 完成後自我驗證：
+
+1. 讀取 `.agent-events/handoffs/` 中最新的 TASK_COMPLETE（`make agent-handoff-list`）
+2. 獨立執行 `make test-filter FILTER={scope}`，**不接受** impl 的 `claimed_test_output`
+3. 比對 checksum（偷渡偵測）
+4. 執行 `make coverage`（若 target 存在）
+5. BUGFIX 任務：`grep -r "{bug_pattern}" --include="*.{ext}" .` 確認無其他相同模式
+6. 產生判定：Step 2-5 全部 ✅/🟡 → **QA_PASS**；任何 🔴 → **QA_FAIL**
 
 ---
 
@@ -186,7 +199,7 @@ make test    # 全量測試（非 test-filter）
 模組連續 3 次 QA FAIL 時：
 
 ```
-1. 呼叫 asp-escalate，severity=P2
+1. 觸發 asp-handoff ESCALATION 類型，severity=P2
    reason: "模組 {module} 在 Dev↔QA 迴路中 3 次驗證失敗"
    context:
      qa_result: {最後一次的完整 QA 結果}

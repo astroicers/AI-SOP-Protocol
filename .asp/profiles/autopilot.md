@@ -569,7 +569,7 @@ autopilot.md
   ├── 依賴 task_orchestrator.md（on_task_received() 入口 + 健康審計）
   ├── 依賴 system_dev.md（ADR/SPEC/TDD 流程）
   ├── 依賴 global_core.md（鐵則 + 連帶修復）
-  ├── 可選 multi_agent.md（並行任務執行，由 ROADMAP.requires 觸發）
+  ├── 可選 task_orchestrator.md Part G（並行任務執行，由 ROADMAP.requires 觸發；v4.3 起 multi_agent.md 已合入）
   ├── 可選 vibe_coding.md（context 衰退偵測）
   ├── 可選 design_dev.md（Design Gate，由 ROADMAP.requires.uiux 觸發）
   ├── 可選 openapi.md（OpenAPI Gate，由 ROADMAP.requires.api 觸發）

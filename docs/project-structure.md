@@ -20,7 +20,6 @@ ASP v4.0 採用 **User-level 架構**：核心一次安裝到 `~/.claude/`，所
 │   ├── asp-audit.md             # 專案健康審計
 │   ├── asp-review.md            # 程式碼審查
 │   ├── asp-autopilot.md         # ROADMAP 執行引擎
-│   ├── asp-security.md          # 安全審查
 │   ├── asp-reality-check.md     # 懷疑主義驗收
 │   ├── asp-external-review.md   # Layer 3 跨廠商審查
 │   └── ...（共 23 個）
@@ -33,7 +32,7 @@ ASP v4.0 採用 **User-level 架構**：核心一次安裝到 `~/.claude/`，所
     │   ├── global_core.md       # 全域準則（所有專案必載）
     │   ├── system_dev.md        # 系統開發（ADR/TDD/Docker）
     │   ├── content_creative.md  # 文字專案
-    │   ├── multi_agent.md       # 任務分治
+    │   ├── task_orchestrator.md # 任務分治（v4.3 起含 multi-agent Part G）
     │   ├── autonomous_dev.md    # AI 全自動開發
     │   ├── guardrail.md         # 範疇限制
     │   └── ...（共 15 個）

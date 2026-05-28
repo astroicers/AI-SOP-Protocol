@@ -141,9 +141,9 @@ make lint
 
 ---
 
-### Step 9：安全掃描（v3.4 新增）
+### Step 9：安全掃描（v3.4 + v4.3 OWASP 補強）
 
-掃描 `git diff --cached` 中是否包含：
+**9a. 敏感資訊掃描**（掃描 `git diff --cached`）
 
 | 模式 | 嚴重度 |
 |------|--------|
@@ -151,6 +151,20 @@ make lint
 | `*.pem`, `*.key`, `.env` 被 staged | 🔴 **BLOCK** |
 | SQL 字串拼接（`"SELECT * FROM " +`） | 🔴 **BLOCK** |
 | `dangerouslySetInnerHTML`, `v-html` 無 sanitize 註解 | 🟡 **WARN** |
+
+**9b. OWASP Top 10 快速掃描**（僅針對 diff 範圍內的安全相關模組：auth/, api/, middleware/, config/）
+
+| # | 風險 | 快速檢查 |
+|---|------|---------|
+| A01 | Broken Access Control | 新 endpoint 有無 auth middleware |
+| A02 | Cryptographic Failures | 有無硬編碼密鑰、弱加密算法 |
+| A03 | Injection | SQL/command injection 防護 |
+| A05 | Security Misconfiguration | CORS, debug mode 設定 |
+| A07 | Auth Failures | session 管理、弱密碼規則 |
+| A09 | Logging Failures | 敏感資料是否寫入日誌 |
+
+> 若 diff 不涉及安全相關模組 → 9b 可跳過（記錄「無安全相關模組變更」）。
+> 若發現高風險漏洞 → 🔴 BLOCK，觸發 `asp-handoff ESCALATION severity=P0`。
 
 ---
 

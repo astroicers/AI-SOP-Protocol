@@ -14,7 +14,7 @@
 5. `autopilot: enabled` → 載入 `autopilot.md`（含 step 3/4）；檢查 `.asp-autopilot-state.json` 自動續接
 6. 無 `.ai_profile`：只套用本檔案鐵則，詢問使用者專案類型
 
-**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`multi_agent+task_orchestrator+pipeline` | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → +`autopilot+autonomous_dev+task_orchestrator` | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
+**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+pipeline`（v4.3 起 multi-agent 協調邏輯已合入 task_orchestrator Part G） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → +`autopilot+autonomous_dev+task_orchestrator` | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
 
 ---
 

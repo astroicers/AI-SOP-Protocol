@@ -201,4 +201,4 @@ make asp-enforcement-status           # 確認阻擋狀態
 
 > 參考：`.asp/agents/team_compositions.yaml` → `NEW_FEATURE_complex`, `MODIFICATION_L3_L4`
 > 參考：`.asp/profiles/pipeline.md` G1-G6 完整定義
-> 參考：`.asp/profiles/multi_agent.md` 並行軌道協議
+> 參考：`.asp/profiles/task_orchestrator.md` Part G 並行軌道協議（v4.3 起 multi_agent.md 已合入）

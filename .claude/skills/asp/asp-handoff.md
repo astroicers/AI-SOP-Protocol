@@ -1,11 +1,15 @@
 ---
 name: asp-handoff
 description: |
-  Use when creating structured agent handoff documents in ASP workflows.
-  Handles: task completion handoffs, cross-session bridges, escalation handoffs,
+  Use when creating structured agent handoff documents in ASP workflows,
+  or when an issue requires escalation in multi-agent workflows.
+  Handles: task completion handoffs, cross-session bridges, escalation handoffs (P0-P3),
   agent reassignments, and pipeline phase gate transitions.
   Triggers: handoff, 交接, 任務移交, session bridge, escalation handoff,
-  reassignment, phase gate, agent handoff, 移交任務, 建立交接單, create handoff.
+  reassignment, phase gate, agent handoff, 移交任務, 建立交接單, create handoff,
+  escalate, escalation, P0, P1, P2, P3, 緊急, 卡住了, stuck, blocked,
+  critical issue, 無法繼續, 升級, pause and report, 需要升級, cannot proceed,
+  security vulnerability, production down, qa fail 3x.
 ---
 
 # ASP Handoff Skill
@@ -144,6 +148,61 @@ context_snapshot:
   spec_reference: ""            # SPEC-NNN
 
 escalation_target: "{role_id|human}"
+```
+
+### ESCALATION 決策樹：判斷嚴重度
+
+```
+問題發生 → 先問：
+  1. 是否涉及安全漏洞 / 資料遺失 / 生產環境中斷？
+     YES → P0（立即暫停一切，等待人類指示）
+
+  2. 是否已重試 2+ 次且仍無法解決？或存在跨軌道不可解衝突？
+     YES → P1（暫停當前軌道，Orchestrator 接管）
+
+  3. 是否為單一模組 QA fail 3x / scope 超出 / 意外依賴？
+     YES → P2（重新分派或增援）
+
+  4. 以上皆否（tech debt、文件過期、非阻斷警告）？
+     → P3（記入 backlog）
+```
+
+### 觸發點對照表
+
+| 觸發來源 | 嚴重度 |
+|----------|--------|
+| 安全審查發現漏洞 / 生產環境事故 | P0 |
+| auto_fix_loop 偷渡偵測 | P1 |
+| auto_fix_loop 重試耗盡 → Orchestrator 重派 2 次仍失敗 | P1 |
+| 並行軌道不可解衝突 | P1 |
+| auto_fix_loop 振盪 / 級聯偵測 | P2 |
+| auto_fix_loop 重試耗盡（僅第一次）/ 品質門重試 2 次失敗 | P2 |
+| Dev↔QA 迴路模組 3x 失敗 / scope 超出 / 意外依賴 | P2 |
+| Tech debt 累積 / 文件過期 | P3 |
+
+### ESCALATION 執行流程
+
+**P0**：立即停止所有工作 → 生成 ESCALATION handoff → 通知人類 → 等待明確指示，不可自行繼續
+
+**P1**：暫停當前軌道（其他可繼續）→ 生成 ESCALATION handoff → Orchestrator 嘗試解決 → 無法解決則升級通知人類
+
+**P2**：生成 ESCALATION handoff → 嘗試 REASSIGNMENT → 無法重派則升級為 P1
+
+**P3**：記錄 tech debt（格式：`tech-debt: [HIGH|MED|LOW] [CATEGORY] description (DUE: YYYY-MM-DD)`）→ 繼續原本工作，不中斷
+
+### ESCALATION 標準回覆格式
+
+```
+🔴 P0 ESCALATION（或 🟡 P1 / 🟠 P2 / ⚪ P3）
+
+問題：{一句話說明}
+嚴重度判定依據：{為什麼是這個等級}
+已嘗試：
+  1. {嘗試 1} → {結果}
+  2. {嘗試 2} → {結果}
+
+行動：{根據 P0-P3 流程說明下一步}
+交接單：{若已生成，說明路徑}
 ```
 
 ---

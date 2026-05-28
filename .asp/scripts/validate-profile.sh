@@ -184,8 +184,7 @@ esac
 
 echo "  條件載入："
 if [ "$MODE" = "multi-agent" ]; then
-    echo "    • multi_agent.md"
-    echo "    • task_orchestrator.md（auto）"
+    echo "    • task_orchestrator.md（含 multi-agent 協調邏輯，v4.3+）"
     echo "    • pipeline.md（auto）"
     echo "    • escalation.md（auto）"
 fi

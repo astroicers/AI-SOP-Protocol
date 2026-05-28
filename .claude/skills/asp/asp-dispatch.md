@@ -10,7 +10,7 @@ description: |
 ## 前置條件
 
 - `.ai_profile` 已設定 `mode: multi-agent`
-- `task_orchestrator.md` + `multi_agent.md` 已載入
+- `task_orchestrator.md` 已載入（v4.3 起含 multi-agent 協調邏輯）
 
 ## 工作流
 
@@ -48,7 +48,7 @@ cat .asp/agents/team_compositions.yaml
 
 ### Step 5: 產生 Task Manifest
 
-為每個子任務建立 Task Manifest（multi_agent.md 格式）：
+為每個子任務建立 Task Manifest（格式見 task_orchestrator.md Part G）：
 
 ```yaml
 task_id: TASK-{NNN}

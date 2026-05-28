@@ -86,4 +86,4 @@ grep -rn "{target}" *.yaml *.yml *.json *.toml *.ini
 
 - Dep Analyst 角色定義：`.asp/agents/dep-analyst.yaml`
 - 依賴分析函數：`task_orchestrator.md` analyze_requirement(), decompose()
-- 並行規劃：`multi_agent.md` plan_parallel_execution()
+- 並行規劃：`task_orchestrator.md` Part G `plan_parallel_execution()`（v4.3 起 multi_agent.md 已合入）

@@ -99,7 +99,7 @@ graph TB
 | | Implementer | `impl` | 生產代碼（讓測試通過） | 主動 | `auto_fix_loop()`, `execute_stage()` Step 4 |
 | | Integrator | `integ` | 跨模組整合、軌道匯流 | 中立 | `converge_tracks()` |
 | **品質與驗證** | QA Verifier | `qa` | 獨立驗證、偷渡偵測 | 懷疑 | `on_worker_done()`, `/asp-dev-qa-loop` skill |
-| | Security Reviewer | `sec` | OWASP、憑證掃描、攻擊面 | 懷疑 | `/asp-security` skill |
+| | Security Reviewer | `sec` | OWASP、憑證掃描、攻擊面 | 懷疑 | `asp-ship` Step 9（v4.3 起合入） |
 | | Reality Checker | `reality` | **預設 NEEDS_WORK**、品質門否決權 | 懷疑 | `reality_check()` |
 | **文件** | Doc Writer | `doc` | CHANGELOG、README、SPEC 追溯 | 主動 | `documentation_pipeline()` |
 
@@ -465,11 +465,12 @@ SPEC
 │   ├── doc.yaml
 │   └── team_compositions.yaml      # 場景團隊表
 ├── profiles/
-│   ├── multi_agent.md              # 核心協調（v4.1 worktree 隔離）
+│   ├── task_orchestrator.md        # 核心協調（v4.3 起含 multi-agent Part G）
 │   ├── pipeline.md                 # 6 階段管線 + 品質門
 │   ├── reality_checker.md          # 懷疑主義驗證
+│   ├── # multi_agent.md            # archived 2026-05-28 → task_orchestrator.md Part G
 │   ├── # dev_qa_loop.md            # archived 2026-05-10 → /asp-dev-qa-loop skill
-│   ├── escalation.md               # P0-P3 升級（v4.x 縮成路由表，邏輯在 /asp-escalate skill）
+│   ├── escalation.md               # P0-P3 升級（v4.x 縮成路由表，邏輯在 /asp-handoff skill）
 │   └── # agent_memory.md           # archived 2026-05-10 (never used; v4.2 ROADMAP)
 ├── templates/
 │   ├── handoff/                    # 5 種交接模板
@@ -481,13 +482,14 @@ SPEC
 └── ...
 
 .claude/skills/asp/
-├── SKILL.md                        # 路由表（10 個 skill）
+├── SKILL.md                        # 路由表（v4.3: 17 個 skill）
 ├── asp-dispatch.md                 # 任務分派
-├── asp-qa.md                       # QA 驗證
-├── asp-security.md                 # 安全審查
+├── asp-dev-qa-loop.md              # QA 驗證（v4.3 合入 asp-qa）
+├── asp-handoff.md                  # 交接 + 升級（v4.3 合入 asp-escalate）
+├── asp-ship.md                     # 提交前檢查（v4.3 Step 9 合入 asp-security）
 ├── asp-reality-check.md            # 懷疑主義驗收
 ├── asp-impact.md                   # 影響分析
-└── ... (原有 5 個 skill)
+└── ... (其他 skill)
 
 # 執行時期狀態檔案（.gitignore）
 .asp-agent-memory.yaml              # Project Memory

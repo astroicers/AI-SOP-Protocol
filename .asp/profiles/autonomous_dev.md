@@ -237,9 +237,9 @@ autonomous 模式的 session 通常很長，必須主動管理 context：
 
 ## Multi-Agent 整合（mode: multi-agent 時生效）
 
-> **本節擴展** `multi_agent.md` 的 Worker 規則，加入 autonomous 自主決策能力。任務 dispatch 路由見 `task_orchestrator.md` Part G。
+> **本節擴展** `task_orchestrator.md` Part G 的 Worker 規則（v4.3 起 multi_agent.md 已合入），加入 autonomous 自主決策能力。任務 dispatch 路由見 `task_orchestrator.md` Part G。
 
-autonomous_dev 與 multi_agent 同時啟用時，autonomous 規則按層級套用：
+autonomous_dev 與 task_orchestrator（multi-agent 模式）同時啟用時，autonomous 規則按層級套用：
 
 ### Orchestrator 層
 
@@ -305,11 +305,10 @@ autonomous_dev.md
   ├── 依賴 system_dev.md（ADR/SPEC/TDD 流程）
   ├── 依賴 global_core.md（鐵則 + 連帶修復）
   ├── 可選 guardrail.md（敏感資訊保護）
-  ├── 可選 multi_agent.md（多 Agent 並行，autonomous 規則分層套用）
-  └── 搭配 task_orchestrator.md（統一任務入口 + 健康審計 + 強制補齊）
+  └── 搭配 task_orchestrator.md（統一任務入口 + 健康審計 + 強制補齊 + multi-agent 協調）
 ```
 
 單獨啟用 → AI 單 agent 全自動開發（現有行為不變）。
-搭配 multi_agent → 每個 Worker 以 autonomous 規則運作，Orchestrator 負責協調。
+搭配 task_orchestrator（mode: multi-agent）→ 每個 Worker 以 autonomous 規則運作，Orchestrator 負責協調。
 搭配 task_orchestrator → 任務自動分類路由 + 首次介入時自動審計並補齊缺失。
 ~~`committee.md` 可搭配使用（決策期不衝突）。~~ → committee mode 已於 2026-05-10 deprecated；高風險決策改走 `/asp-plan` ADR 工作流 + 人類 review。
