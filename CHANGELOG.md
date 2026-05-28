@@ -4,6 +4,8 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-05-28
+
 ### Added
 
 - **完整產品生命週期自動化（P0-P4）**：五個里程碑打通從開發到發布的全自動化路徑。
