@@ -23,7 +23,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         agent-memory-init agent-session-init audit-baseline-init \
         asp-unlock-commit asp-refresh asp-enforcement-status \
         runbook-list runbook-view \
-        asp-performance-review asp-performance-review-update
+        asp-performance-review asp-performance-review-update \
+        ci-install
 
 #---------------------------------------------------------------------------
 # Help
@@ -59,6 +60,7 @@ endif
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
 	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
 	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf | agent-rollback"
+	@echo "🔧 CI:          ci-install (copy GitHub Actions workflow to .github/workflows/)"
 	@echo ""
 
 #---------------------------------------------------------------------------
@@ -817,7 +819,25 @@ security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	    echo "[ASP] semgrep not installed — skip security scan"; \
 	    echo "[ASP] Install: pip install semgrep"; \
 	fi
-.PHONY: security-scan
+.PHONY: security-scan ci-install
+
+ci-install: ## Install ASP CI workflow to .github/workflows/asp-ci.yml (P2)
+	@DEST=".github/workflows/asp-ci.yml"; \
+	TEMPLATE=".asp/templates/github-actions-ci.yml"; \
+	if [ ! -f "$$TEMPLATE" ]; then echo "❌ $$TEMPLATE not found — run make asp-update first"; exit 1; fi; \
+	if [ -f "$$DEST" ]; then \
+		echo "⚠️  $$DEST already exists"; \
+		printf "Overwrite? [y/N] "; read -r ANS; \
+		[ "$$ANS" = "y" ] || { echo "Aborted."; exit 0; }; \
+	fi; \
+	mkdir -p .github/workflows; \
+	cp "$$TEMPLATE" "$$DEST"; \
+	echo "✅ CI workflow installed → $$DEST"; \
+	echo ""; \
+	echo "Next steps:"; \
+	echo "  1. Review $$DEST and adjust language setup if needed"; \
+	echo "  2. git add $$DEST && git commit -m 'ci: add ASP CI workflow'"; \
+	echo "  3. Push → GitHub Actions will run on your next PR"
 
 #---------------------------------------------------------------------------
 # 專案健康審計
