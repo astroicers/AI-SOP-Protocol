@@ -4,6 +4,8 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-05-28
+
 ### Added
 
 - **完整產品生命週期自動化（P0-P4）**：五個里程碑打通從開發到發布的全自動化路徑。
@@ -15,12 +17,24 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 - **ADR FIRM 中間態完整落實**：Draft → FIRM → Accepted 三態機制傳播至 13 個執行路徑檔案（7 個 profiles、3 個 skills、2 個 scripts、2 個 CLAUDE.md）。FIRM ADR 可合法 commit（需 Verification Evidence），audit 輸出 🟡 YELLOW FLAG；Draft 鐵則（禁止生產代碼）維持不變。新增 `asp-review-checklist.md`（6 面向審查清單 + 結構化 finding 格式），`asp-review.md` 精簡為流程控制器（91 行）。
 - **Windows 原生安裝支援**：新增 `.asp/scripts/install.ps1` 與 `uninstall.ps1`（PowerShell 5.1+），對應 `install.sh` 的兩階段安裝流程。Hook command 透過 Git for Windows 的 `bash.exe` 執行 `.sh` 腳本。
 - **Windows 安裝文件**：`docs/install-windows.md` 涵蓋 WSL2 推薦路線、PowerShell + Git Bash 原生路線、驗證、移除、FAQ。
+- **N2 — PreToolUse scope-guard**：新增 `.asp/scripts/multi-agent/scope-guard.sh`，在 Worker 執行 Write/Edit/NotebookEdit 前攔截，比對 TASK manifest 的 `scope.allow` / `scope.forbid`；違規 exit 2 + 自動寫入 bypass log；無 manifest 時 fail-open（不影響非 multi-agent session）。`.claude/settings.json` 加入 PreToolUse hook 完成 SPEC-004 N2 整合。
+- **B4 — dispatch 磁碟空間動態預檢**：`dispatch.sh` Stage 4 實作 `df -BM` + `repo_size × max_parallel × 1.2/1.5` 動態門檻；空間不足 exit 4，警告區 stderr 警告繼續執行；支援 `ASP_MOCK_DISK_AVAIL_MB` / `ASP_MOCK_REPO_SIZE_MB` 測試環境覆蓋。SPEC-004 Done When #1、#8 標記為 `[x]`（21/21）。
 
 ### Changed
 
 - **`make diagram` 改為 HTML 輸出**：移除 `mmdc`（mermaid-cli）依賴，改為純 bash 生成 HTML，透過 mermaid.js CDN 渲染。同時支援 `docs/architecture.md`（4 個圖）與 `docs/multi-agent-architecture.md`（6 個圖），輸出至 `docs/architecture.html`（gitignore，不追蹤）。修復原 awk 實作將多個 mermaid 區塊拼接成單一檔案的 bug。
 - **README 大幅精簡**：從 438 行縮至 ~120 行，聚焦安裝、三步啟動、預設行為、鐵則四項精華；深入內容指引至 `docs/`。原內容（強制力四層、Iron Rules 7 條、23 個 skill 分類、worktree 元件表、profile 分層樹、設計哲學）改以連結指向既有文件。
 - **鐵則更新**：`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許；`denied-commands.json` 改為細粒度規則（`push origin main`、`push --force`、`rebase`、`pr merge`、`rm -rf` 分開列出）。
+
+### Removed（ADR-006 cleanup wave 4）
+
+- **4 個重複 skill 刪除**：`asp-fact-verify`、`asp-assumption-checkpoint`、`asp-bug-classify`、`asp-change-cascade`（-652 行）；邏輯已內嵌於 `global_core.md` Profile。
+- **3 個廢棄模板刪除**：`architecture_spec.md`、`workflow-design.md`、`gate_report.md`（-274 行）。
+- **6 個無引用 Makefile target 移除**：`agent-status`、`agent-reset`、`agent-memory-init`、`agent-session-init`、`task-status`、`task-report`。
+
+### Refactored
+
+- **`doc-new` 指令整合**：`srs-new`、`sds-new`、`uiux-spec-new`、`deploy-spec-new` 合併為 `make doc-new TYPE=srs|sds|uiux|deploy`；舊指令保留為 backwards-compat alias。
 
 ## [4.1.1] - 2026-05-10
 
