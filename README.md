@@ -2,7 +2,7 @@
 
 把開發規範寫成機器可讀的約束，讓 Claude 自動遵守——不用每次提醒「記得寫測試」「先建 ADR」「不要亂推版」。
 
-**v4.1.1** · [CHANGELOG](CHANGELOG.md) · [架構文件](docs/architecture.md) · [入門指引](docs/where-to-start.md)
+**v4.2.0** · [CHANGELOG](CHANGELOG.md) · [架構文件](docs/architecture.md) · [入門指引](docs/where-to-start.md)
 
 ---
 
@@ -68,11 +68,13 @@ AI 回覆會列出已載入的 Profile 名稱，和當前 session 的 BLOCKER / 
 
 | 時機 | AI 做的事 |
 |------|---------|
-| Session 啟動 | 讀 `.asp-session-briefing.json`，報告 BLOCKER |
+| Session 啟動 | 讀 `.asp-session-briefing.json`，報告 BLOCKER；偵測 Task Inbox 自動注入任務 |
 | 跨模組變更 | 先建 ADR；`Draft` 狀態下 `git commit` 被動態阻擋 |
 | 寫測試前 | `/asp-gate G1,G2`；寫完跑 G3；實作完跑 G4 |
 | Commit 前 | `/asp-ship` 十步驟（測試、文件、敏感資訊掃描） |
+| Autopilot 完成 | 自動建 `asp/TASK-*` branch + Draft PR，等待人工 merge |
 | 第三方 API / 版本 | `/asp-fact-verify` 記錄至 `.asp-fact-check.md` |
+| 發布版本 | `/asp-release`：自動判斷 semver bump、更新 CHANGELOG、建 Draft Release PR |
 
 ---
 
@@ -99,6 +101,8 @@ make adr-new TITLE="..."      # 新增架構決策記錄（ADR）
 make spec-new TITLE="..."     # 新增功能規格（SPEC）
 make audit-health             # 9 維度健康審計
 make audit-quick              # 只看 blocker（快速）
+make daily-audit              # 產生每日健康日報 .asp-daily-report.md
+make ci-install               # 複製 GitHub Actions CI 模板至 .github/workflows/
 make asp-unlock-commit        # 解除 Draft ADR 動態 commit 阻擋
 make asp-update               # 更新 ASP 核心到最新版
 make help                     # 顯示全部指令
@@ -122,7 +126,7 @@ ASP 用三個狀態管理架構決策的生命週期：
 
 ## 鐵則（不可被任何設定覆蓋）
 
-- `git push / rebase / rm -rf / docker push` 必須人類確認
+- `git push origin main / --force / rebase / rm -rf / docker push / gh pr merge` 必須人類確認；`feature/* 或 asp/*` 由 autopilot 自動推送
 - 禁止輸出 API Key / 密碼 / 憑證
 - ADR `Draft` 狀態下禁止實作（commit 動態阻擋）
 - 涉及第三方 API / 版本 / 法規 → 必須 `asp-fact-verify`
@@ -163,6 +167,8 @@ make asp-update
 | Multi-Agent worktree 隔離 | [docs/specs/SPEC-004-multi-agent-worktree-isolation.md](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |
 | Autopilot（ROADMAP 驅動） | [docs/autopilot.md](docs/autopilot.md) |
 | 架構總覽（含序列圖） | [docs/architecture.md](docs/architecture.md) |
+| Task Inbox schema | [.asp/templates/task-inbox-schema.json](.asp/templates/task-inbox-schema.json) |
+| CI 模板設定 | [.asp/templates/cron-setup.md](.asp/templates/cron-setup.md) |
 
 ---
 
