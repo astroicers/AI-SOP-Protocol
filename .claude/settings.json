@@ -32,7 +32,13 @@
     "deny": [
       "Bash(docker deploy *)",
       "Bash(docker push *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh pr merge)",
       "Bash(git push *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push origin main *)",
+      "Bash(git push origin main)",
       "Bash(git push)",
       "Bash(git rebase *)",
       "Bash(git rebase)",

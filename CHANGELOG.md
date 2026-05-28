@@ -6,6 +6,12 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Added
 
+- **完整產品生命週期自動化（P0-P4）**：五個里程碑打通從開發到發布的全自動化路徑。
+- **P0 — auto-PR**：autopilot 完成任務後自動建立 `asp/TASK-{id}-{slug}` feature branch、`git push origin asp/*`、`gh pr create --draft`；鐵則更新：`git push origin feature/* 或 asp/*` 明確允許，push to main 仍禁止。
+- **P1 — Task Inbox**：`.asp-task-inbox.json` append-only 佇列機制。`inbox-ingest.sh` 在 SessionStart 自動注入 pending 任務至 ROADMAP.yaml（`source.ref` 去重、`sla_hours→priority` 映射 0/24/72/>72→P0-P3）。`task-inbox-schema.json` 定義 inbox JSON Schema，`test_task_inbox.sh` 涵蓋 8 個測試案例。
+- **P2 — GitHub Actions CI 模板**：`.asp/templates/github-actions-ci.yml` 含三個 job（unit test / audit-quick / gitleaks 秘密掃描），`make ci-install` 一鍵複製至 `.github/workflows/asp-ci.yml`。
+- **P3 — 每日健康審計**：`daily-audit.sh` 生成結構化 `.asp-daily-report.md`（ROADMAP 進度、ADR 狀態、audit blockers、inbox 狀態、24h git 活動）；`cron-setup.md` 提供 cron + GitHub Actions schedule 設定指南；`make daily-audit` 指令。
+- **P4 — asp-release Skill**：四步驟 HITL 發布流程——Conventional Commits 版本 bump 判斷（major/minor/patch）、CHANGELOG.md 自動更新、`release/vX.Y.Z` branch 與 Draft PR 建立；AI 禁止 push tag 或自行 merge。
 - **ADR FIRM 中間態完整落實**：Draft → FIRM → Accepted 三態機制傳播至 13 個執行路徑檔案（7 個 profiles、3 個 skills、2 個 scripts、2 個 CLAUDE.md）。FIRM ADR 可合法 commit（需 Verification Evidence），audit 輸出 🟡 YELLOW FLAG；Draft 鐵則（禁止生產代碼）維持不變。新增 `asp-review-checklist.md`（6 面向審查清單 + 結構化 finding 格式），`asp-review.md` 精簡為流程控制器（91 行）。
 - **Windows 原生安裝支援**：新增 `.asp/scripts/install.ps1` 與 `uninstall.ps1`（PowerShell 5.1+），對應 `install.sh` 的兩階段安裝流程。Hook command 透過 Git for Windows 的 `bash.exe` 執行 `.sh` 腳本。
 - **Windows 安裝文件**：`docs/install-windows.md` 涵蓋 WSL2 推薦路線、PowerShell + Git Bash 原生路線、驗證、移除、FAQ。
@@ -14,6 +20,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 - **`make diagram` 改為 HTML 輸出**：移除 `mmdc`（mermaid-cli）依賴，改為純 bash 生成 HTML，透過 mermaid.js CDN 渲染。同時支援 `docs/architecture.md`（4 個圖）與 `docs/multi-agent-architecture.md`（6 個圖），輸出至 `docs/architecture.html`（gitignore，不追蹤）。修復原 awk 實作將多個 mermaid 區塊拼接成單一檔案的 bug。
 - **README 大幅精簡**：從 438 行縮至 ~120 行，聚焦安裝、三步啟動、預設行為、鐵則四項精華；深入內容指引至 `docs/`。原內容（強制力四層、Iron Rules 7 條、23 個 skill 分類、worktree 元件表、profile 分層樹、設計哲學）改以連結指向既有文件。
+- **鐵則更新**：`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許；`denied-commands.json` 改為細粒度規則（`push origin main`、`push --force`、`rebase`、`pr merge`、`rm -rf` 分開列出）。
 
 ## [4.1.1] - 2026-05-10
 
