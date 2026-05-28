@@ -13,19 +13,20 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         adr-new adr-list \
         spec-new spec-list \
         postmortem-new postmortem-list \
-        agent-done agent-status agent-reset agent-locks agent-unlock agent-lock-gc \
+        agent-done agent-locks agent-unlock agent-lock-gc \
         session-checkpoint session-log \
         rag-index rag-search rag-stats rag-rebuild \
         guardrail-log guardrail-reset \
         audit-health audit-quick doc-audit tech-debt-list \
-        task-start task-status task-report \
+        task-start \
         profile-validate \
-        agent-memory-init agent-session-init audit-baseline-init \
+        audit-baseline-init \
         asp-unlock-commit asp-refresh asp-enforcement-status \
         runbook-list runbook-view \
         asp-performance-review asp-performance-review-update \
         ci-install \
-        daily-audit
+        daily-audit \
+        doc-new srs-new sds-new uiux-spec-new deploy-spec-new
 
 #---------------------------------------------------------------------------
 # Help
@@ -45,19 +46,19 @@ endif
 	@echo "📋 ADR:         adr-new TITLE=... | adr-list"
 	@echo "📄 Spec:        spec-new TITLE=... | spec-list"
 	@echo "🔥 Postmortem:  postmortem-new TITLE=... | postmortem-list"
-	@echo "🤖 Agent:       agent-done TASK=... STATUS=... | agent-status | agent-reset"
+	@echo "🤖 Agent:       agent-done TASK=... STATUS=..."
 	@echo "                (v3.7 lock targets DEPRECATED: agent-unlock / agent-lock-gc / agent-locks → use SPEC-004 worktree)"
 	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log | agent-memory-show | agent-team-recommend TYPE=..."
-	@echo "🤖 Agent Init:  agent-memory-init | agent-session-init | audit-baseline-init"
+	@echo "🤖 Agent Init:  audit-baseline-init"
 	@echo "💾 Session:     session-checkpoint NEXT=... | session-log"
 	@echo "🧠 RAG:         rag-index | rag-search Q=... | rag-stats | rag-rebuild"
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
 	@echo "🔒 Enforce:     asp-unlock-commit | asp-refresh | asp-enforcement-status"
-	@echo "📌 Task:        task-start DESC=... | task-status | task-report"
+	@echo "📌 Task:        task-start DESC=..."
 	@echo "🔍 Profile:     profile-validate"
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
-	@echo "📝 Documents:   srs-new | sds-new | uiux-spec-new | deploy-spec-new"
+	@echo "📝 Documents:   doc-new TYPE=srs|sds|uiux|deploy"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
 	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
 	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf | agent-rollback"
@@ -352,19 +353,6 @@ agent-done: ## Worker 完成回報 (TASK=xxx STATUS=success|failed [REASON=...])
 	echo "{\"id\":\"$$HID\",\"type\":\"TASK_COMPLETE\",\"task\":\"$(TASK)\",\"status\":\"$(STATUS)\",\"ts\":\"$$TS\"}" >> .agent-events/handoffs/index.jsonl; \
 	echo "✅ $(TASK) $(STATUS) — $$HID"
 
-agent-status:
-	@echo "=== Agent 事件紀錄 ==="; \
-	if [ -f .agent-events/completed.jsonl ]; then \
-		python3 -c "import sys,json; \
-[print(f'  [{l[\"status\"].upper()}] {l[\"task\"]} @ {l[\"ts\"]}') \
-for l in (json.loads(x) for x in open('.agent-events/completed.jsonl'))]" 2>/dev/null || \
-		cat .agent-events/completed.jsonl; \
-	else echo "  (無事件紀錄)"; fi
-
-agent-reset:
-	@rm -f .agent-events/completed.jsonl
-	@echo "🧹 Agent 事件紀錄已清空"
-
 # v3.7 file-lock targets — DEPRECATED in v4.1 (SPEC-004 worktree isolation
 # replaces them). Kept as stubs that print deprecation warnings + point to
 # the new mechanism. v3.7 user upgrades safely without these silently failing.
@@ -495,20 +483,6 @@ else: \
 	fi
 
 # ─── Agent Init（v3.3）───────────────────────────────────────────
-agent-memory-init: ## DEPRECATED (2026-05-10) — 初始化 Agent Memory (機制從未實際使用；v4.2 ROADMAP 規劃 stateful MCP 取代)
-	@if [ -f .asp-agent-memory.yaml ]; then \
-		echo "⚠️ .asp-agent-memory.yaml 已存在，跳過"; \
-	else \
-		printf "version: 1\nfix_strategies: []\ncommon_failures: []\nteam_effectiveness: []\n" > .asp-agent-memory.yaml; \
-		echo "✅ .asp-agent-memory.yaml 已建立"; \
-		grep -q "asp-agent-memory.yaml" .gitignore 2>/dev/null || echo ".asp-agent-memory.yaml" >> .gitignore; \
-	fi
-
-agent-session-init: ## 初始化 Agent Session
-	@printf '{"session_id":"session-%s","started_at":"%s","team_composition":{},"active_tracks":[],"pending_handoffs":[],"current_pipeline_phase":null,"last_gate_passed":null,"escalations":[]}\n' "$$(date +%Y%m%d-%H%M%S)" "$$(date -u +%Y-%m-%dT%H:%M:%SZ)" | python3 -m json.tool > .asp-agent-session.json 2>/dev/null || echo '{}' > .asp-agent-session.json
-	@echo "✅ .asp-agent-session.json 已建立"
-	@grep -q "asp-agent-session.json" .gitignore 2>/dev/null || echo ".asp-agent-session.json" >> .gitignore
-
 audit-baseline-init: ## 初始化審計基線
 	@echo "🏥 建立審計基線..."
 	@SRC=$$(find . -name "*.go" -o -name "*.ts" -o -name "*.py" -o -name "*.java" -o -name "*.js" 2>/dev/null | grep -v node_modules | grep -v .git | grep -v vendor | grep -v '_test\.' | grep -v '.test\.' | grep -v '.spec\.' | grep -v 'test_' | wc -l | tr -d ' '); \
@@ -1127,26 +1101,6 @@ task-start:
 		>> docs/task-log.jsonl
 	@echo "📌 任務已記錄：$(DESC)"
 
-task-status:
-	@echo "📋 最近任務："
-	@if [ -f docs/task-log.jsonl ]; then \
-		tail -10 docs/task-log.jsonl | python3 -c "import sys,json; \
-[print(f'  [{l[\"status\"]}] {l[\"desc\"][:60]} @ {l[\"ts\"]}') \
-for l in (json.loads(x) for x in sys.stdin)]" 2>/dev/null || \
-		tail -10 docs/task-log.jsonl; \
-	else echo "  (無任務紀錄)"; fi
-
-task-report:
-	@echo "📊 任務統計："
-	@if [ -f docs/task-log.jsonl ]; then \
-		python3 -c "import json; \
-tasks=[json.loads(l) for l in open('docs/task-log.jsonl')]; \
-total=len(tasks); \
-started=sum(1 for t in tasks if t.get('status')=='started'); \
-completed=sum(1 for t in tasks if t.get('status')=='completed'); \
-print(f'  Total: {total} | Started: {started} | Completed: {completed}')" 2>/dev/null; \
-	else echo "  (無任務紀錄)"; fi
-
 #---------------------------------------------------------------------------
 # Autopilot
 #---------------------------------------------------------------------------
@@ -1210,33 +1164,28 @@ autopilot-reset:
 	@rm -f .asp-autopilot-state.json
 	@echo "🧹 Autopilot state cleared (ROADMAP.yaml unchanged)"
 
-srs-new:
+## doc-new TYPE=srs|sds|uiux|deploy — create a doc from template (replaces srs-new/sds-new/uiux-spec-new/deploy-spec-new)
+doc-new:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "使用方式：make doc-new TYPE=srs|sds|uiux|deploy"; exit 1; fi
 	@mkdir -p docs
-	@if [ ! -f "docs/SRS.md" ]; then \
-		cp .asp/templates/SRS_Template.md docs/SRS.md; \
-		echo "✅ Created docs/SRS.md from template"; \
-	else echo "ℹ️  docs/SRS.md already exists"; fi
+	@case "$(TYPE)" in \
+		srs)    TMPL=SRS_Template.md;       DEST=docs/SRS.md ;; \
+		sds)    TMPL=SDS_Template.md;       DEST=docs/SDS.md ;; \
+		uiux)   TMPL=UIUX_SPEC_Template.md; DEST=docs/UIUX_SPEC.md ;; \
+		deploy) TMPL=DEPLOY_SPEC_Template.md; DEST=docs/DEPLOY_SPEC.md ;; \
+		*) echo "未知 TYPE=$(TYPE)。支援：srs | sds | uiux | deploy"; exit 1 ;; \
+	esac; \
+	if [ ! -f "$$DEST" ]; then \
+		cp .asp/templates/$$TMPL $$DEST; \
+		echo "✅ Created $$DEST from template"; \
+	else echo "ℹ️  $$DEST already exists"; fi
 
-sds-new:
-	@mkdir -p docs
-	@if [ ! -f "docs/SDS.md" ]; then \
-		cp .asp/templates/SDS_Template.md docs/SDS.md; \
-		echo "✅ Created docs/SDS.md from template"; \
-	else echo "ℹ️  docs/SDS.md already exists"; fi
-
-uiux-spec-new:
-	@mkdir -p docs
-	@if [ ! -f "docs/UIUX_SPEC.md" ]; then \
-		cp .asp/templates/UIUX_SPEC_Template.md docs/UIUX_SPEC.md; \
-		echo "✅ Created docs/UIUX_SPEC.md from template"; \
-	else echo "ℹ️  docs/UIUX_SPEC.md already exists"; fi
-
-deploy-spec-new:
-	@mkdir -p docs
-	@if [ ! -f "docs/DEPLOY_SPEC.md" ]; then \
-		cp .asp/templates/DEPLOY_SPEC_Template.md docs/DEPLOY_SPEC.md; \
-		echo "✅ Created docs/DEPLOY_SPEC.md from template"; \
-	else echo "ℹ️  docs/DEPLOY_SPEC.md already exists"; fi
+# Backwards-compat aliases (deprecated, use doc-new TYPE= instead)
+srs-new:         ; @$(MAKE) doc-new TYPE=srs
+sds-new:         ; @$(MAKE) doc-new TYPE=sds
+uiux-spec-new:   ; @$(MAKE) doc-new TYPE=uiux
+deploy-spec-new: ; @$(MAKE) doc-new TYPE=deploy
 
 #---------------------------------------------------------------------------
 # Profile 驗證

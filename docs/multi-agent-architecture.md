@@ -478,7 +478,6 @@ SPEC
 │   │   ├── ESCALATION.yaml
 │   │   ├── PHASE_GATE.yaml
 │   │   └── SESSION_BRIDGE.yaml
-│   └── gate_report.md             # 品質門報告模板
 └── ...
 
 .claude/skills/asp/

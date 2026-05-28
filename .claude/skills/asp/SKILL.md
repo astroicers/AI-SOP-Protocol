@@ -66,13 +66,11 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 | 推薦執行團隊 | team pick, 組團隊, 推薦 agent, who should work | asp-team-pick |
 | 升級處理 / 緊急問題 | escalate, P0, P1, 緊急, 卡住, critical | asp-escalate |
 | Dev↔QA 品質迴路 | dev qa loop, qa loop, 開發品質迴路 | asp-dev-qa-loop |
-| 外部事實查證 | fact verify, 外部事實, 查證 API, 確認版本 | asp-fact-verify |
-| 任務假設確認 | assumption, checkpoint, 假設確認, 開始前確認 | asp-assumption-checkpoint |
-| Bug 嚴重度分類 | bug classify, bug severity, 這是 trivial 嗎 | asp-bug-classify |
-| 需求變更回溯 | change cascade, 需求變更, scope change | asp-change-cascade |
 | 領域詞彙管理 / CONTEXT.md 建立與更新 | context, 詞彙, vocabulary, 術語, domain, grill-with-docs, context 不存在, 術語衝突 | asp-context |
 | 外部 AI 跨廠商 review（Layer 3） | external review, Layer 3, cross-vendor review, 外部審查, 跨廠商審查, crypto review, high-stakes review | asp-external-review |
 | 版本發布 / CHANGELOG / Release PR | release, 發布, 版本, version bump, tag, changelog, CHANGELOG, release pr | asp-release |
+
+> **注意**：`asp-fact-verify`、`asp-assumption-checkpoint`、`asp-bug-classify`、`asp-change-cascade` 已於 v4.2 移除（邏輯內嵌於 `global_core.md` Profile）。相關行為由 `global_core.md` 的 Fact Verification Gate / 需求變更回溯協議 / Bug 分類章節直接覆蓋。
 
 ## 執行後 — 主動提示下一步（v3.5）
 
