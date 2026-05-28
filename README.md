@@ -73,7 +73,7 @@ AI 回覆會列出已載入的 Profile 名稱，和當前 session 的 BLOCKER / 
 | 寫測試前 | `/asp-gate G1,G2`；寫完跑 G3；實作完跑 G4 |
 | Commit 前 | `/asp-ship` 十步驟（測試、文件、敏感資訊掃描） |
 | Autopilot 完成 | 自動建 `asp/TASK-*` branch + Draft PR，等待人工 merge |
-| 第三方 API / 版本 | `/asp-fact-verify` 記錄至 `.asp-fact-check.md` |
+| 第三方 API / 版本 | 查證並記錄至 `.asp-fact-check.md`（global_core.md 自動觸發） |
 | 發布版本 | `/asp-release`：自動判斷 semver bump、更新 CHANGELOG、建 Draft Release PR |
 
 ---
@@ -108,6 +108,8 @@ make asp-update               # 更新 ASP 核心到最新版
 make help                     # 顯示全部指令
 ```
 
+不確定該下什麼指令？→ [docs/where-to-start.md](docs/where-to-start.md)（場景決策樹）
+
 > 專案沒有 `make`：直接請 Claude 執行 `/asp-audit`，自動 fallback 到 `~/.claude/asp/scripts/audit-fallback.sh`。
 
 ---
@@ -129,7 +131,7 @@ ASP 用三個狀態管理架構決策的生命週期：
 - `git push origin main / --force / rebase / rm -rf / docker push / gh pr merge` 必須人類確認；`feature/* 或 asp/*` 由 autopilot 自動推送
 - 禁止輸出 API Key / 密碼 / 憑證
 - ADR `Draft` 狀態下禁止實作（commit 動態阻擋）
-- 涉及第三方 API / 版本 / 法規 → 必須 `asp-fact-verify`
+- 涉及第三方 API / 版本 / 法規 → 必須查證，記錄至 `.asp-fact-check.md`
 
 完整 7 條：[CLAUDE.md](CLAUDE.md)
 
@@ -161,7 +163,7 @@ make asp-update
 
 | 主題 | 位置 |
 |------|------|
-| 不確定下什麼指令 | [docs/where-to-start.md](docs/where-to-start.md) |
+| 不確定下什麼指令（場景決策樹） | [docs/where-to-start.md](docs/where-to-start.md) |
 | MVP / 大型功能 / 事故應急 | [docs/runbooks/](docs/runbooks/) |
 | 成熟度等級 L0–L5 | `~/.claude/asp/levels/level-N.yaml` |
 | Multi-Agent worktree 隔離 | [docs/specs/SPEC-004-multi-agent-worktree-isolation.md](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |

@@ -123,7 +123,7 @@ ASP 用四層強制力組合，硬度由高到低：
 4. **破壞性操作防護**：`git push / rebase / rm -rf / docker push` 等待人類確認
 5. **敏感資訊保護**：禁止輸出 API Key / 密碼 / 憑證
 6. **ADR 未定案禁止實作**：Draft ADR 狀態下動態阻擋 `git commit`
-7. **外部事實驗證防護**：第三方 API/版本/法規必須走 `asp-fact-verify`
+7. **外部事實驗證防護**：第三方 API/版本/法規必須查證並記錄至 `.asp-fact-check.md`（`global_core.md` Fact Verification Gate）
 
 完整威脅模型：[`security/threat-model-v4.0.md`](security/threat-model-v4.0.md)（STRIDE + 8 步攻擊鏈）。
 Iron Rule 來源 ADR：[`adr/ADR-002-asp-v4-security-threat-model.md`](adr/ADR-002-asp-v4-security-threat-model.md)。
