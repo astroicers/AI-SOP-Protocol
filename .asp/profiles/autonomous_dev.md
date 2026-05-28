@@ -41,7 +41,10 @@
 
 | 類別 | 觸發條件 |
 |------|----------|
-| **git push** | 鐵則，所有情況 |
+| **git push origin main** | 鐵則，永遠禁止直接推送主分支 |
+| **git push --force / -f** | 鐵則，所有情況 |
+| **git push origin feature/* 或 asp/*** | ✅ 允許（autopilot auto-PR 流程專用） |
+| **gh pr merge** | 鐵則，人工 merge，AI 不得自動合併 |
 | **git rebase** | 鐵則，所有情況 |
 | **docker push / deploy** | 鐵則，所有情況 |
 | **刪除檔案** | `rm` 任何非暫存檔案 |

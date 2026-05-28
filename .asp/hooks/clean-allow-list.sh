@@ -6,7 +6,10 @@
 #   3. 清理 allow list 中被使用者手動加入的危險指令（防止繞過 deny）
 #
 # 危險指令（deny）：
-#   - git push / git rebase（推送/改寫歷史）
+#   - git push origin main / --force（保護主分支）
+#   - git push origin feature/* / asp/* → 允許（autopilot auto-PR 流程）
+#   - git rebase（改寫歷史）
+#   - gh pr merge（人工 merge，AI 不得自動合併）
 #   - docker push / docker deploy（推送/部署）
 #   - rm -rf / rm -r（破壞性刪除）
 
@@ -29,15 +32,21 @@ if [ -f "$DENIED_FILE" ]; then
 else
     # 預設 deny 規則（fallback）
     DENY_JSON='[
-        "Bash(git push *)", "Bash(git push)",
+        "Bash(git push origin main)",
+        "Bash(git push origin main *)",
+        "Bash(git push --force *)",
+        "Bash(git push -f *)",
         "Bash(git rebase *)", "Bash(git rebase)",
+        "Bash(gh pr merge *)", "Bash(gh pr merge)",
         "Bash(docker push *)", "Bash(docker deploy *)",
         "Bash(rm -rf *)", "Bash(rm -r *)"
     ]'
 fi
 
 # 危險模式：用於清理 allow list 中的危險規則
-DANGEROUS_PATTERNS='git\s+rebase|git\s+push|docker\s+(push|deploy)|rm\s+-[a-z]*r|find\s+.*-delete'
+# 注意：git push origin feature/* 和 asp/* 是允許的（autopilot auto-PR 流程）
+# 只攔截 push to main、force push、gh pr merge
+DANGEROUS_PATTERNS='git\s+rebase|git\s+push\s+origin\s+main|git\s+push\s+(-f|--force)|gh\s+pr\s+merge|docker\s+(push|deploy)|rm\s+-[a-z]*r|find\s+.*-delete'
 
 for SETTINGS_FILE in "${SETTINGS_FILES[@]}"; do
     [ -f "$SETTINGS_FILE" ] || continue

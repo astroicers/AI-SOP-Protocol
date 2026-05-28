@@ -37,7 +37,7 @@
 
 | 鐵則 | 說明 |
 |------|------|
-| **破壞性操作防護** | `git push / rebase / rm -rf / docker push` 必須先列出變更並等待人類確認 |
+| **破壞性操作防護** | `git push origin main / --force / rebase / rm -rf / docker push / gh pr merge` 必須人類確認；`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許 |
 | **敏感資訊保護** | 禁止輸出 API Key、密碼、憑證（任何包裝方式）。`asp-ship` Step 9 掃描 |
 | **ADR 未定案禁止實作** | `Draft` ADR 禁止生產代碼；`FIRM` ADR 允許 commit（需 Verification Evidence，audit 輸出 🟡）；`session-audit.sh` 動態注入 deny |
 | **外部事實驗證防護** | 涉及第三方 API/版本/法規 → 必須執行 `asp-fact-verify`，記錄至 `.asp-fact-check.md` |

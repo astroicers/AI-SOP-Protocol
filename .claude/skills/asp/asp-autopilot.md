@@ -212,9 +212,17 @@ Autopilot 模式下，以下情況**不暫停詢問**（自動處理）：
 | Context 達 75% | 自動存檔，主動退出 |
 
 **以下情況仍需暫停：**
-- `git push`（鐵則）
+- `git push origin main`（鐵則，永遠禁止）
+- `git push --force / -f`（鐵則）
+- `gh pr merge`（鐵則，人工 merge）
 - `docker push / deploy`（鐵則）
 - 任務失敗超過 3 次
+
+**Auto-PR 流程（每個 task 成功後自動執行）：**
+1. 建立 feature branch：`asp/{task.id}-{slug}`
+2. `git push origin asp/{task.id}-{slug}`
+3. `gh pr create --draft --title '[{type}] {title}' --base main`
+4. 回到 main，繼續下一個 task
 
 ---
 
