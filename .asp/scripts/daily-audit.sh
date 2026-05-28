@@ -38,40 +38,18 @@ except Exception as e:
 " 2>/dev/null || echo "(python3 不可用)"
 }
 
-# ── 收集 ADR 狀態 ──
+# ── 收集 ADR 清單（make adr-list）──
 adr_summary() {
-    local adr_dir="${PROJECT_DIR}/docs/adr"
-    if [ ! -d "$adr_dir" ]; then echo "無 ADR"; return; fi
-    local draft=0 firm=0 accepted=0 total=0
-    for f in "$adr_dir"/ADR-*.md; do
-        [ -f "$f" ] || continue
-        total=$((total+1))
-        STATUS=$(grep -m1 "狀態" "$f" 2>/dev/null | grep -o '`[^`]*`' | tr -d '`' || true)
-        case "$STATUS" in
-            Draft)    draft=$((draft+1)) ;;
-            FIRM)     firm=$((firm+1)) ;;
-            Accepted) accepted=$((accepted+1)) ;;
-        esac
-    done
-    echo "total=${total}  accepted=${accepted}  firm=${firm}  draft=${draft}"
+    cd "$PROJECT_DIR" 2>/dev/null || return
+    make -f Makefile adr-list 2>/dev/null || echo "  (無法執行 make adr-list)"
 }
 
-# ── 收集 audit-quick 結果 ──
+# ── 完整健康審計（make audit-health）──
 audit_result() {
-    local out
-    out=$(CLAUDE_PROJECT_DIR="$PROJECT_DIR" bash "${PROJECT_DIR}/.asp/hooks/session-audit.sh" 2>/dev/null | head -5 || true)
-    if [ -f "${PROJECT_DIR}/.asp-session-briefing.json" ]; then
-        python3 -c "
-import json
-d = json.load(open('${PROJECT_DIR}/.asp-session-briefing.json'))
-b = len(d.get('blockers',[]))
-w = len(d.get('warnings',[]))
-i = len(d.get('infos',[]))
-print(f'blockers={b}  warnings={w}  infos={i}')
-" 2>/dev/null || echo "(briefing 讀取失敗)"
-    else
-        echo "(未執行審計)"
-    fi
+    cd "$PROJECT_DIR" 2>/dev/null || return
+    local output
+    output=$(make -f Makefile audit-health 2>&1) || true
+    echo "$output"
 }
 
 # ── 收集 inbox 狀態 ──
@@ -115,10 +93,10 @@ cat > "$REPORT_FILE" <<REPORT
 ### ROADMAP 進度
 $(roadmap_summary)
 
-### ADR 狀態
+### ADR 清單（make adr-list）
 $(adr_summary)
 
-### 健康審計（session-audit）
+### 健康審計（make audit-health）
 $(audit_result)
 
 ### Task Inbox
@@ -133,21 +111,14 @@ $(git_summary)
 
 > *以下為自動推斷，請人工確認後再行動*
 
-$(if [ -f "${PROJECT_DIR}/.asp-session-briefing.json" ]; then
-python3 -c "
-import json
-d = json.load(open('${PROJECT_DIR}/.asp-session-briefing.json'))
-blockers = d.get('blockers', [])
-if blockers:
-    print('**Blockers（需立即處理）：**')
-    for b in blockers:
-        print(f'- {b}')
-else:
-    print('無 blocker，可繼續正常開發。')
-" 2>/dev/null || echo "無法讀取 briefing"
-else
-    echo "尚未執行審計。"
-fi)
+$(cd "$PROJECT_DIR" 2>/dev/null && \
+  BLOCKER_LINES=$(make -f Makefile audit-health 2>/dev/null | grep "🔴 BLOCKER" || true); \
+  if [ -n "$BLOCKER_LINES" ]; then \
+      echo "**Blockers（需立即處理）：**"; \
+      echo "$BLOCKER_LINES" | sed 's/^/- /'; \
+  else \
+      echo "無 blocker，可繼續正常開發。"; \
+  fi)
 
 ---
 
