@@ -18,8 +18,7 @@
 #   0  all tasks dispatched successfully
 #   1  scope path outside repo / worktree_root outside ASP_AUDIT_ROOT (N1/N4)
 #   2  generic argument / manifest parse failure
-#   4  insufficient disk space — RESERVED for v4.2 B4 implementation, NOT
-#      currently emitted by this script (Stage 4 is a placeholder)
+#   4  insufficient disk space (B4: avail < repo_size × max_parallel × 1.2)
 #   5  scope.allow overlap between tasks (N5)
 #   6  max_parallel exceeded (S11)
 #   7  ASP_AUDIT_ROOT validation failed (N7)
@@ -230,8 +229,46 @@ if [ -n "$overlap_check" ]; then
 fi
 
 # ── Stage 4: disk space dynamic precheck (B4) ─────────────────────────
-# Skipped here (delegated to per-worktree creation); SPEC §B4 details apply
-# at scale, not enforced for B2 happy path.
+# Formula (SPEC §B4):
+#   budget_mb = repo_size_mb * max_parallel
+#   hard_limit = budget_mb * 1.2  → reject if avail < hard_limit  (exit 4)
+#   warn_limit = budget_mb * 1.5  → warn  if avail < warn_limit
+#
+# Env overrides for testing (deterministic):
+#   ASP_MOCK_DISK_AVAIL_MB   — override df output (MB)
+#   ASP_MOCK_REPO_SIZE_MB    — override du output (MB)
+
+disk_avail_mb() {
+    if [ -n "${ASP_MOCK_DISK_AVAIL_MB:-}" ]; then
+        echo "$ASP_MOCK_DISK_AVAIL_MB"
+    else
+        df -BM "$ASP_AUDIT_ROOT" 2>/dev/null \
+            | awk 'NR==2{gsub(/M/,"",$4); print $4}' \
+            || echo "999999"  # fallback: unlimited if df unavailable
+    fi
+}
+
+repo_size_mb() {
+    if [ -n "${ASP_MOCK_REPO_SIZE_MB:-}" ]; then
+        echo "$ASP_MOCK_REPO_SIZE_MB"
+    else
+        du -sm "$ASP_AUDIT_ROOT" 2>/dev/null | awk '{print $1}' || echo "1"
+    fi
+}
+
+AVAIL_MB=$(disk_avail_mb)
+REPO_MB=$(repo_size_mb)
+# budget = repo_size * max_parallel (integer arithmetic, no bc needed)
+BUDGET_MB=$(( REPO_MB * MAX_PARALLEL ))
+HARD_LIMIT=$(( BUDGET_MB * 12 / 10 ))   # * 1.2
+WARN_LIMIT=$(( BUDGET_MB * 15 / 10 ))   # * 1.5
+
+if [ "$AVAIL_MB" -lt "$HARD_LIMIT" ]; then
+    echo "dispatch: insufficient disk space — available=${AVAIL_MB}MB required>=${HARD_LIMIT}MB (repo=${REPO_MB}MB × parallel=${MAX_PARALLEL} × 1.2)" >&2
+    exit 4
+elif [ "$AVAIL_MB" -lt "$WARN_LIMIT" ]; then
+    echo "dispatch: WARNING disk space low — available=${AVAIL_MB}MB warn_threshold=${WARN_LIMIT}MB (continuing)" >&2
+fi
 
 # ── Stage 5: create worktree per task ─────────────────────────────────
 
