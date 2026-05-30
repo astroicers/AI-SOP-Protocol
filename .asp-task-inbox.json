@@ -1,0 +1,17 @@
+[
+  {
+    "id": "INBOX-7",
+    "title": "test: asp-operator inbox injection",
+    "type": "GENERAL",
+    "priority": "P2",
+    "status": "pending",
+    "sla_hours": 72,
+    "source": {
+      "type": "github_issue",
+      "ref": "https://github.com/astroicers/AI-SOP-Protocol/issues/7",
+      "imported_at": "2026-05-30T18:57:53Z"
+    },
+    "triggered_by": "customer",
+    "description": ""
+  }
+]
