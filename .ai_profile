@@ -1,0 +1,8 @@
+project: AI-SOP-Protocol
+type: system/architecture
+level: L3
+language: bash/yaml/markdown
+
+operator:
+  enabled: true
+  label_filter: ["ready-for-agent"]
