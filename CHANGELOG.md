@@ -4,8 +4,13 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-05-28
+
 ### Added
 
+- **v4.3 Profile/Skill 整併**（ADR-007）：消除三角循環依賴，降低 Cognitive Load。`multi_agent.md`（436 行）合入 `task_orchestrator.md` Part G，成為唯一 multi-agent 協調 canonical source；`asp-escalate`（159 行）合入 `asp-handoff`（新增 ESCALATION 決策樹與 P0-P3 執行流程）；`asp-qa`（83 行）合入 `asp-dev-qa-loop`（新增 Mode B 獨立 QA 驗證）；`asp-security`（71 行）合入 `asp-ship` Step 9（新增 OWASP Top 10 快速掃描）。淨變更：4 個檔案刪除，-814 行，Skill 數量從 20 降至 17。
+- **scope-guard PreToolUse hook（N2）**：`.asp/hooks/scope-guard.sh` 在每次工具呼叫前驗證 `ASP_AUDIT_ROOT`，防止 worktree 跑到錯誤目錄。
+- **dispatch disk precheck（B4）**：`dispatch.sh` 啟動時檢查磁碟空間，不足時以 exit 4 fail-closed（原 exit 4 重新定義）。
 - **完整產品生命週期自動化（P0-P4）**：五個里程碑打通從開發到發布的全自動化路徑。
 - **P0 — auto-PR**：autopilot 完成任務後自動建立 `asp/TASK-{id}-{slug}` feature branch、`git push origin asp/*`、`gh pr create --draft`；鐵則更新：`git push origin feature/* 或 asp/*` 明確允許，push to main 仍禁止。
 - **P1 — Task Inbox**：`.asp-task-inbox.json` append-only 佇列機制。`inbox-ingest.sh` 在 SessionStart 自動注入 pending 任務至 ROADMAP.yaml（`source.ref` 去重、`sla_hours→priority` 映射 0/24/72/>72→P0-P3）。`task-inbox-schema.json` 定義 inbox JSON Schema，`test_task_inbox.sh` 涵蓋 8 個測試案例。
@@ -18,9 +23,20 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Changed
 
+- **`task_orchestrator.md` 擴充為唯一 multi-agent 協調 source**：Part G 從 ~35 行 stub 擴充為 ~370 行，包含 Orchestrator 職責、角色分派、Task Manifest、worktree 隔離入口、並行軌道規劃、MCP 安全邊界、Worker 完成流程。
+- **`asp-handoff` 新增 ESCALATION 決策樹**：Type 3 ESCALATION 新增完整 P0-P3 觸發點對照表、執行流程、標準回覆格式；description 新增 escalation 觸發詞。
+- **`asp-dev-qa-loop` 新增 Mode B**：新增獨立 QA 驗證模式（單 agent 或手動觸發），6 步驟流程含 checksum 比對與覆蓋率檢查。
+- **`asp-ship` Step 9 補強 OWASP**：Step 9 分為 9a（敏感資訊掃描）和 9b（OWASP Top 10 A01/A02/A03/A05/A07/A09 快速掃描，僅針對安全相關模組）。
 - **`make diagram` 改為 HTML 輸出**：移除 `mmdc`（mermaid-cli）依賴，改為純 bash 生成 HTML，透過 mermaid.js CDN 渲染。同時支援 `docs/architecture.md`（4 個圖）與 `docs/multi-agent-architecture.md`（6 個圖），輸出至 `docs/architecture.html`（gitignore，不追蹤）。修復原 awk 實作將多個 mermaid 區塊拼接成單一檔案的 bug。
 - **README 大幅精簡**：從 438 行縮至 ~120 行，聚焦安裝、三步啟動、預設行為、鐵則四項精華；深入內容指引至 `docs/`。原內容（強制力四層、Iron Rules 7 條、23 個 skill 分類、worktree 元件表、profile 分層樹、設計哲學）改以連結指向既有文件。
 - **鐵則更新**：`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許；`denied-commands.json` 改為細粒度規則（`push origin main`、`push --force`、`rebase`、`pr merge`、`rm -rf` 分開列出）。
+
+### Removed
+
+- **`multi_agent.md` profile 刪除**：內容完整移入 `task_orchestrator.md` Part G（v4.3 起為唯一 canonical source）。
+- **`asp-escalate` skill 刪除**：邏輯合入 `asp-handoff` ESCALATION 類型。
+- **`asp-qa` skill 刪除**：邏輯合入 `asp-dev-qa-loop` Mode B。
+- **`asp-security` skill 刪除**：OWASP 掃描邏輯合入 `asp-ship` Step 9b。
 
 ## [4.1.1] - 2026-05-10
 
