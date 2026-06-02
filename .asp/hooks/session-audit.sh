@@ -41,7 +41,7 @@ if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
             CURRENT_HASH=$(sha256sum "${PROJECT_DIR}/${CRITICAL_FILE}" 2>/dev/null | cut -d' ' -f1)
             GIT_HASH=$(git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1)
             if [ "${CURRENT_HASH}" != "${GIT_HASH}" ]; then
-                STAGED=$(git -C "${PROJECT_DIR}" diff --cached --name-only 2>/dev/null | grep -c "${CRITICAL_FILE}" || echo 0)
+                STAGED=$(git -C "${PROJECT_DIR}" diff --cached --name-only 2>/dev/null | grep -c "${CRITICAL_FILE}") || STAGED=0
                 if [ "${STAGED}" -eq 0 ]; then
                     BLOCKERS+=("Iron Rule A: ${CRITICAL_FILE} modified outside git (hash mismatch). Run: git diff ${CRITICAL_FILE}")
                 fi
@@ -189,7 +189,7 @@ fi
 # ═══════════════════════════════════════════
 LOOSE_DEP_COUNT=0
 if [ -f "$PROJECT_DIR/package.json" ]; then
-    LOOSE_DEP_COUNT=$(grep -cE '"(\*|latest)"' "$PROJECT_DIR/package.json" 2>/dev/null || echo 0)
+    LOOSE_DEP_COUNT=$(grep -cE '"(\*|latest)"' "$PROJECT_DIR/package.json" 2>/dev/null) || LOOSE_DEP_COUNT=0
 fi
 if [ "$LOOSE_DEP_COUNT" -gt 0 ]; then
     WARNINGS+=("A9.2: package.json 有 $LOOSE_DEP_COUNT 筆鬆散版本（* 或 latest）")
@@ -275,18 +275,31 @@ JSONEOF
 } > "$BRIEFING_FILE" 2>/dev/null || true
 
 # ═══════════════════════════════════════════
-# 10. 注入動態 deny 到 settings.json
+# 10. 同步動態 deny 到 settings.json（自我清除 / 冪等）
+#     每次執行先移除本 hook 先前注入的 deny，再依當前狀態重新加入。
+#     如此 deny 會隨條件解除而消失——Draft ADR 修好後 git commit 自動解封，
+#     不再需要人工還原 settings.json。只有在內容真的改變時才覆寫（避免 churn）。
+#     注意：MANAGED_DENY 必須涵蓋所有本 hook 可能加入的 deny（見 L162）。
 # ═══════════════════════════════════════════
-if [ ${#DYNAMIC_DENY[@]} -gt 0 ] && [ -f "$SETTINGS_FILE" ]; then
-    # 備份
-    cp "$SETTINGS_FILE" "${SETTINGS_FILE}.bak" 2>/dev/null || true
-
-    for pattern in "${DYNAMIC_DENY[@]}"; do
-        jq --arg p "$pattern" '
-            .permissions.deny = ((.permissions.deny // []) + [$p] | unique)
-        ' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" 2>/dev/null \
-            && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-    done
+if [ -f "$SETTINGS_FILE" ] && command -v jq &>/dev/null; then
+    MANAGED_DENY='["Bash(git commit *)","Bash(git commit)"]'
+    if [ ${#DYNAMIC_DENY[@]} -gt 0 ]; then
+        ADD_DENY=$(printf '%s\n' "${DYNAMIC_DENY[@]}" | jq -R . | jq -s .)
+    else
+        ADD_DENY='[]'
+    fi
+    if jq --argjson managed "$MANAGED_DENY" --argjson add "$ADD_DENY" '
+            .permissions.deny = ((((.permissions.deny // []) - $managed) + $add) | unique)
+        ' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" 2>/dev/null; then
+        if cmp -s "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"; then
+            rm -f "${SETTINGS_FILE}.tmp"
+        else
+            cp "$SETTINGS_FILE" "${SETTINGS_FILE}.bak" 2>/dev/null || true
+            mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+        fi
+    else
+        rm -f "${SETTINGS_FILE}.tmp" 2>/dev/null || true
+    fi
 fi
 
 # ═══════════════════════════════════════════
