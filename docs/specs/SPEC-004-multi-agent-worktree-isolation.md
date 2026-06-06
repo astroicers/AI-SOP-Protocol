@@ -503,3 +503,65 @@ Feature: Multi-Agent Worktree 硬性隔離
 - **現有設計**：`docs/multi-agent-architecture.md` v3.0 角色制（保留，本 SPEC 只變動隔離層）
 - **git worktree 文件**：https://git-scm.com/docs/git-worktree
 - **外部參考**：Anthropic SubAgents `/clear` between roles（D-001 對齊依據）
+
+---
+
+## 📌 Addendum (2026-06-06)：ADR-008 借鑒 UA orchestration（精簡採納）
+
+> **狀態：`Draft`（隨 [ADR-008](../adr/ADR-008-adopt-ua-orchestration-patterns-minimal.md)）。** 本 addendum 之 diff 草案待 ADR-008 升 `Accepted` 後方可實作；在此之前不得 commit 對應 production code。完整對照與 diff 見 [`docs/research/ua-orchestration-adoption.md`](../research/ua-orchestration-adoption.md)。
+> 本 addendum **只補三項與 worktree/converge 範疇相關的變更**，並明確**不納入** UA Pattern 3 的完整確定性層（理由見 §B3-反例）。
+
+### B1. Worker 輸出契約 `.asp-out/`（UA Pattern 2，refine v4.1 D-001）
+
+每個 worker 在自身 worktree 內寫 canonical 輸出目錄，欄位 1:1 對應既有 `TASK_COMPLETE.yaml`：
+
+```
+.asp-worktrees/<task-id>/.asp-out/
+  summary.txt      # 一行 summary（agent 回傳給 orchestrator 的唯一內容）
+  diff.txt         # → TASK_COMPLETE.artifacts.diff_summary
+  test-output.txt  # → TASK_COMPLETE.artifacts.test_output
+  checksums.json   # → TASK_COMPLETE.artifacts.test_checksums（smuggling 偵測）
+  handoff.yaml     # TASK_COMPLETE.yaml 實例
+```
+
+強制檔名 regex（ASP 風格：**log 不擋**，不符者經 `audit-write.sh` telemetry 記 `handoff.unexpected_artifact`）：
+```
+^(summary|diff|test-output|checksums|handoff)\.(txt|json|yaml)$
+```
+worker → orchestrator 只回一行：`TASK-NNN <status> | out=<path> | files=<n> | tests=<summary>`（disk handoff，不傳 context）。
+
+### B2. Stage D2：拒絕 worktree 作 `ASP_AUDIT_ROOT`（UA Pattern 7 / #133；落實本 SPEC §🔒）
+
+§🔒「共享狀態檔案路徑策略」已規定 worker 必須寫主 repo，但 `_validate_audit_root.sh` 從未強制執行——git worktree 的 `.git` 是檔案（非目錄），Stage D 的 `[ ! -e .git ]` 誤判其為 main repo 通過。新增 Stage D2 把此規範變成 fail-closed 防護：
+
+- 比較 `git rev-parse --git-dir` 與 `--git-common-dir`（以 `cd + pwd -P` 取絕對路徑，相容 git ≥ 2.20）；兩者不同 → worktree → `return $ASP_AUDIT_ROOT_FAIL_EXIT`（exit 7）。
+- ⚠️ 對抗驗證修正：`git --git-dir` 對 main repo 回傳**相對** `.git`，須先 `cd "$ASP_AUDIT_ROOT"` 再解析（否則錨定到 caller CWD，latent bug）；並先把 git 原始輸出存變數檢查非空（避免 `cd ""` 退化成 `$PWD`）。完整 corrected 片段見 `docs/research/ua-orchestration-adoption.md` §5.1；submodule 經實測**不**誤判。
+- env `ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` 覆寫（不建議）。
+- `task_orchestrator.md` Part G 文件化調用改為 `ASP_AUDIT_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)"`。
+- 順手統一 filename drift：`asp-ship.md` 的 `.asp-bypass-log.json` → `.asp-bypass-log.ndjson`。
+
+**新增驗收（Done When 追加）**：worktree 作 `ASP_AUDIT_ROOT` → exit 7；main repo → pass；`ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` → 放行。對應測試 `tests/.../test_spec_004_audit_root_worktree.sh`。
+
+### B3. converge Step 0：crypto gate（UA Pattern 3 — **僅 C0，analyze-only**）
+
+`converge.sh` 在 worktree 存在檢查後、rebase 前，**只**偵測 diff 是否觸及 crypto/backup-encryption 路徑：
+
+- 插入點：**worktree 存在檢查的 `fi` 之後、`REBASE_STDERR=$(mktemp)` 之前**（⚠️ 對抗驗證：須在 mktemp 前，否則 `continue` 洩漏暫存檔）。
+- `git diff --name-only "$BASE_BRANCH..$TASK_BRANCH"` 比對 **corrected 樣式**（⚠️ 排除 `decipher`/`kmstore` 等 false positive、目錄加錨點、補齊憑證副檔名）：`(^|/)(crypto|kms|encryption)/|(_|-|\.|/|^)(encrypt|decrypt|kms)(_|-|\.|/|s|$)|(^|[^e])cipher|\.(key|pem|p12|pfx|crt|jks|keystore|gpg|asc)$`。完整片段見 research §5.2。
+- 命中 → `emit_escalation "$tid" "crypto_path_touched"`（P0）+ telemetry `crypto_hitl` + 設 `CRYPTO_SKIPPED=1` + **`continue`（不 merge，永不 auto-repair bytes）**。
+- 新增 escalation reason：`crypto_path_touched`（強制 HITL，鐵則 crypto-always-HITL 的 converge 階段硬執行）。
+- ⚠️ 對抗驗證盲點：`continue` 後 for 迴圈結束會 fall-through `exit 0` 遮蔽 P0 → for 迴圈結束後加 `[ "${CRYPTO_SKIPPED:-}" = "1" ] && exit 9`（dedicated `crypto_hitl_pending`）。
+
+**新增驗收**：含 crypto 路徑改動的 task → 不 merge + P0 escalation；其他 task 仍 merge；非 crypto task 行為不變（確認未增日常摩擦）。
+
+**§B3-反例（明確不納入，避免 over-engineering）**：UA Pattern 3 的 C1（scope）、C3（test-smuggling）、C5（secrets）**不在本 SPEC 範圍**——已分別由 `scope-guard.sh`（PreToolUse, N2）、`auto_fix_loop` checksum guard、`asp-ship` Step 9 覆蓋。於 converge 重做會與既有層重疊、增 fail-closed 卡點、降低 autopilot 順暢度，違反精簡理念（ADR-002 選項 C 教訓）。
+
+### 退出碼增補
+
+| 錯誤類型 | 退出碼 | 處理方式 |
+|----------|-------|----------|
+| `ASP_AUDIT_ROOT` 是 git worktree（B2，fail-closed） | 7（沿用） | 拒絕；stderr 提示用 git-common-dir anchored 路徑；env 可覆寫 |
+| converge 偵測 crypto path（B3，per-task） | 不中止整體（`continue`） | 該 task 不 merge、寫 P0 `crypto_path_touched` escalation、設 `CRYPTO_SKIPPED`、其他 task 續跑 |
+| converge 有 crypto task 被跳過（B3，整體） | **9**（`crypto_hitl_pending`，新增） | for 迴圈結束後若 `CRYPTO_SKIPPED=1` → `exit 9`（**非** conflict 的 exit 3），使整體退出碼反映「有 crypto 待人審」，不被 `exit 0` 遮蔽 |
+
+> **失敗語意已決（2026-06-06 對抗驗證）**：`continue`（per-task 跳過）+ for 迴圈後 `exit 9`（crypto_hitl_pending）。不採 `exit 3`（會中止其他 task、增摩擦）。
