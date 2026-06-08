@@ -42,7 +42,7 @@
 
 - **B（worktree audit guard）**：`_validate_audit_root.sh` 加 Stage D2，比較 `--git-dir` vs `--git-common-dir`，worktree 作 `ASP_AUDIT_ROOT` → exit 7（fail-closed），env `ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` 覆寫。落實 SPEC-004 §🔒 既有規範。
 - **A（handoff naming）**：formalize `.asp-worktrees/<task>/.asp-out/` 輸出契約 + 檔名規範 + 「只回傳一行 summary」紀律。validator **只 log 不擋**（不新增卡點）。refinement 既有 v4.1 D-001 scratchpad 慣例。
-- **Pattern 3（僅 C0 crypto gate）**：converge 在 rebase 前**只**偵測 diff 是否觸及 crypto/backup-encryption 路徑 → 若是，不 merge、寫 P0 escalation、`continue`（其他 task 續跑）。**analyze-only，永不改 bytes。** 補 converge 階段目前缺的鐵則硬執行；C1/C3/C5 交既有層，不重做。
+- **Pattern 3（僅 C0 crypto gate）**：converge 在 rebase 前**只**偵測 diff 是否觸及 crypto/backup-encryption 路徑 → 若是，不 merge、寫 escalation（`crypto_path_touched`；severity 欄待 `emit_escalation` 擴充）、`continue`（其他 task 續跑）。**analyze-only，永不改 bytes。** 補 converge 階段目前缺的鐵則硬執行；C1/C3/C5 交既有層，不重做。
 - **C（trivial-tier binary gate，⚠️ 目前 doc-only / 待接線）**：`trust-tier.yaml` 加 `auto_merge_gate.precondition: zero_critical_findings`。**正確 framing（經審查更正）**：TIER_3/TIER_2 現況已是 `auto_merge: true` 無條件，本 gate 是**新增阻擋條件（收緊以提升安全）**，**不是**放寬或減摩擦。**現況無執行力**：repo 無任何 parser 消費 `auto_merge_gate`、`touches_sensitive_path` 在 code 中不存在、`ai_classification` 是 AI 自填標籤無強制——故「high-stakes 永不繞過」目前僅為 YAML 宣告 + AI 自律。**升 Accepted 為「採納」的前提**：trivial 分類與 sensitive-path early-return 必須由**確定性 code** 強制（沿用 production-ops-playbook §4 硬規則 + 與 C0 同款 path regex）；否則本項僅列為 doc-only 意圖（同 Pattern 8 等級）。
 
 - **優點**：B/C0 修補兩個真實漏洞、A 精簡 handoff 約定；**相對選項 A 不重做既有 C1/C3/C5 三層**（避免過度工程）；全部低成本；嚴格不弱化 hard constraints。（原稱「淨減摩擦 / 不增治理層數淨值」經獨立審查更正：Pattern C 實為收緊、B/C0 為新增 fail-closed 卡點——見後果與成功指標。）
@@ -59,7 +59,9 @@
 
 ## 決策（Decision）
 
-我們選擇 **選項 B（精簡採納）**。
+我們選擇 **選項 B（精簡採納）**，並依 5-lens 審查把升 Accepted 範圍**分兩級**：
+- **建議升 Accepted（解鎖實作）**：**Pattern B**（worktree audit guard，已驗證 bug fix，最優先）+ **Pattern 3-C0**（converge crypto gate）+ **Pattern A**（handoff naming, log-only）。
+- **維持 Draft / doc-only（不隨本批升 Accepted）**：**Pattern C**（trust-tier binary gate）——dead spec，待 code-enforced。
 
 理由：核心價值是 **B/C0 修補兩個真實漏洞**（B 落實 SPEC-004 §🔒 既有規範、C0 把 crypto 鐵則從 worker 自律提升為 converge 硬執行）+ **明確拒絕 Pattern 3 完整版 C1–C6**（與 `scope-guard.sh` / `auto_fix_loop` / `asp-ship` Step 9 重疊、在 converge 增多個 fail-closed 卡點，違反精簡理念——ADR-002 選項 C 教訓）。所有 hard constraints（crypto HITL、customer-facing 人審、high-stakes cross-vendor + human）均不被弱化。
 
@@ -75,7 +77,7 @@
 
 **正面影響：**
 - 修補 Iron Rule B 在 multi-agent 場景的審計完整性漏洞（B），落實 SPEC-004 §🔒 既有規範。
-- converge 階段補上 crypto 硬邊界偵測（C0），不依賴 worker 自律（analyze-only、永不改 bytes）。
+- converge 階段補上 crypto 偵測（C0），不依賴 worker 自律（analyze-only、永不改 bytes）。⚠️ C0 為 **best-effort defense-in-depth**（路徑 regex，駝峰連寫/改名可規避），**非完整 crypto 保證**；真實 high-stakes backstop 仍是 live 的 production-ops 鐵則 7 + cross-vendor 4/4 + human。
 - 統一 worker 輸出契約（A），讓 orchestrator 可確定性定位產出，強化 v4.1 D-001。
 - 透過明確拒絕 C1–C6，把「對齊 UA」的壓力與「精簡理念」做了可追溯的取捨記錄。
 - （Pattern C 待 code-enforced 後）以確定性「0 critical」前提**收緊**現有無條件 auto-merge、提升安全（注意：是收緊非減摩擦——見技術債）。
@@ -83,7 +85,7 @@
 **負面影響 / 技術債（含獨立審查 5/5 accept_with_changes 的 must-fix）：**
 - **[must-fix] Pattern C 目前是 dead spec**：repo 無 parser 消費 `auto_merge_gate`、`touches_sensitive_path` 無 code 實作、`ai_classification` 是 AI 自填無強制 → 「high-stakes 永不繞過」現況無執行力。升 Accepted 前須 code-enforced（production-ops §4 硬規則 + 與 C0 同款 path regex 的 sensitive-path early-return），否則降 doc-only（同 Pattern 8）。framing 亦更正：C 是收緊（增阻擋）非減摩擦。
 - **[must-fix] C0 `exit 9` 在 `set -eu` 下會打掛每次正常 converge**：`[ … ] && exit 9` 作末句、`CRYPTO_SKIPPED`≠1 時回 rc=1 → `set -e` → 全腳本 exit 1。須改 `if [ … ]; then exit 9; fi`。
-- **[must-fix] C0 false-negative + fail-open**：regex 漏 `encryptor`/`aes`/`rsa`/`secretbox`/`cryptobox`/`keystore` 等真 crypto（前輪只測 false-positive）；CI shallow clone 時 `git diff` 失敗被 `2>/dev/null \|\| true` 吞 → crypto **fail-open 放行**。crypto gate 須 **fail-closed**（diff 失敗即擋）+ 補 false-negative 語料；ADR 載明 C0 為 best-effort 偵測非完整保證。
+- **[must-fix→已處理] C0 false-negative + fail-open**：fail-closed（`git diff` 失敗即擋，不再 `|| true` 放行）已納規格；regex 經**第二輪 review 實測修正**——首版前導 `(_|-|\.|/|^)` 對根層裸檔名（aes/secretbox/keystore/hmac/kdf/cryptobox）全漏，已換 `(^|[^a-z])` 前導版（實測 14/15 命中、kmstore 等 FP 排除），仍漏駝峰 `AESEncrypt` → **C0 定位 best-effort**（見 research §5.2/§9）。實作時以正負向語料測試把關。
 - **[must-fix] crypto HITL 無 consumer 流程**：C0 `continue` 早於 worktree cleanup → 孤兒 worktree/branch；`crypto_path_touched` escalation 只 emit 無 consumer。須定義人審接手流程（導向 `asp-external-review` 三層）+ worktree/branch 生命週期。
 - B 為 fail-closed，需同步更新 `task_orchestrator.md` Part G 文件化的 `ASP_AUDIT_ROOT` 調用（`git rev-parse --show-toplevel` → git-common-dir anchored），否則照舊文件操作會被 Stage D2 擋；Stage D2 須先 `cd "$ASP_AUDIT_ROOT"` 再解析相對 `.git`（見 research §9）。
 - filename drift 範圍比預期大（**非單純 sed**）：`asp-ship.md`/`asp-gate.md`/`asp-level.md` 多處 `.asp-bypass-log.json`；且 `CONTEXT.md:133` 把 `.asp-telemetry.jsonl` 定為 canonical 術語、與 SPEC-004 的 `.ndjson` **衝突**（須先決定 canonical 副檔名再改 glossary）。建議獨立成 chore，不夾帶本 ADR。
@@ -109,7 +111,7 @@
 |------|--------|----------|----------|
 | worktree 作 audit root 被擋 | exit 7 | `ASP_AUDIT_ROOT=<worktree> bash audit-write.sh telemetry '{}'` → exit 7；main repo → pass；`ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` → 放行 | 實作完成時 |
 | C0 crypto task 被擋 | 不 merge + escalation `crypto_path_touched` | 合成含 crypto 路徑改動的 worktree 跑 converge | 實作完成時 |
-| C0 偵測 fail-safe | false-negative 語料（aes/rsa/encryptor/secretbox/cryptobox/keystore）全命中；`git diff` 失敗時 **fail-closed**（擋而非放行） | regex 語料測試 + 模擬 base 不可達 | 實作完成時 |
+| C0 偵測 fail-safe（best-effort） | 常見命名語料（aes/rsa/encryptor/secretbox/cryptobox/keystore + crypto/ 目錄）召回（駝峰如 AESEncrypt 可能漏，靠目錄 + cross-vendor 補）；kmstore 等 FP 排除；`git diff` 失敗 **fail-closed** | regex 正負向語料測試 + 模擬 base 不可達 | 實作完成時 |
 | non-crypto task 不受影響 | converge 行為與改動前一致（exit 0、無新卡點） | 既有矩陣 + 1 個合成 non-crypto worktree 全綠（基準＝改動前矩陣） | 實作完成時 |
 | 不重做 C1/C3/C5 | converge 不新增 scope/smuggling/secrets 檢查 | Code Review 對照 §B3-反例 | Code Review |
 | Pattern C（**若** code-enforced）| 0 critical → 可 merge；**故意把 crypto/auth diff 標 trivial → 仍被 sensitive-path early-return 擋下**（負向測試） | trust-tier 測試（含負向） | Pattern C 實作時 |
