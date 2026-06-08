@@ -91,11 +91,15 @@ if [ "$DESIGN" = "enabled" ] && [ "$FRONTEND_QUALITY" != "enabled" ]; then
   echo "  🟡 WARNING: design: enabled 時，frontend_quality 應同時設為 enabled"
   echo "     → 自動補全建議：在 $PROFILE_FILE 加入 frontend_quality: enabled"
   WARNINGS=$((WARNINGS + 1))
-  # 自動補全
+  # 自動補全（用 awk 取代 sed -i：跨平台，避開 BSD/macOS 的 `sed -i` 與 `a\` 語法差異）
   if ! grep -q "^frontend_quality:" "$PROFILE_FILE"; then
-    sed -i "/^design:/a frontend_quality: enabled" "$PROFILE_FILE"
-    echo "     ✅ 已自動加入 frontend_quality: enabled"
-    FIXED=$((FIXED + 1))
+    if awk '/^design:/{print; print "frontend_quality: enabled"; next} {print}' \
+         "$PROFILE_FILE" > "${PROFILE_FILE}.tmp" && mv "${PROFILE_FILE}.tmp" "$PROFILE_FILE"; then
+      echo "     ✅ 已自動加入 frontend_quality: enabled"
+      FIXED=$((FIXED + 1))
+    else
+      rm -f "${PROFILE_FILE}.tmp" 2>/dev/null || true
+    fi
   fi
 else
   [ "$DESIGN" = "enabled" ] && echo "  ✅ design + frontend_quality: 均已啟用"

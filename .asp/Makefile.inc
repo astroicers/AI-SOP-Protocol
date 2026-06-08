@@ -251,6 +251,7 @@ adr-new:
 	MAX=$$(ls docs/adr/ADR-*.md 2>/dev/null | sed -n 's|.*/ADR-\([0-9]\{3\}\)-.*|\1|p' | sort -n | tail -1 | sed 's/^0*//'); \
 	NUM=$$(printf "%03d" $$(( $${MAX:-0} + 1 ))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
+	[ -z "$$SLUG" ] && SLUG="untitled"; \
 	FILE="docs/adr/ADR-$$NUM-$$SLUG.md"; \
 	cp .asp/templates/ADR_Template.md $$FILE; \
 	SED_I=$$([ "$$(uname)" = "Darwin" ] && echo "sed -i ''" || echo "sed -i"); \
@@ -283,6 +284,7 @@ spec-new:
 	MAX=$$(ls docs/specs/SPEC-*.md 2>/dev/null | sed -n 's|.*/SPEC-\([0-9]\{3\}\)-.*|\1|p' | sort -n | tail -1 | sed 's/^0*//'); \
 	NUM=$$(printf "%03d" $$(( $${MAX:-0} + 1 ))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
+	[ -z "$$SLUG" ] && SLUG="untitled"; \
 	FILE="docs/specs/SPEC-$$NUM-$$SLUG.md"; \
 	cp .asp/templates/SPEC_Template.md $$FILE; \
 	SED_I=$$([ "$$(uname)" = "Darwin" ] && echo "sed -i ''" || echo "sed -i"); \
@@ -304,6 +306,7 @@ postmortem-new:
 	MAX=$$(ls docs/postmortems/PM-*.md 2>/dev/null | sed -n 's|.*/PM-\([0-9]\{3\}\)-.*|\1|p' | sort -n | tail -1 | sed 's/^0*//'); \
 	NUM=$$(printf "%03d" $$(( $${MAX:-0} + 1 ))); \
 	SLUG=$$(echo "$(TITLE)" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-'); \
+	[ -z "$$SLUG" ] && SLUG="untitled"; \
 	FILE="docs/postmortems/PM-$$NUM-$$SLUG.md"; \
 	cp .asp/templates/Postmortem_Template.md $$FILE; \
 	SED_I=$$([ "$$(uname)" = "Darwin" ] && echo "sed -i ''" || echo "sed -i"); \
