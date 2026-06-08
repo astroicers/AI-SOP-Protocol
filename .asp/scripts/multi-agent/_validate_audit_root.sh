@@ -38,15 +38,36 @@ validate_audit_root() {
         return $ASP_AUDIT_ROOT_FAIL_EXIT
     fi
 
-    # Stage D: must be a git repo (has .git/ directory or file, or is recognized
-    # by git rev-parse). We check for .git/ first because it's cheap and avoids
-    # spawning a git process when obvious.
-    if [ ! -e "$ASP_AUDIT_ROOT/.git" ]; then
-        # Fall through to git rev-parse for edge cases (e.g. submodules, where
-        # .git is a file pointing elsewhere). git -C exits non-zero if not a
-        # repo.
-        if ! git -C "$ASP_AUDIT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-            echo "ASP_AUDIT_ROOT is not a git repo (no .git/ found): $ASP_AUDIT_ROOT" >&2
+    # Stage D: must be a git repo — verified via `git rev-parse`, which works for
+    # plain repos, worktrees, and submodules alike.
+    # NB: do NOT shortcut on the mere existence of a `.git` entry — a git worktree's
+    # `.git` is a FILE, so `[ ! -e .git ]` is false and the real check would be
+    # skipped (the old bug, see ADR-010 Pattern B).
+    if ! git -C "$ASP_AUDIT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        echo "ASP_AUDIT_ROOT is not a git repo: $ASP_AUDIT_ROOT" >&2
+        return $ASP_AUDIT_ROOT_FAIL_EXIT
+    fi
+
+    # Stage D2 (ADR-010 Pattern B, human-approved 2026-06-08): reject a git
+    # WORKTREE as the audit root. A worktree's --git-dir (e.g. .git/worktrees/foo)
+    # differs from its --git-common-dir (the main repo's .git); in a plain repo or
+    # submodule the two are identical. Audit/bypass/escalation NDJSON MUST be
+    # written to the MAIN repo (SPEC-004 §🔒 共享狀態檔案路徑策略) — a worktree audit
+    # root is silently destroyed by `git worktree remove --force`, breaking Iron
+    # Rule B (append-only audit trail). Override only when intentional via
+    # ASP_ALLOW_WORKTREE_AUDIT_ROOT=1 (fail-closed by default).
+    if [ "${ASP_ALLOW_WORKTREE_AUDIT_ROOT:-}" != "1" ]; then
+        local _git_dir _common_dir
+        _git_dir=$(git -C "$ASP_AUDIT_ROOT" rev-parse --absolute-git-dir 2>/dev/null)
+        _common_dir=$(git -C "$ASP_AUDIT_ROOT" rev-parse --git-common-dir 2>/dev/null)
+        # --git-common-dir may be relative; resolve it to an absolute path so the
+        # comparison is reliable across git versions.
+        case "$_common_dir" in
+            /*) ;;
+            *) _common_dir=$(cd "$ASP_AUDIT_ROOT" 2>/dev/null && cd "$_common_dir" 2>/dev/null && pwd) ;;
+        esac
+        if [ -n "$_git_dir" ] && [ -n "$_common_dir" ] && [ "$_git_dir" != "$_common_dir" ]; then
+            echo "ASP_AUDIT_ROOT is a git worktree; audit must target the main repo (SPEC-004 §🔒). Set ASP_ALLOW_WORKTREE_AUDIT_ROOT=1 to override: $ASP_AUDIT_ROOT" >&2
             return $ASP_AUDIT_ROOT_FAIL_EXIT
         fi
     fi

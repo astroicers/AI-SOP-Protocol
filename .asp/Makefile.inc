@@ -1204,7 +1204,6 @@ profile-validate:
 # ─── Telemetry ───────────────────────────────────────────────────────────────
 daily-audit: ## Generate daily health report to .asp-daily-report.md (P3)
 	@CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/scripts/daily-audit.sh
-.PHONY: daily-audit
 
 asp-telemetry-collect:
 	@python3 .asp/scripts/telemetry/collect.py

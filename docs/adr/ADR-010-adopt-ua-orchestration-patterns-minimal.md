@@ -100,7 +100,8 @@
 - [x] 3 份 diff 草案經對抗驗證，全 needs_fix 並已修正（見 `docs/research/ua-orchestration-adoption.md` §9）
 - [x] 獨立決策審查（5-lens workflow，**5/5 accept_with_changes**）；must-fix 已併入上方技術債、framing 已更正
 - [ ] **升 Accepted 前**：處理技術債中標 `[must-fix]` 的 4 項（Pattern C code-enforced 或降 doc-only / exit 9 set-eu / C0 fail-closed+召回語料 / crypto HITL consumer 流程）
-- [ ] **人類審核本 ADR → 決定升 `Accepted` 或調整範圍**（鐵則：Draft 禁止實作）
+- [x] **Pattern B（worktree audit guard）已實作**（2026-06-08，**astroicers 明確授權**碰此 production code，作為已 POC 確認之 bug fix）：`_validate_audit_root.sh` 加 Stage D2（比較 `--absolute-git-dir` vs `--git-common-dir`，worktree → exit 7 fail-closed，`ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` 覆寫）+ 回歸測試 `tests/test_validate_audit_root.sh`（6/6）；`task_orchestrator.md` dispatch/converge 的 `ASP_AUDIT_ROOT` 改為 git-common-dir 主-repo 錨定。**本 ADR 整體仍維持 `Draft`** —— Pattern A / 3-C0 / C 與上方 4 項 `[must-fix]` 未做，升 Accepted 仍待人類。
+- [ ] **人類審核本 ADR → 決定升 `Accepted` 或調整範圍**（鐵則：Draft 禁止實作；Pattern B 已經人類個別授權實作，其餘 pattern 不在此授權範圍）
 - [ ] Accepted 後依 SPEC-004 addendum 實作並跑 G1–G6
 
 ---
