@@ -134,7 +134,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **POC 分支 / 測試結果** | （待 POC） |
-| **驗證日期** | YYYY-MM-DD |
-| **驗證者** | （待指派） |
-| **驗證摘要** | （待驗證） |
+| **POC 分支 / 測試結果** | **Pattern B Stage D2 POC（2026-06-08，AI 執行於 `/tmp` 獨立 git 環境，不碰 production code）**：POC-A 確認現有 `_validate_audit_root.sh` Stage D 對 git worktree 誤判通過（worktree 的 `.git` 是檔案 → `[ ! -e ]` 為真 → 跳過 rev-parse）＝ bug 真實；POC-B 驗證第二版 Stage D2：main→`rc=0`、worktree→`rc=7`、`ASP_ALLOW_WORKTREE_AUDIT_ROOT=1`→`rc=0`，三案例全對。⚠️ **僅 Pattern B 已 POC**；C0（regex best-effort）與 Pattern C（doc-only）**未** POC。 |
+| **驗證日期** | 2026-06-08 |
+| **驗證者** | Claude Opus 4.8（POC 執行）— **待 astroicers 人類覆核** |
+| **驗證摘要** | Pattern B worktree audit guard 的 bug 與第二版修正經 POC 驗證可行；其餘 pattern 待驗。狀態維持 `Draft`——升 FIRM/Accepted 由人類決定。 |
