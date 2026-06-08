@@ -54,7 +54,7 @@ def load_yaml_simple(path):
                 if isinstance(result.get(current_section), dict):
                     result[current_section][key] = val if val else None
             else:
-                if val == "" or val == "":
+                if not val:
                     result[key] = {}
                     current_section = key
                 else:

@@ -958,11 +958,14 @@ level: 0                  # topological level (0=independent)
 
 ```bash
 # Dispatch：為每個 task 建 worktree + branch
-ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+# ASP_AUDIT_ROOT 錨定「主 repo」（git-common-dir）—— 即使從 worktree 內執行也指向主 repo，
+# audit/bypass/escalation NDJSON 一律寫主 repo（SPEC-004 §🔒）。worktree 作 audit root 會被
+# _validate_audit_root Stage D2 以 exit 7 擋下（ADR-010 Pattern B fail-closed）。
+ASP_AUDIT_ROOT="$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")" \
     bash .asp/scripts/multi-agent/dispatch.sh --manifests <dir>
 
 # Converge：rebase + merge 每個完成的 task
-ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
+ASP_AUDIT_ROOT="$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")" \
     bash .asp/scripts/multi-agent/converge.sh --task TASK-001 --task TASK-002
 
 # List + GC（運維）

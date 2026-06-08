@@ -1,3 +1,4 @@
+<!-- Last Updated: 2026-06-08 | Status: Accepted | Audience: ASP framework maintainers -->
 # ADR-009：asp-plan Step 5 內建 G1/G2 subagent gate（AI 自律強制）
 
 | 欄位 | 內容 |

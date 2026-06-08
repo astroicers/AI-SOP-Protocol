@@ -16,7 +16,10 @@ def main():
     days = 7
     for i, arg in enumerate(sys.argv):
         if arg == "--days" and i + 1 < len(sys.argv):
-            days = int(sys.argv[i + 1])
+            try:
+                days = int(sys.argv[i + 1])
+            except ValueError:
+                print(f"⚠️  --days 需為整數，收到 '{sys.argv[i + 1]}'，改用預設 {days}", file=sys.stderr)
 
     if not TELEMETRY_FILE.exists():
         print("No telemetry data found. Run collect.py first.")
