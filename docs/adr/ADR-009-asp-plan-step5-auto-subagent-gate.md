@@ -113,9 +113,10 @@ ADR Draft commit 是常態（CLAUDE.md 明示允許），P3 每次都阻擋 → 
 
 ### 後續追蹤
 
-- [ ] **本 ADR Accept 同一個 commit 內**：同步更新 `CLAUDE.md` 強制力架構表 L4 行（**具體文字**由開放問題 #1 在 SPEC-006 階段或 Accept reviewer 擇定 — 三選項：(a) 合併 L3+L4 / (b) 新增 L3.5 行 / (c) L4 保留為 on-demand）。**「Accept 必須改表」是 Iron commitment；「改成哪個字」是開放選項**。未同步改表即視為文件 drift，ship Step 9.6 應抓出
+- [x] **本 ADR Accept 同一個 commit 內**：同步更新 `CLAUDE.md` 強制力架構表 L4 行 — **選項 (c) 已採用**（2026-06-08）：L4 保留為「on-demand Subagent QA」，auto-spawn G1/G2 歸入 L3 Skill Gates。CLAUDE.md 強制力架構表已更新。開放問題 #1 關閉。
 - [ ] **SPEC-006 為本 ADR 落地實作的硬依賴**：`asp-plan.md` Step 5 文字、`asp-ship.md` Step 9.6 文字、trigger glob 命令、rationalization 初始集等實作細節皆 defer 到 SPEC-006。**禁止 Accept ADR-009 後直接動 `.claude/skills/asp/*.md` 而 SPEC-006 尚未存在** — 走 asp-plan flow 把 SPEC-006 寫出來 + 通過 G2 再實作
 - [ ] **Trial 階段**（接下來 **≥ 3 個 distinct plans**，每個 plan 至少修改 1 個 ADR 或 1 個 SPEC；ADR-008 本次 session 那筆計 N=1，後續還需 ≥ 2 個獨立 plan 才可進評估）：每次紀錄 catch / noise / 漏報 / AI 是否真的有自動觸發 / 是否成功寫入 `.asp-gate-log/`
+  > ⚠️ **注意（2026-06-08）**：本 ADR 因 SPEC-005/006 已 merge 而 ADR 仍 Draft 觸發 audit BLOCKER，緊急升 Accepted。Trial ≥3 distinct plans 前置條件**尚未完成**（目前 N=1）。Trial 需繼續追蹤，不可視為 closed。
 - [ ] **Trial 結果評估**（≥ 3 distinct plans 後）：
   - 跳過率 0% + 訊噪比 ≥ 1.0 + log 完整率 100% → 接受 P2 為穩定狀態，標記本 ADR `Accepted` 並 close trial
   - 跳過率 > 0% → 開 ADR-010 評估升級到 P3 或 D 混合
