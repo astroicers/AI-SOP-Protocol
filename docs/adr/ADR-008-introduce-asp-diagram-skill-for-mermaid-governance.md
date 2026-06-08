@@ -1,10 +1,11 @@
-<!-- Last Updated: 2026-05-11 | Status: Draft | Audience: ASP framework maintainers, asp-diagram skill implementers -->
+<!-- Last Updated: 2026-06-08 | Status: Accepted | Audience: ASP framework maintainers, asp-diagram skill implementers -->
 # [ADR-008]: 引入 asp-diagram skill 管理 Mermaid 架構圖
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-05-11 |
+| **採納日期** | 2026-06-08 |
 | **決策者** | astroicers + Claude |
 | **觸發事件** | ADR-007 完成三檔分離後，`docs/architecture.md` 仍畫舊單檔模型未同步；review 時發現 11 個內嵌 Mermaid 區塊無索引、無新鮮度標記、無校對機制 |
 | **關聯 ADR** | ADR-007（schema v2 三檔分離 — 觸發本 ADR 的具體導火線） |
