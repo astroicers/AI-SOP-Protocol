@@ -14,6 +14,12 @@
 # Session 審計 briefing（每次 session 自動生成）
 .asp-session-briefing.json
 
+# Managed deny 追蹤（TD-005：記錄 ASP 實際注入的 deny，供 reconcile 自我清除）
+.asp-managed-deny.json
+
+# settings.json reconcile 安全備份（session-audit Section 10 產生，本地還原用，勿提交）
+.claude/settings.json.bak
+
 # Gate 狀態（session 內追蹤）
 .asp-gate-state.json
 
@@ -61,6 +67,9 @@ __pycache__/
 
 # Bypass log NDJSON (Iron Rule B append-only — local audit trail)
 .asp-bypass-log.ndjson
+
+# Bypass-log high-water-mark（TD-002：append-only 截斷偵測基準，本地狀態）
+.asp-bypass-log.hwm
 
 # Generated diagram output (make diagram)
 docs/architecture.html

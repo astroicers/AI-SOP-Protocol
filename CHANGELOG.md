@@ -167,7 +167,7 @@ SPEC-004 Multi-Agent Worktree 硬性隔離正式交付。Multi-agent 並行從 v
 
 ### Known Limitations
 
-- 並行壓測在測試中縮為 5 worker × 200 entry（1000 行）以兼顧 CI 速度。SPEC §S18 全量 10×1000 留給 `SPEC-004-benchmarks.md`
+- 並行壓測在測試中縮為 5 worker × 200 entry（1000 行）以兼顧 CI 速度。SPEC §S18 全量 10×1000 留給 `SPEC-004-multi-agent-worktree-isolation-benchmarks.md`
 - N2（Worker 修改 forbid 路徑）需要 PreToolUse hook 整合，本版未實作；scope 違規目前在 dispatch 階段透過 scope.allow/forbid 宣告擋下，runtime 強制留待 v4.1.x
 - Telemetry schema 在 `multi_agent.*`（平鋪）與既有事件（nested data）不一致，v4.2 統一
 

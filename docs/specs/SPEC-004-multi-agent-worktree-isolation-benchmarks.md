@@ -1,5 +1,8 @@
 # SPEC-004 Benchmarks — Multi-Agent Worktree 效能實測
 
+> ℹ️ **本檔為 `SPEC-004-multi-agent-worktree-isolation` 的效能交付子文件（Done When #15），非獨立 SPEC**。
+> （2026-06-08 TD-003：由 `SPEC-004-benchmarks.md` 更名，以消除「兩個獨立 SPEC-004」的命名歧義，並如實標示其交付物身分。）
+>
 > SPEC-004 Done When #15 交付物。提供基準環境的實測數據與離開基準環境時的偏差說明。
 >
 > **重要原則**：基準環境內 NFR 數字必須達標；離開基準環境時，**功能正確性仍需保證**，但 NFR 指標不適用。

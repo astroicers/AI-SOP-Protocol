@@ -117,6 +117,10 @@ ADR Draft commit 是常態（CLAUDE.md 明示允許），P3 每次都阻擋 → 
 - [ ] **SPEC-006 為本 ADR 落地實作的硬依賴**：`asp-plan.md` Step 5 文字、`asp-ship.md` Step 9.6 文字、trigger glob 命令、rationalization 初始集等實作細節皆 defer 到 SPEC-006。**禁止 Accept ADR-009 後直接動 `.claude/skills/asp/*.md` 而 SPEC-006 尚未存在** — 走 asp-plan flow 把 SPEC-006 寫出來 + 通過 G2 再實作
 - [ ] **Trial 階段**（接下來 **≥ 3 個 distinct plans**，每個 plan 至少修改 1 個 ADR 或 1 個 SPEC；ADR-008 本次 session 那筆計 N=1，後續還需 ≥ 2 個獨立 plan 才可進評估）：每次紀錄 catch / noise / 漏報 / AI 是否真的有自動觸發 / 是否成功寫入 `.asp-gate-log/`
   > ⚠️ **注意（2026-06-08）**：本 ADR 因 SPEC-005/006 已 merge 而 ADR 仍 Draft 觸發 audit BLOCKER，緊急升 Accepted。Trial ≥3 distinct plans 前置條件**尚未完成**（目前 N=1）。Trial 需繼續追蹤，不可視為 closed。
+  > 📌 **Trial 追蹤日誌**（TD-006）：
+  > - `N=1`（2026-06-08，ADR-008 session）— 計入。
+  > - （2026-06-08，tech-debt remediation session：TD-004/002/005/001 修復）本 session 為 bug 修復，**未走 asp-plan Step 5**，且 auto-spawn gate 機制**尚未實作** → 無 catch/noise/漏報 資料點可產生，**N 維持 1**。
+  > - ⛓️ **關鍵依賴（更正分項追蹤）**：Trial 進度（TD-006）**硬依賴** SPEC-006 auto-gate 落地（TD-007）。auto-gate 實作前 N 無法 > 1（無機制可觸發 catch/noise）。下一個有效資料點 = SPEC-006 實作後第一個經 asp-plan Step 5 的 distinct plan。
 - [ ] **Trial 結果評估**（≥ 3 distinct plans 後）：
   - 跳過率 0% + 訊噪比 ≥ 1.0 + log 完整率 100% → 接受 P2 為穩定狀態，標記本 ADR `Accepted` 並 close trial
   - 跳過率 > 0% → 開 ADR-010 評估升級到 P3 或 D 混合

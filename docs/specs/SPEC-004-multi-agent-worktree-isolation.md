@@ -418,7 +418,7 @@ Feature: Multi-Agent Worktree 硬性隔離
 12. [x] Telemetry 事件 schema 加入 `multi_agent.dispatch/converge/fail`（同步擴充 `docs/telemetry.md` event-type 章節）— 含 gc + dispatch_rejected 共 5 種；commit 5a91b8e
 13. [x] `install.sh` 預檢 git ≥ 2.20、bash ≥ 4.4、jq ≥ 1.6、python3 ≥ 3.10，缺任一者 abort 安裝（exit 13）；ASP_SKIP_PRECHECK=1 escape hatch；22 assertions cover version_at_least + missing-binary + outdated-binary scenarios；commit (this batch)
 14. [x] 與 ADR-002 Iron Rule A/B/C 不衝突（S15+S16 場景驗證）— B5 test_spec_004_audit_integration.sh
-15. [x] 提供 `docs/specs/SPEC-004-benchmarks.md` — 含基準環境實測數據（含 WSL2 / NFS / 大型 repo 偏離結果）— 本版交付
+15. [x] 提供 `docs/specs/SPEC-004-multi-agent-worktree-isolation-benchmarks.md` — 含基準環境實測數據（含 WSL2 / NFS / 大型 repo 偏離結果）— 本版交付
 16. [x] `ASP_AUDIT_ROOT` 環境變數機制實作 + 文件化（dispatch.sh 注入、bypass log / telemetry 寫入點 resolve）— commit 41d0bdd
 17. [x] `ASP_AUDIT_ROOT` Fail-Safe 兩階段驗證實作（dispatch 階段 + Worker 寫入階段；fail-closed 不 fallback）；`audit-write.sh` wrapper 為唯一寫入點；S20/S21 場景全綠 — commit 41d0bdd + 4257c0c
 18. [x] 提供 `docs/archive/v4-refactor/v4-decision-log.md` D6 條目（worktree 決策索引），確保 SPEC 引用可追溯 — commit c795684（檔案於 2026-05-10 cleanup wave 2 archive）
@@ -459,7 +459,7 @@ Feature: Multi-Agent Worktree 硬性隔離
 | **git 版本** | ≥ 2.20 |
 | **WSL2** | 接受，但須在 Linux 檔案系統路徑（`/home/...`）；**不**接受 `/mnt/c/...` 跨檔系操作 |
 
-> 偏離基準環境（例如 WSL2 跨 `/mnt/c`、網路磁碟、Windows NTFS）時 NFR 指標**不適用**，但功能正確性仍須保證。實作完成時須在 `docs/specs/SPEC-004-benchmarks.md` 提供基準環境的實測數據。
+> 偏離基準環境（例如 WSL2 跨 `/mnt/c`、網路磁碟、Windows NTFS）時 NFR 指標**不適用**，但功能正確性仍須保證。實作完成時須在 `docs/specs/SPEC-004-multi-agent-worktree-isolation-benchmarks.md` 提供基準環境的實測數據。
 
 ### 指標
 
