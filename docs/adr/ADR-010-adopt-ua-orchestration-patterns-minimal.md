@@ -1,5 +1,5 @@
 <!-- Last Updated: 2026-06-06 | Status: Draft | Audience: Maintainers -->
-# [ADR-008]: 借鑒 Understand-Anything 的 orchestration 模式（精簡採納）
+# [ADR-010]: 借鑒 Understand-Anything 的 orchestration 模式（精簡採納）
 
 | 欄位 | 內容 |
 |------|------|
@@ -85,7 +85,7 @@
 - C 新增 `auto_merge_gate` **需**輕量擴充 `ai-performance/schema.md`：merge-time entry 加 `gate_applied`/`critical_findings`/`warning_findings` 並對齊 `ai_classification` enum（**非**改 `outcome_t30` 結構）；且須在 `trust-tier.yaml` 補 `critical_findings` 機器可讀列舉（否則 `zero_critical` 無從 evaluate）。僅 Pattern C 實作時做。
 
 **後續追蹤（開放問題已於 2026-06-06 經 7-agent 證據 + 對抗驗證 workflow 逐一決議）：**
-- [x] B 與 A/3-C0/C **併一個 ADR-008**（ADR-002/006/007 先例 + 反碎片化）；實作層各拆 commit/PR
+- [x] B 與 A/3-C0/C **併一個 ADR-010**（ADR-002/006/007 先例 + 反碎片化）；實作層各拆 commit/PR
 - [x] converge C0 失敗語意 = **`continue` + loop 後 `CRYPTO_SKIPPED`→`exit 9`**（非 exit 3）
 - [x] env 命名 **維持 `ASP_ALLOW_WORKTREE_AUDIT_ROOT`**（符合 `ASP_<動詞>_<名詞>` override 慣例）
 - [x] Q4：Pattern C **需**輕量擴充 schema.md（見技術債）

@@ -506,9 +506,9 @@ Feature: Multi-Agent Worktree 硬性隔離
 
 ---
 
-## 📌 Addendum (2026-06-06)：ADR-008 借鑒 UA orchestration（精簡採納）
+## 📌 Addendum (2026-06-06)：ADR-010 借鑒 UA orchestration（精簡採納）
 
-> **狀態：`Draft`（隨 [ADR-008](../adr/ADR-008-adopt-ua-orchestration-patterns-minimal.md)）。** 本 addendum 之 diff 草案待 ADR-008 升 `Accepted` 後方可實作；在此之前不得 commit 對應 production code。完整對照與 diff 見 [`docs/research/ua-orchestration-adoption.md`](../research/ua-orchestration-adoption.md)。
+> **狀態：`Draft`（隨 [ADR-010](../adr/ADR-010-adopt-ua-orchestration-patterns-minimal.md)）。** 本 addendum 之 diff 草案待 ADR-010 升 `Accepted` 後方可實作；在此之前不得 commit 對應 production code。完整對照與 diff 見 [`docs/research/ua-orchestration-adoption.md`](../research/ua-orchestration-adoption.md)。
 > 本 addendum **只補三項與 worktree/converge 範疇相關的變更**，並明確**不納入** UA Pattern 3 的完整確定性層（理由見 §B3-反例）。
 
 ### B1. Worker 輸出契約 `.asp-out/`（UA Pattern 2，refine v4.1 D-001）
