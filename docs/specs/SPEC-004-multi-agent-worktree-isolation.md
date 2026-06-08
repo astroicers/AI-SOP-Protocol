@@ -92,6 +92,7 @@ done_when: "make test-filter FILTER=feature_x 全數通過"
 | max_parallel 超過上限 | 6 | dispatch 階段拒絕；mock 模式寫 escalation log |
 | ASP_AUDIT_ROOT 驗證失敗（fail-closed） | 7 | 任何 multi-agent 腳本立即拒絕、stderr 印明確原因 |
 | Rollback 後 base HEAD 意外被改動 | 8 | rollback.sh 偵測到 base 移動 → 立即 abort、不繼續清理 |
+| converge 有 crypto task 被 C0 跳過（addendum B3, 2026-06-06） | 9 | for 迴圈後 `if [ "${CRYPTO_SKIPPED:-}" = "1" ]; then exit 9; fi`（`crypto_hitl_pending`，**非** conflict 的 3）；詳見 §📌 Addendum B3 |
 | install.sh runtime precheck 失敗（git/bash/jq/python3 版本不符） | 13 | install.sh Phase 0 拒絕安裝；可用 ASP_SKIP_PRECHECK=1 強制 |
 
 ---
@@ -503,3 +504,67 @@ Feature: Multi-Agent Worktree 硬性隔離
 - **現有設計**：`docs/multi-agent-architecture.md` v3.0 角色制（保留，本 SPEC 只變動隔離層）
 - **git worktree 文件**：https://git-scm.com/docs/git-worktree
 - **外部參考**：Anthropic SubAgents `/clear` between roles（D-001 對齊依據）
+
+---
+
+## 📌 Addendum (2026-06-06)：ADR-010 借鑒 UA orchestration（精簡採納）
+
+> **狀態：`Draft`（隨 [ADR-010](../adr/ADR-010-adopt-ua-orchestration-patterns-minimal.md)）。** 本 addendum 之 diff 草案待 ADR-010 升 `Accepted` 後方可實作；在此之前不得 commit 對應 production code。完整對照與 diff 見 [`docs/research/ua-orchestration-adoption.md`](../research/ua-orchestration-adoption.md)。
+> 本 addendum **只補三項與 worktree/converge 範疇相關的變更**，並明確**不納入** UA Pattern 3 的完整確定性層（理由見 §B3-反例）。
+
+### B1. Worker 輸出契約 `.asp-out/`（UA Pattern 2，refine v4.1 D-001）
+
+每個 worker 在自身 worktree 內寫 canonical 輸出目錄，欄位 1:1 對應既有 `TASK_COMPLETE.yaml`：
+
+```
+.asp-worktrees/<task-id>/.asp-out/
+  summary.txt      # 一行 summary（agent 回傳給 orchestrator 的唯一內容）
+  diff.txt         # → TASK_COMPLETE.artifacts.diff_summary
+  test-output.txt  # → TASK_COMPLETE.artifacts.test_output
+  checksums.json   # → TASK_COMPLETE.artifacts.test_checksums（smuggling 偵測）
+  handoff.yaml     # TASK_COMPLETE.yaml 實例
+```
+
+強制檔名 regex（ASP 風格：**log 不擋**，不符者經 `audit-write.sh` telemetry 記 `handoff.unexpected_artifact`）：
+```
+^(summary|diff|test-output|checksums|handoff)\.(txt|json|yaml)$
+```
+worker → orchestrator 只回一行：`TASK-NNN <status> | out=<path> | files=<n> | tests=<summary>`（disk handoff，不傳 context）。
+
+### B2. Stage D2：拒絕 worktree 作 `ASP_AUDIT_ROOT`（UA Pattern 7 / #133；落實本 SPEC §🔒）
+
+§🔒「共享狀態檔案路徑策略」已規定 worker 必須寫主 repo，但 `_validate_audit_root.sh` 從未強制執行——git worktree 的 `.git` 是檔案（非目錄），Stage D 的 `[ ! -e .git ]` 誤判其為 main repo 通過。新增 Stage D2 把此規範變成 fail-closed 防護：
+
+- 比較 `git rev-parse --git-dir` 與 `--git-common-dir`（以 `cd + pwd -P` 取絕對路徑，相容 git ≥ 2.20）；兩者不同 → worktree → `return $ASP_AUDIT_ROOT_FAIL_EXIT`（exit 7）。
+- ⚠️ 對抗驗證修正：`git --git-dir` 對 main repo 回傳**相對** `.git`，須先 `cd "$ASP_AUDIT_ROOT"` 再解析（否則錨定到 caller CWD，latent bug）；並先把 git 原始輸出存變數檢查非空（避免 `cd ""` 退化成 `$PWD`）。完整 corrected 片段見 `docs/research/ua-orchestration-adoption.md` §5.1；submodule 經實測**不**誤判。
+- env `ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` 覆寫（不建議）。
+- `task_orchestrator.md` Part G 文件化調用改為 `ASP_AUDIT_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)"`。
+- 順手統一 filename drift：`asp-ship.md` 的 `.asp-bypass-log.json` → `.asp-bypass-log.ndjson`。
+
+**新增驗收（Done When 追加）**：worktree 作 `ASP_AUDIT_ROOT` → exit 7；main repo → pass；`ASP_ALLOW_WORKTREE_AUDIT_ROOT=1` → 放行。對應測試 `tests/.../test_spec_004_audit_root_worktree.sh`。
+
+### B3. converge Step 0：crypto gate（UA Pattern 3 — **僅 C0，analyze-only**）
+
+`converge.sh` 在 worktree 存在檢查後、rebase 前，**只**偵測 diff 是否觸及 crypto/backup-encryption 路徑：
+
+- 插入點：**worktree 存在檢查的 `fi` 之後、`REBASE_STDERR=$(mktemp)` 之前**（⚠️ 對抗驗證：須在 mktemp 前，否則 `continue` 洩漏暫存檔）。
+- **fail-closed（⚠️ 5-lens 審查）**：`git diff` 失敗（CI shallow clone / base 不可達）時須**擋下**（視為含 crypto）而非 `|| true` 放行——用 `if ! DIFF=$(git … 2>/dev/null); then 擋; fi`（裸 `VAR=$(…)` 在 `set -e` 下會傳播 git 非零 → 中止腳本）。
+- 比對 **regex（第二輪 review 實測修正版）**：`(^|/)(crypto|kms|encryption|secrets?)/|(^|[^a-z])((encrypt|decrypt)[a-z]*|kms|aes|rsa|hmac|kdf|secretbox|keystore|cryptobox)([^a-z]|$)|(^|[^e])cipher|\.(key|pem|p12|pfx|crt|jks|keystore|gpg|asc)$`。前導邊界改用 `(^|[^a-z])` 讓 `^` 真正當錨點（首版 `(_|-|\.|/|^)` 對根層裸檔名 aes/secretbox/keystore 全漏）；完整動詞 encrypt/decrypt 允許後綴、縮寫詞 kms/aes… 要求後接非字母（排 kmstore FP）。實測 14/15 命中、0 FP，僅駝峰 `AESEncrypt` 漏 → **C0 best-effort（非完整保證；改名/駝峰可規避）**。完整片段見 research §5.2。
+- 命中 → `emit_escalation "$tid" "crypto_path_touched"` + telemetry `crypto_hitl` + 設 `CRYPTO_SKIPPED=1` + **`continue`（不 merge，永不 auto-repair bytes）**。⚠️ `emit_escalation` 現無 severity 欄（converge.sh:77）→「P0」須先擴充簽名或寫進 details，勿假設可寫。
+- 新增 escalation reason：`crypto_path_touched`（命中 crypto 路徑）與 `crypto_gate_diff_failed`（fail-closed：base 不可達無法判定）——皆強制 HITL（crypto-always-HITL 的 converge 階段硬執行）。
+- ⚠️ `continue` 後 for 迴圈結束會 fall-through `exit 0` 遮蔽 P0 → for 迴圈結束後加 **set -e 安全形式** `if [ "${CRYPTO_SKIPPED:-}" = "1" ]; then exit 9; fi`（**不可**用 `[ … ] && exit 9` 作末句——CRYPTO_SKIPPED≠1 時回 rc=1 會被 `set -e` 變 exit 1 打掛正常 converge）。
+- ⚠️ **HITL consumer 流程（5-lens 審查必補）**：C0 `continue` 早於 worktree cleanup → crypto worktree/branch 留存；收到 exit 9 / `crypto_path_touched` 後，人審接手須導向 `asp-external-review` 三層（cross-vendor 4/4 + human），並定義該 crypto branch 的 review→merge 或丟棄路徑，避免變 abandoned dead-end。
+
+**新增驗收**：(1) 含 crypto 路徑的 task → 不 merge + `crypto_path_touched` escalation + 整體 exit 9；(2) non-crypto task converge **exit 0、行為不變**（基準＝改動前矩陣）；(3) **false-negative 召回（best-effort）**：aes/rsa/encryptor/secretbox/cryptobox/keystore + crypto/ 目錄命中（駝峰 AESEncrypt 可能漏，靠目錄 + cross-vendor 補）、kmstore 等 FP 排除；(4) **fail-closed**：模擬 base 不可達 → 擋而非放行。
+
+**§B3-反例（明確不納入，避免 over-engineering）**：UA Pattern 3 的 C1（scope）、C3（test-smuggling）、C5（secrets）**不在本 SPEC 範圍**——已分別由 `scope-guard.sh`（PreToolUse, N2）、`auto_fix_loop` checksum guard、`asp-ship` Step 9 覆蓋。於 converge 重做會與既有層重疊、增 fail-closed 卡點、降低 autopilot 順暢度，違反精簡理念（ADR-002 選項 C 教訓）。
+
+### 退出碼增補
+
+| 錯誤類型 | 退出碼 | 處理方式 |
+|----------|-------|----------|
+| `ASP_AUDIT_ROOT` 是 git worktree（B2，fail-closed） | 7（沿用） | 拒絕；stderr 提示用 git-common-dir anchored 路徑；env 可覆寫 |
+| converge 偵測 crypto path（B3，per-task） | 不中止整體（`continue`） | 該 task 不 merge、寫 `crypto_path_touched` escalation（severity 待 `emit_escalation` 擴充）、設 `CRYPTO_SKIPPED`、其他 task 續跑 |
+| converge 有 crypto task 被跳過（B3，整體） | **9**（`crypto_hitl_pending`，新增） | for 迴圈結束後若 `CRYPTO_SKIPPED=1` → `exit 9`（**非** conflict 的 exit 3），使整體退出碼反映「有 crypto 待人審」，不被 `exit 0` 遮蔽 |
+
+> **失敗語意已決**：`continue`（per-task 跳過）+ for 迴圈後 **`if … then exit 9; fi`**（crypto_hitl_pending；set -e 安全）。不採 `exit 3`（會中止其他 task）。exit 9 已同步主退出碼表（§📤）；**實作時**須同步 converge.sh header 退出碼註解，並盤點 converge 上游呼叫端能分辨 9 vs 3（5-lens 審查）。
