@@ -50,7 +50,7 @@
 |-------|------|--------|
 | L1: SessionStart | `session-audit.sh` → `.asp-session-briefing.json` | 硬（啟動時輸出 BLOCKER） |
 | L2: Dynamic Deny | `Draft` ADR / 測試未過 → 動態阻擋 `git commit`；`FIRM` ADR → 允許但記錄 bypass log | 硬（VSCode deny dialog） |
-| L3: Skill Gates | `asp-ship`(10步) + `asp-gate`(G1-G6) + `asp-plan` Step 5 auto G1/G2 spawn（ADR-009） | 結構化軟性 |
+| L3: Skill Gates | `asp-ship`(10步) + `asp-gate`(G1-G6) + `asp-plan` Step 5 auto G1/G2 spawn（ADR-009 Accepted；**落地待 SPEC-006 實作**，見 tech-debt TD-007） | 結構化軟性 |
 | L4: Subagent QA | `asp-reality-check` 獨立驗證（on-demand） | 中等 |
 
 **AI 必須**：Session 啟動時讀取 `.asp-session-briefing.json`，向使用者報告 BLOCKER。
