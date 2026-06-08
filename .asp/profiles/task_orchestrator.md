@@ -1065,6 +1065,25 @@ FUNCTION on_worker_done(handoff):
       escalate(severity="P1", reason="Worker auto_fix + Orchestrator 重派皆耗盡", task_id=task.id)
 ```
 
+#### Worker 輸出契約（`.asp-out/`，ADR-010 Pattern A）
+
+每個 Worker 在自己的 worktree 內，把產出落在固定的 canonical 目錄（與 `.asp-worktrees/<task>/` 並列），讓 Orchestrator 能**確定性定位**產出（強化 v4.1 D-001 scratchpad 慣例）：
+
+```
+.asp-worktrees/<task-id>/.asp-out/
+  summary.txt      # 一行 summary（agent 對 Orchestrator 回傳的唯一內容）
+  diff.txt         # → TASK_COMPLETE.artifacts.diff_summary
+  test-output.txt  # → TASK_COMPLETE.artifacts.test_output
+  checksums.json   # → TASK_COMPLETE.artifacts.test_checksums（smuggling 偵測）
+  handoff.yaml     # TASK_COMPLETE.yaml 實例
+```
+
+- **強制檔名**（ASP 風格：**log 不擋**，經 `audit-write.sh` telemetry，不新增 fail-closed 卡點）：
+  `^(summary|diff|test-output|checksums|handoff)\.(txt|json|yaml)$`
+- **Worker 對 Orchestrator 只回一行**（其餘細節落 `.asp-out/`，避免噪音淹沒上下文）：
+  `TASK-NNN <status> | out=<path> | files=<n> | tests=<summary>`
+- 暫定**僅約定 + log**；未來如需 converge 自動收集再接線（ADR-010 §7 Q5）。
+
 ### Sub-Agent 深度準則（設計約束，非執行性）
 
 - Orchestrator 是任務拆解唯一入口

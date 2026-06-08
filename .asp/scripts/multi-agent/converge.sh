@@ -19,6 +19,8 @@
 #   2  bad arguments (missing --task / unknown flag / task not found)
 #   3  merge or rebase conflict (escalation log written; partial state OK)
 #   7  ASP_AUDIT_ROOT validation failed
+#   9  a task's diff touched a crypto/secrets path — ADR-010 Pattern 3-C0 gate
+#      (analyze-only; escalation written; task NOT merged; human review required)
 
 set -eu
 
@@ -125,6 +127,9 @@ abort_rebase_in_worktree() {
 # round) is base_branch_rebase_conflict (S14) — the conflict came from
 # changes that landed on base before converge started.
 TASKS_MERGED_THIS_RUN=0
+# ADR-010 Pattern 3-C0: set to 1 when any task is skipped by the crypto gate, so
+# the run exits 9 even if all OTHER tasks merge cleanly (don't let exit 0 mask it).
+CRYPTO_SKIPPED=0
 
 for tid in $TASKS; do
     if ! resolve_task "$tid"; then
@@ -144,6 +149,36 @@ for tid in $TASKS; do
         echo "converge: worktree dir missing for $tid: $TASK_WORKTREE" >&2
         emit_telemetry "multi_agent.fail" "$tid" "worktree_missing"
         exit 2
+    fi
+
+    # ── Step 0: crypto gate (ADR-010 Pattern 3-C0, analyze-only) ──────────
+    # BEFORE rebase/merge, detect whether this task's diff touches a crypto /
+    # secrets path. If so, DO NOT merge — emit a crypto_path_touched escalation,
+    # skip the task (continue), and the run exits 9. This never modifies bytes;
+    # crypto changes are routed to human review (cross-vendor + human per the
+    # crypto-always-HITL iron rule). The skipped task's worktree + branch are
+    # PRESERVED (the `continue` skips Step 3 cleanup) so a human can review them.
+    # fail-closed: if the diff can't be computed (e.g. base unreachable on a
+    # shallow CI clone), treat as "can't confirm → block". best-effort regex
+    # (camelCase like AESEncrypt may slip → the crypto/ dir + cross-vendor +
+    # human are the real backstop). C1/C3/C5 are intentionally NOT duplicated
+    # here — scope-guard.sh / auto_fix_loop / asp-ship Step 9 already own them.
+    if ! C0_DIFF=$(git -C "$ASP_AUDIT_ROOT" diff --name-only "$BASE_BRANCH...$TASK_BRANCH" 2>/dev/null); then
+        echo "converge: crypto gate cannot diff $tid vs $BASE_BRANCH — fail-closed (not merged)" >&2
+        emit_escalation "$tid" "crypto_gate_diff_failed" "cannot compute diff vs $BASE_BRANCH (base unreachable) — fail-closed"
+        emit_telemetry "multi_agent.fail" "$tid" "crypto_gate_diff_failed"
+        CRYPTO_SKIPPED=1
+        continue
+    fi
+    C0_CRYPTO=$(printf '%s\n' "$C0_DIFF" | grep -Ei \
+        '(^|/)(crypto|kms|encryption|secrets?)/|(^|[^a-z])((encrypt|decrypt)[a-z]*|kms|aes|rsa|hmac|kdf|secretbox|keystore|cryptobox)([^a-z]|$)|(^|[^e])cipher|\.(key|pem|p12|pfx|crt|jks|keystore|gpg|asc)$' || true)
+    if [ -n "$C0_CRYPTO" ]; then
+        echo "converge: $tid touches crypto/secrets path — routed to human (not merged):" >&2
+        printf '    %s\n' $C0_CRYPTO >&2
+        emit_escalation "$tid" "crypto_path_touched" "$(printf '%s' "$C0_CRYPTO" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+        emit_telemetry "multi_agent.fail" "$tid" "crypto_hitl"
+        CRYPTO_SKIPPED=1
+        continue
     fi
 
     REBASE_STDERR=$(mktemp)
@@ -202,3 +237,11 @@ for tid in $TASKS; do
     emit_telemetry "multi_agent.converge" "$tid" "success"
     TASKS_MERGED_THIS_RUN=$((TASKS_MERGED_THIS_RUN + 1))
 done
+
+# ADR-010 Pattern 3-C0: if any task was skipped by the crypto gate, the run is
+# NOT fully successful — exit 9 (crypto_hitl_pending) so the orchestrator/human
+# sees crypto changes are pending review. (set -e safe: explicit if/then, NOT
+# `[ … ] && exit 9`, which returns rc=1 when false and would abort a clean run.)
+if [ "${CRYPTO_SKIPPED:-}" = "1" ]; then
+    exit 9
+fi
