@@ -18,6 +18,9 @@ set -uo pipefail
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 BRIEFING_FILE="${PROJECT_DIR}/.asp-session-briefing.json"
 SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.json"
+# ADR-011: ASP 動態 deny 寫入 gitignored 的 settings.local.json（與 tracked settings.json
+# / 使用者 deny 隔離）。Claude Code 以 deny-first 合併各 scope 的 deny（FC-001 已查證）。
+LOCAL_SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.local.json"
 PROFILE_FILE="${PROJECT_DIR}/.ai_profile"
 
 # 需要 jq
@@ -55,14 +58,34 @@ fi
 # ═══════════════════════════════════════════
 NDJSON_LOG="${PROJECT_DIR}/.asp-bypass-log.ndjson"
 JSON_LOG="${PROJECT_DIR}/.asp-bypass-log.json"
+HWM_FILE="${PROJECT_DIR}/.asp-bypass-log.hwm"
 if [ -f "${JSON_LOG}" ] && [ ! -f "${NDJSON_LOG}" ]; then
     WARNINGS+=("Iron Rule B: .asp-bypass-log.json exists but not migrated to .ndjson format. Run: make asp-bypass-migrate")
 fi
-if [ -f "${NDJSON_LOG}" ] && git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
-    LINE_COUNT=$(wc -l < "${NDJSON_LOG}" 2>/dev/null || echo 0)
-    GIT_LINE_COUNT=$(git -C "${PROJECT_DIR}" log --oneline --follow -- "${NDJSON_LOG}" 2>/dev/null | wc -l)
-    if [ "${LINE_COUNT}" -lt "${GIT_LINE_COUNT}" ] && [ "${GIT_LINE_COUNT}" -gt 0 ]; then
-        BLOCKERS+=("Iron Rule B: .asp-bypass-log.ndjson may be truncated (current: ${LINE_COUNT} lines, git commits: ${GIT_LINE_COUNT})")
+# TD-002: the bypass log is GITIGNORED (local-only — see .gitignore), so a
+# git/HEAD baseline is ALWAYS empty and can never see a truncation. Instead track
+# a high-water-mark of the line count across sessions in a sidecar. The append-only
+# invariant means the count is monotonically non-decreasing, so any drop below the
+# recorded HWM ⇒ audit entries were removed (whether committed or not, and even if
+# they were appended-then-erased within a session). `awk END{print NR}` counts an
+# unterminated final line too, so the check can't be gamed by toggling the trailing
+# newline. The HWM is ratcheted UP only — a truncation keeps tripping the BLOCKER
+# until the log is restored or the HWM is deliberately reset.
+# Known residuals (documented, out of scope for a line-count heuristic): an
+# equal-count entry REPLACEMENT, and tampering with the .hwm sidecar itself —
+# both require a per-entry hash-chain to detect.
+if [ -f "${NDJSON_LOG}" ]; then
+    LINE_COUNT=$(awk 'END{print NR}' "${NDJSON_LOG}" 2>/dev/null)
+    case "${LINE_COUNT}" in (''|*[!0-9]*) LINE_COUNT=0 ;; esac
+    HWM_COUNT=0
+    if [ -f "${HWM_FILE}" ]; then
+        HWM_COUNT=$(cat "${HWM_FILE}" 2>/dev/null)
+        case "${HWM_COUNT}" in (''|*[!0-9]*) HWM_COUNT=0 ;; esac
+    fi
+    if [ "${LINE_COUNT}" -lt "${HWM_COUNT}" ]; then
+        BLOCKERS+=("Iron Rule B: .asp-bypass-log.ndjson shrank from ${HWM_COUNT} to ${LINE_COUNT} lines (append-only violated — audit entries removed). Restore the log, or reset the high-water-mark if intentional: rm ${HWM_FILE##*/}")
+    elif [ "${LINE_COUNT}" -gt "${HWM_COUNT}" ]; then
+        echo "${LINE_COUNT}" > "${HWM_FILE}" 2>/dev/null || true
     fi
 fi
 
@@ -149,9 +172,18 @@ done
 if [ -n "$ADR_DIR" ]; then
     while IFS= read -r adr_file; do
         [ -f "$adr_file" ] || continue
-        if grep -qiE "^Status:\s*(Draft|draft|DRAFT)|\`Draft\`|\`DRAFT\`" "$adr_file" 2>/dev/null; then
+        # TD-004: anchor on the canonical 狀態/Status LABEL cell, then match the
+        # status word anywhere in the VALUE cell — regardless of backticks, bold,
+        # or in-cell annotations like （待確認）. This repo mixes formats:
+        # `| **狀態** | `Draft` |`, `| **狀態** | Draft |` (no backticks, as in
+        # SPEC-001/SPEC-004), and annotated `| **狀態** | `Draft`（待確認） |` all
+        # denote a real status — a too-strict regex would let a genuinely-Draft ADR
+        # bypass the commit BLOCKER. The label anchor keeps body prose out: the
+        # status legend line `Draft`→`FIRM`→`Accepted` and a `驗證摘要` cell that
+        # merely mentions `Draft` are NOT matched (their label cell is not 狀態).
+        if grep -qiE "\|[[:space:]]*\*{0,2}(狀態|Status)\*{0,2}[[:space:]]*\|[^|]*\bDraft\b" "$adr_file" 2>/dev/null; then
             DRAFT_ADRS+=("$(basename "$adr_file")")
-        elif grep -qiE "^\*\*Status:\*\*\s*FIRM|\`FIRM\`|\|\s*\`FIRM\`\s*\|" "$adr_file" 2>/dev/null; then
+        elif grep -qiE "\|[[:space:]]*\*{0,2}(狀態|Status)\*{0,2}[[:space:]]*\|[^|]*\bFIRM\b" "$adr_file" 2>/dev/null; then
             FIRM_ADRS+=("$(basename "$adr_file")")
         fi
     done < <(find "$ADR_DIR" -name "ADR-*.md" -o -name "adr-*.md" 2>/dev/null)
@@ -275,35 +307,59 @@ JSONEOF
 } > "$BRIEFING_FILE" 2>/dev/null || true
 
 # ═══════════════════════════════════════════
-# 10. 同步動態 deny 到 settings.json（自我清除 / 冪等）
-#     每次執行先移除本 hook 先前注入的 deny，再依當前狀態重新加入。
-#     如此 deny 會隨條件解除而消失——Draft ADR 修好後 git commit 自動解封，
-#     不再需要人工還原 settings.json。只有在內容真的改變時才覆寫（避免 churn）。
-#     注意：MANAGED_DENY 必須涵蓋所有本 hook 可能加入的 deny（見 L162）。
+# 10. 同步動態 deny 到 settings.local.json（ADR-011：自我清除 / 冪等）
+#     ASP 只寫 gitignored 的 settings.local.json，**永不觸碰 tracked settings.json**
+#     （使用者 / 團隊 deny 的家）。settings.local.json 不進 git → 動態 deny 不會被 commit
+#     → 根除 tracked/gitignored 狀態分裂（換機卡死 / 暫態污染）。Claude Code 以 deny-first
+#     合併各 scope 的 deny（FC-001），故強制力等價。
+#     sidecar (.asp-managed-deny.json) 記錄「ASP 實際注入」的條目，reconcile 只移除這些
+#     ASP-owned 條目；使用者若也在 settings.local.json 放相同字串，不會被記為 owned 而誤刪。
 # ═══════════════════════════════════════════
-if [ -f "$SETTINGS_FILE" ] && command -v jq &>/dev/null; then
-    MANAGED_DENY='["Bash(git commit *)","Bash(git commit)"]'
+MANAGED_DENY_STATE="${PROJECT_DIR}/.asp-managed-deny.json"
+# 只在「有 deny 要注入（Draft 存在）」或「local 設定已存在（需 reconcile/自清）」時才動作——
+# 避免在無 Draft 的乾淨專案憑空建立空的 settings.local.json。
+if command -v jq &>/dev/null \
+   && { [ ${#DYNAMIC_DENY[@]} -gt 0 ] || [ -f "$LOCAL_SETTINGS_FILE" ]; }; then
+    if [ ! -f "$LOCAL_SETTINGS_FILE" ]; then
+        mkdir -p "$(dirname "$LOCAL_SETTINGS_FILE")" 2>/dev/null || true
+        echo '{"permissions":{"deny":[]}}' > "$LOCAL_SETTINGS_FILE" 2>/dev/null || true
+    fi
+    if [ -f "$MANAGED_DENY_STATE" ]; then
+        PREV_MANAGED=$(jq -c 'if type=="array" then . else [] end' "$MANAGED_DENY_STATE" 2>/dev/null)
+    fi
+    [ -z "${PREV_MANAGED:-}" ] && PREV_MANAGED='[]'
     if [ ${#DYNAMIC_DENY[@]} -gt 0 ]; then
         ADD_DENY=$(printf '%s\n' "${DYNAMIC_DENY[@]}" | jq -R . | jq -s .)
     else
         ADD_DENY='[]'
     fi
-    if jq --argjson managed "$MANAGED_DENY" --argjson add "$ADD_DENY" '
-            .permissions.deny = ((((.permissions.deny // []) - $managed) + $add) | unique)
-        ' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp" 2>/dev/null; then
-        if cmp -s "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"; then
-            rm -f "${SETTINGS_FILE}.tmp"
+    #   cleaned = deny − PREV_MANAGED（只移除 ASP 先前注入的，不碰使用者自有的）
+    #   added   = ADD_DENY − cleaned（本次實際新增者＝使用者原本沒有的）→ 記為下次可移除集合
+    RECON=$(jq -c --argjson prev "$PREV_MANAGED" --argjson add "$ADD_DENY" '
+            ((.permissions.deny // []) - $prev) as $cleaned
+            | { settings: (.permissions.deny = (($cleaned + $add) | unique)),
+                added: ($add - $cleaned) }
+        ' "$LOCAL_SETTINGS_FILE" 2>/dev/null)
+    # 覆寫前驗證 .tmp 非空且為合法 JSON（cmp -s 只比「不同」不比「合法」；第二次 jq 寫入
+    # 若因磁碟滿等失敗會留下壞檔）。settings.local.json 為本地可重建檔，故不另存 .bak。
+    if [ -n "$RECON" ] \
+       && echo "$RECON" | jq -e '.settings' > "${LOCAL_SETTINGS_FILE}.tmp" 2>/dev/null \
+       && [ -s "${LOCAL_SETTINGS_FILE}.tmp" ] \
+       && jq -e . "${LOCAL_SETTINGS_FILE}.tmp" >/dev/null 2>&1; then
+        if cmp -s "${LOCAL_SETTINGS_FILE}.tmp" "$LOCAL_SETTINGS_FILE"; then
+            rm -f "${LOCAL_SETTINGS_FILE}.tmp"
         else
-            cp "$SETTINGS_FILE" "${SETTINGS_FILE}.bak" 2>/dev/null || true
-            mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+            mv "${LOCAL_SETTINGS_FILE}.tmp" "$LOCAL_SETTINGS_FILE"
         fi
+        # 記錄本次 ASP 實際擁有的注入集合（可能為空 → 下次不移除任何條目）
+        echo "$RECON" | jq -c '.added' > "$MANAGED_DENY_STATE" 2>/dev/null || true
     else
-        rm -f "${SETTINGS_FILE}.tmp" 2>/dev/null || true
+        rm -f "${LOCAL_SETTINGS_FILE}.tmp" 2>/dev/null || true
     fi
 fi
 
 # ═══════════════════════════════════════════
-# 10. 輸出摘要（SessionStart hook stdout 會被 AI 讀取）
+# 11. 輸出摘要（SessionStart hook stdout 會被 AI 讀取）
 # ═══════════════════════════════════════════
 echo ""
 echo "## ASP Session Audit"

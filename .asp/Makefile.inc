@@ -557,14 +557,17 @@ guardrail-reset:
 #---------------------------------------------------------------------------
 
 asp-unlock-commit: ## 解除動態 commit 阻擋（修復 ADR/測試問題後使用）
-	@SETTINGS=".claude/settings.json"; \
-	if [ ! -f "$$SETTINGS" ]; then echo "❌ $$SETTINGS 不存在"; exit 1; fi; \
-	BEFORE=$$(jq '.permissions.deny | length' "$$SETTINGS"); \
-	jq '.permissions.deny = [.permissions.deny[]? | select(test("git commit") | not)]' \
-		"$$SETTINGS" > "$${SETTINGS}.tmp" && mv "$${SETTINGS}.tmp" "$$SETTINGS"; \
-	AFTER=$$(jq '.permissions.deny | length' "$$SETTINGS"); \
-	echo "🔓 動態 deny 已解除（deny rules: $$BEFORE → $$AFTER）"; \
-	echo "   ⚠️  下次 session 啟動時會重新評估"
+	@UNLOCKED=0; \
+	for SETTINGS in ".claude/settings.local.json" ".claude/settings.json"; do \
+		[ -f "$$SETTINGS" ] || continue; \
+		BEFORE=$$(jq '.permissions.deny | length' "$$SETTINGS" 2>/dev/null || echo 0); \
+		jq '.permissions.deny = [.permissions.deny[]? | select(test("git commit") | not)]' \
+			"$$SETTINGS" > "$${SETTINGS}.tmp" 2>/dev/null && mv "$${SETTINGS}.tmp" "$$SETTINGS" || rm -f "$${SETTINGS}.tmp"; \
+		AFTER=$$(jq '.permissions.deny | length' "$$SETTINGS" 2>/dev/null || echo 0); \
+		if [ "$$BEFORE" != "$$AFTER" ]; then echo "🔓 $$SETTINGS：deny $$BEFORE → $$AFTER"; UNLOCKED=1; fi; \
+	done; \
+	[ "$$UNLOCKED" = "1" ] || echo "（無 git commit 動態 deny 可解除）"; \
+	echo "   ⚠️  下次 session 啟動時會重新評估（ADR-011：動態 deny 在 settings.local.json）"
 
 asp-refresh: ## 重新執行 session 審計（修復問題後使用）
 	@echo "🔄 重新執行 session 審計..."; \
@@ -579,11 +582,12 @@ asp-enforcement-status: ## 顯示當前強制力狀態
 	echo "================================="; \
 	echo ""; \
 	echo "── Deny List（硬性阻擋）──"; \
-	if [ -f ".claude/settings.json" ]; then \
-		jq -r '.permissions.deny[]?' ".claude/settings.json" | while read -r rule; do \
+	for SF in ".claude/settings.json" ".claude/settings.local.json"; do \
+		[ -f "$$SF" ] || continue; \
+		jq -r '.permissions.deny[]?' "$$SF" 2>/dev/null | while read -r rule; do \
 			echo "  🚫 $$rule"; \
 		done; \
-	fi; \
+	done; \
 	echo ""; \
 	echo "── Session Briefing ──"; \
 	if [ -f ".asp-session-briefing.json" ]; then \
