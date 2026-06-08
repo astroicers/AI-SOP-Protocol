@@ -547,12 +547,14 @@ worker → orchestrator 只回一行：`TASK-NNN <status> | out=<path> | files=<
 `converge.sh` 在 worktree 存在檢查後、rebase 前，**只**偵測 diff 是否觸及 crypto/backup-encryption 路徑：
 
 - 插入點：**worktree 存在檢查的 `fi` 之後、`REBASE_STDERR=$(mktemp)` 之前**（⚠️ 對抗驗證：須在 mktemp 前，否則 `continue` 洩漏暫存檔）。
-- `git diff --name-only "$BASE_BRANCH..$TASK_BRANCH"` 比對 **corrected 樣式**（⚠️ 排除 `decipher`/`kmstore` 等 false positive、目錄加錨點、補齊憑證副檔名）：`(^|/)(crypto|kms|encryption)/|(_|-|\.|/|^)(encrypt|decrypt|kms)(_|-|\.|/|s|$)|(^|[^e])cipher|\.(key|pem|p12|pfx|crt|jks|keystore|gpg|asc)$`。完整片段見 research §5.2。
-- 命中 → `emit_escalation "$tid" "crypto_path_touched"`（P0）+ telemetry `crypto_hitl` + 設 `CRYPTO_SKIPPED=1` + **`continue`（不 merge，永不 auto-repair bytes）**。
+- **fail-closed（⚠️ 5-lens 審查）**：`git diff` 失敗（CI shallow clone / base 不可達）時須**擋下**（視為含 crypto）而非 `|| true` 放行——用 `if ! DIFF=$(git … 2>/dev/null); then 擋; fi`（裸 `VAR=$(…)` 在 `set -e` 下會傳播 git 非零 → 中止腳本）。
+- 比對 **corrected 樣式**（排除 `decipher`/`kmstore` false-positive、目錄加錨點、補憑證副檔名，且補 **false-negative**：aes/rsa/hmac/kdf/secretbox/encryptor/cryptobox + secrets 目錄）：`(^|/)(crypto|kms|encryption|secrets?)/|(_|-|\.|/|^)(encrypt|decrypt|kms|aes|rsa|hmac|kdf|secretbox|keystore)[a-z]*(_|-|\.|/|$)|(^|[^e])cipher|\.(key|pem|p12|pfx|crt|jks|keystore|gpg|asc)$`。C0 定位為 **best-effort 偵測（非完整保證；改名可規避）**。完整片段見 research §5.2。
+- 命中 → `emit_escalation "$tid" "crypto_path_touched"` + telemetry `crypto_hitl` + 設 `CRYPTO_SKIPPED=1` + **`continue`（不 merge，永不 auto-repair bytes）**。⚠️ `emit_escalation` 現無 severity 欄（converge.sh:77）→「P0」須先擴充簽名或寫進 details，勿假設可寫。
 - 新增 escalation reason：`crypto_path_touched`（強制 HITL，鐵則 crypto-always-HITL 的 converge 階段硬執行）。
-- ⚠️ 對抗驗證盲點：`continue` 後 for 迴圈結束會 fall-through `exit 0` 遮蔽 P0 → for 迴圈結束後加 `[ "${CRYPTO_SKIPPED:-}" = "1" ] && exit 9`（dedicated `crypto_hitl_pending`）。
+- ⚠️ `continue` 後 for 迴圈結束會 fall-through `exit 0` 遮蔽 P0 → for 迴圈結束後加 **set -e 安全形式** `if [ "${CRYPTO_SKIPPED:-}" = "1" ]; then exit 9; fi`（**不可**用 `[ … ] && exit 9` 作末句——CRYPTO_SKIPPED≠1 時回 rc=1 會被 `set -e` 變 exit 1 打掛正常 converge）。
+- ⚠️ **HITL consumer 流程（5-lens 審查必補）**：C0 `continue` 早於 worktree cleanup → crypto worktree/branch 留存；收到 exit 9 / `crypto_path_touched` 後，人審接手須導向 `asp-external-review` 三層（cross-vendor 4/4 + human），並定義該 crypto branch 的 review→merge 或丟棄路徑，避免變 abandoned dead-end。
 
-**新增驗收**：含 crypto 路徑改動的 task → 不 merge + P0 escalation；其他 task 仍 merge；非 crypto task 行為不變（確認未增日常摩擦）。
+**新增驗收**：(1) 含 crypto 路徑的 task → 不 merge + `crypto_path_touched` escalation + 整體 exit 9；(2) non-crypto task converge **exit 0、行為不變**（基準＝改動前矩陣）；(3) **false-negative 召回**：aes/rsa/encryptor/secretbox/cryptobox/keystore 語料全命中；(4) **fail-closed**：模擬 base 不可達 → 擋而非放行。
 
 **§B3-反例（明確不納入，避免 over-engineering）**：UA Pattern 3 的 C1（scope）、C3（test-smuggling）、C5（secrets）**不在本 SPEC 範圍**——已分別由 `scope-guard.sh`（PreToolUse, N2）、`auto_fix_loop` checksum guard、`asp-ship` Step 9 覆蓋。於 converge 重做會與既有層重疊、增 fail-closed 卡點、降低 autopilot 順暢度，違反精簡理念（ADR-002 選項 C 教訓）。
 
@@ -564,4 +566,4 @@ worker → orchestrator 只回一行：`TASK-NNN <status> | out=<path> | files=<
 | converge 偵測 crypto path（B3，per-task） | 不中止整體（`continue`） | 該 task 不 merge、寫 P0 `crypto_path_touched` escalation、設 `CRYPTO_SKIPPED`、其他 task 續跑 |
 | converge 有 crypto task 被跳過（B3，整體） | **9**（`crypto_hitl_pending`，新增） | for 迴圈結束後若 `CRYPTO_SKIPPED=1` → `exit 9`（**非** conflict 的 exit 3），使整體退出碼反映「有 crypto 待人審」，不被 `exit 0` 遮蔽 |
 
-> **失敗語意已決（2026-06-06 對抗驗證）**：`continue`（per-task 跳過）+ for 迴圈後 `exit 9`（crypto_hitl_pending）。不採 `exit 3`（會中止其他 task、增摩擦）。
+> **失敗語意已決**：`continue`（per-task 跳過）+ for 迴圈後 **`if … then exit 9; fi`**（crypto_hitl_pending；set -e 安全）。不採 `exit 3`（會中止其他 task）。⚠️ 新 exit 9 須同步 converge.sh header 退出碼註解 + SPEC-004 主退出碼表（§📤 line 85-95），並盤點 converge 上游呼叫端能分辨 9 vs 3（5-lens 審查）。
