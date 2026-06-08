@@ -1,11 +1,11 @@
-<!-- Last Updated: 2026-06-08 | Status: Draft | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-06-08 | Status: Accepted | Audience: ASP framework maintainers -->
 # [ADR-011]: 將 ASP 動態 deny 隔離至 settings.local.json
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-08 |
-| **決策者** | astroicers（待審核） |
+| **決策者** | astroicers（**已核准 2026-06-08**） |
 | **觸發事件** | TD-005 修復後，對抗式驗證 workflow 揭露 sidecar 方案的架構性殘留（換機卡死 / 同字串碰撞 / 暫態 deny 混入 tracked 設定） |
 | **關聯** | TD-005（`docs/tech-debt-2026-06-08.md`）；ADR-002（強制力架構 / L2 Dynamic Deny）；`session-audit.sh` Section 10；外部事實查證 `.asp-fact-check.md`（FC-001） |
 
@@ -73,9 +73,10 @@ ASP 只管理 gitignored 的 `settings.local.json`，把動態 deny 全部寫在
 - 須處理 settings.local.json 不存在 / 非法 JSON 的建立與防護（沿用本 session 的效驗閘）。
 
 **後續追蹤：**
-- [ ] 人類審核本 ADR → 決定升 `Accepted` 或調整範圍（鐵則：Draft 禁止實作）。
-- [ ] Accepted 後寫 SPEC（遷移步驟 + 一次性清理 + 測試遷移）→ 過 G2 → 實作 → G3/G4。
-- [ ] 實作後退役 `.asp-managed-deny.json` sidecar 與 Section 8.5 orphan WARNING。
+- [x] 人類審核本 ADR → **astroicers 於 2026-06-08 核准升 `Accepted`**。
+- [x] 實作 settings.local.json 遷移（TDD）：session-audit Section 10 改寫 `settings.local.json`、永不觸碰 tracked `settings.json`；`make asp-unlock-commit` 同步清兩檔。
+- [x] 退役 Section 8.5 orphan WARNING（tracked/gitignored 分裂的根因已消除——deny 不再進 tracked 檔）。
+- [ ] POC：實機確認「Draft 期間注入 settings.local.json 的 deny 確實擋下 git commit」（FC-001 已查證 deny-first/scope-merge 行為）。
 
 ---
 

@@ -18,6 +18,9 @@ set -uo pipefail
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 BRIEFING_FILE="${PROJECT_DIR}/.asp-session-briefing.json"
 SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.json"
+# ADR-011: ASP 動態 deny 寫入 gitignored 的 settings.local.json（與 tracked settings.json
+# / 使用者 deny 隔離）。Claude Code 以 deny-first 合併各 scope 的 deny（FC-001 已查證）。
+LOCAL_SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.local.json"
 PROFILE_FILE="${PROJECT_DIR}/.ai_profile"
 
 # 需要 jq
@@ -274,25 +277,6 @@ if [ -f "$PROJECT_DIR/.asp-test-result.json" ]; then
 fi
 
 # ═══════════════════════════════════════════
-# 8.5. Orphan managed-deny 偵測（TD-005 殘留緩解；須在 briefing 產生前執行）
-#      sidecar（ownership 紀錄）gitignored、settings.json tracked：若 ASP 在 Draft
-#      期間注入 deny 並被 commit，換機/git clean 後 sidecar 遺失 → 無 Draft 時無法自清，
-#      commit 被神祕阻擋。偵測此狀態 → WARNING（不自動刪、不靜默留），讓使用者決定。
-#      完整解法見 tech-debt 報告（建議改寫到 gitignored settings.local.json）。
-# ═══════════════════════════════════════════
-MANAGED_DENY_STATE="${PROJECT_DIR}/.asp-managed-deny.json"
-ASP_DENY_NS='["Bash(git commit *)","Bash(git commit)"]'   # 須與 L162 DYNAMIC_DENY 注入集合一致
-if [ -f "$SETTINGS_FILE" ] && command -v jq &>/dev/null \
-   && [ ! -f "$MANAGED_DENY_STATE" ] && [ ${#DYNAMIC_DENY[@]} -eq 0 ]; then
-    ORPHAN_CT=$(jq --argjson ns "$ASP_DENY_NS" \
-        '[(.permissions.deny // [])[] | select(. as $d | $ns | index($d))] | length' \
-        "$SETTINGS_FILE" 2>/dev/null || echo 0)
-    if [ "${ORPHAN_CT:-0}" -gt 0 ]; then
-        WARNINGS+=("Iron Rule (deny): settings.json 含 ASP 注入樣式的 git-commit deny，但無 Draft ADR 且無 ASP ownership 紀錄（.asp-managed-deny.json 遺失）。若為殘留注入 → make asp-unlock-commit；若為使用者刻意設定 → 可忽略。")
-    fi
-fi
-
-# ═══════════════════════════════════════════
 # 9. 產生 briefing JSON
 # ═══════════════════════════════════════════
 {
@@ -323,16 +307,23 @@ JSONEOF
 } > "$BRIEFING_FILE" 2>/dev/null || true
 
 # ═══════════════════════════════════════════
-# 10. 同步動態 deny 到 settings.json（自我清除 / 冪等）
-#     每次執行先移除「本 hook 先前注入」的 deny，再依當前狀態重新加入。
-#     如此 deny 會隨條件解除而消失——Draft ADR 修好後 git commit 自動解封，
-#     不再需要人工還原 settings.json。只有在內容真的改變時才覆寫（避免 churn）。
-#     TD-005：以 sidecar (.asp-managed-deny.json) 記錄「ASP 實際注入」的條目
-#     （注入前不存在者），reconcile 只移除這些 ASP-owned 條目——使用者手動加入
-#     的 deny（即使字串與預設相同）不會被記為 ASP-owned，因此不會被靜默移除。
+# 10. 同步動態 deny 到 settings.local.json（ADR-011：自我清除 / 冪等）
+#     ASP 只寫 gitignored 的 settings.local.json，**永不觸碰 tracked settings.json**
+#     （使用者 / 團隊 deny 的家）。settings.local.json 不進 git → 動態 deny 不會被 commit
+#     → 根除 tracked/gitignored 狀態分裂（換機卡死 / 暫態污染）。Claude Code 以 deny-first
+#     合併各 scope 的 deny（FC-001），故強制力等價。
+#     sidecar (.asp-managed-deny.json) 記錄「ASP 實際注入」的條目，reconcile 只移除這些
+#     ASP-owned 條目；使用者若也在 settings.local.json 放相同字串，不會被記為 owned 而誤刪。
 # ═══════════════════════════════════════════
-if [ -f "$SETTINGS_FILE" ] && command -v jq &>/dev/null; then
-    # PREV_MANAGED：上次 ASP 實際注入並擁有的 deny（僅這些可被自清，見 .asp-managed-deny.json）
+MANAGED_DENY_STATE="${PROJECT_DIR}/.asp-managed-deny.json"
+# 只在「有 deny 要注入（Draft 存在）」或「local 設定已存在（需 reconcile/自清）」時才動作——
+# 避免在無 Draft 的乾淨專案憑空建立空的 settings.local.json。
+if command -v jq &>/dev/null \
+   && { [ ${#DYNAMIC_DENY[@]} -gt 0 ] || [ -f "$LOCAL_SETTINGS_FILE" ]; }; then
+    if [ ! -f "$LOCAL_SETTINGS_FILE" ]; then
+        mkdir -p "$(dirname "$LOCAL_SETTINGS_FILE")" 2>/dev/null || true
+        echo '{"permissions":{"deny":[]}}' > "$LOCAL_SETTINGS_FILE" 2>/dev/null || true
+    fi
     if [ -f "$MANAGED_DENY_STATE" ]; then
         PREV_MANAGED=$(jq -c 'if type=="array" then . else [] end' "$MANAGED_DENY_STATE" 2>/dev/null)
     fi
@@ -342,32 +333,28 @@ if [ -f "$SETTINGS_FILE" ] && command -v jq &>/dev/null; then
     else
         ADD_DENY='[]'
     fi
-    # 一次 jq：產出 {settings:<改寫後>, added:<本次 ASP 新注入者>}。
     #   cleaned = deny − PREV_MANAGED（只移除 ASP 先前注入的，不碰使用者自有的）
     #   added   = ADD_DENY − cleaned（本次實際新增者＝使用者原本沒有的）→ 記為下次可移除集合
     RECON=$(jq -c --argjson prev "$PREV_MANAGED" --argjson add "$ADD_DENY" '
             ((.permissions.deny // []) - $prev) as $cleaned
             | { settings: (.permissions.deny = (($cleaned + $add) | unique)),
                 added: ($add - $cleaned) }
-        ' "$SETTINGS_FILE" 2>/dev/null)
-    # TD-005：在覆寫前驗證 .tmp 非空且為合法 JSON，且備份成功才 mv——settings.json 是
-    # git-tracked 且由 Claude Code 自身解析，絕不可被空檔/半截檔覆蓋（cmp -s 只比「不同」
-    # 不比「合法」，第二次 jq 寫入若因磁碟滿等失敗會留下壞檔）。
+        ' "$LOCAL_SETTINGS_FILE" 2>/dev/null)
+    # 覆寫前驗證 .tmp 非空且為合法 JSON（cmp -s 只比「不同」不比「合法」；第二次 jq 寫入
+    # 若因磁碟滿等失敗會留下壞檔）。settings.local.json 為本地可重建檔，故不另存 .bak。
     if [ -n "$RECON" ] \
-       && echo "$RECON" | jq -e '.settings' > "${SETTINGS_FILE}.tmp" 2>/dev/null \
-       && [ -s "${SETTINGS_FILE}.tmp" ] \
-       && jq -e . "${SETTINGS_FILE}.tmp" >/dev/null 2>&1; then
-        if cmp -s "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"; then
-            rm -f "${SETTINGS_FILE}.tmp"
-        elif cp "$SETTINGS_FILE" "${SETTINGS_FILE}.bak" 2>/dev/null; then
-            mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+       && echo "$RECON" | jq -e '.settings' > "${LOCAL_SETTINGS_FILE}.tmp" 2>/dev/null \
+       && [ -s "${LOCAL_SETTINGS_FILE}.tmp" ] \
+       && jq -e . "${LOCAL_SETTINGS_FILE}.tmp" >/dev/null 2>&1; then
+        if cmp -s "${LOCAL_SETTINGS_FILE}.tmp" "$LOCAL_SETTINGS_FILE"; then
+            rm -f "${LOCAL_SETTINGS_FILE}.tmp"
         else
-            rm -f "${SETTINGS_FILE}.tmp"   # 備份失敗 → 不覆寫無還原副本的 tracked 檔
+            mv "${LOCAL_SETTINGS_FILE}.tmp" "$LOCAL_SETTINGS_FILE"
         fi
         # 記錄本次 ASP 實際擁有的注入集合（可能為空 → 下次不移除任何條目）
         echo "$RECON" | jq -c '.added' > "$MANAGED_DENY_STATE" 2>/dev/null || true
     else
-        rm -f "${SETTINGS_FILE}.tmp" 2>/dev/null || true
+        rm -f "${LOCAL_SETTINGS_FILE}.tmp" 2>/dev/null || true
     fi
 fi
 

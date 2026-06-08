@@ -20,6 +20,9 @@
 # settings.json reconcile 安全備份（session-audit Section 10 產生，本地還原用，勿提交）
 .claude/settings.json.bak
 
+# Claude Code 本地個人設定（ADR-011：ASP 動態 deny 寫入處；Claude Code 預設亦 gitignore）
+.claude/settings.local.json
+
 # Gate 狀態（session 內追蹤）
 .asp-gate-state.json
 
