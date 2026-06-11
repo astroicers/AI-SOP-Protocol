@@ -30,7 +30,7 @@ PENDING_COUNT=$(jq '[.[] | select(.status == "pending")] | length' "$INBOX_FILE"
 [ "$PENDING_COUNT" -gt 0 ] || exit 0
 
 # ── held 回報（SPEC-007：不注入、不標 ingested）──
-echo "${LOG_PREFIX}: ⚠️  ${PENDING_COUNT} 個外部任務待人類授權（held）— SPEC-007 已關閉自動注入，授權路徑見 SPEC-009 / asp-op pivot。未注入 ROADMAP。" >&2
+echo "${LOG_PREFIX}: ⚠️  ${PENDING_COUNT} 個外部任務待人類授權（held）— SPEC-007 已關閉自動注入。人類核准請執行 make inbox-triage（SPEC-009）。未注入 ROADMAP。" >&2
 
 while IFS= read -r task_json; do
     TASK_ID=$(echo "$task_json" | jq -r '.id // "INBOX-?"')

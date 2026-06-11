@@ -258,15 +258,23 @@ FUNCTION autopilot_main():
   blocked_by_provenance = []
   FOR task IN roadmap.all_tasks():
     IF is_external_provenance(task):
-      IF NOT task.adr:
-        LOG("🔒 Task {task.id}: 外部來源且無 ADR → blocked（INV-2；需人類 Accepted ADR，或待 SPEC-009 triage-accept）")
+      IF task.adr AND FIND_ADR(task.adr) AND FIND_ADR(task.adr).status == "Accepted":
+        PASS  // 架構級授權：人類 Accepted ADR → 放行（外部任務不適用 FIRM 🟡 豁免）
+      ELIF task.triage_accepted_by:
+        // SPEC-009 非架構授權（DP4）：triage 記號本身不可信，須驗證其「引入 commit」的作者為人類
+        author = EXECUTE("git log --format='%an <%ae>' -1 -S 'id: {task.id}' -- ROADMAP.yaml")
+        IF author MATCHES /\[bot\]|asp-op|autopilot/i:
+          LOG("🔒 Task {task.id}: triage 記號由 bot 引入（{author}）→ blocked（DP4：bot/autopilot 不可自核）")
+          blocked_by_provenance.append(task.id)
+        ELSE:
+          LOG("🔓 Task {task.id}: 人類 triage-accept（{task.triage_accepted_by}）→ 放行；管線深度依既有 severity 分類（DP2）")
+      ELIF NOT task.adr:
+        LOG("🔒 Task {task.id}: 外部來源且無授權 → blocked（INV-2；人類可 make inbox-triage 核准，或建 Accepted ADR）")
         blocked_by_provenance.append(task.id)
       ELSE:
-        ext_adr = FIND_ADR(task.adr)
-        IF NOT ext_adr OR ext_adr.status != "Accepted":
-          // 外部任務不適用 FIRM 🟡 豁免——INV-2 要求人類 Accept 全閘（Draft / FIRM / 缺檔皆 blocked）
-          LOG("🔒 Task {task.id}: 外部來源且 ADR 非 Accepted → blocked（INV-2）")
-          blocked_by_provenance.append(task.id)
+        // ADR 存在但非 Accepted（Draft / FIRM / 缺檔）——外部任務不適用 FIRM 🟡 豁免（INV-2 全閘）
+        LOG("🔒 Task {task.id}: 外部來源且 ADR 非 Accepted → blocked（INV-2）")
+        blocked_by_provenance.append(task.id)
       // 注意：外部任務不自動建 Draft ADR——外部提案的 Draft ADR 由 asp-op pivot 產出（DP5）
 
   // ─── 驗證 ADR 狀態 + 智能評估架構影響 ───

@@ -12,6 +12,8 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 - **SPEC-008 — autopilot 外部來源 provenance 閘（ADR-012 INV-2/DP2）**：`autopilot.md` Phase 2 於既有 ADR 閘前新增 provenance 檢查——帶外部來源標記（`source_type` ≠ manual 或 `triggered_by` ∉ human/maintainer）的 ROADMAP 任務，須有人類 **Accepted** ADR 才可執行（外部任務不適用 FIRM 🟡 豁免、不自動建 Draft ADR）；DP8 過渡期外部非架構任務一律 blocked（待 SPEC-009 triage-accept）。人類手寫任務的既有機制逐字不變（DP3）。這是 SPEC-007（producer 側）之後的 consumer 側第二層防線。`asp-autopilot` skill 前置檢查表同步。測試：`test_autopilot_provenance_gate.sh`（15 斷言文字契約，TDD 先紅後綠）。
 
+- **SPEC-009 — 人類 inbox-triage 授權通道（ADR-012 DP2/DP4；DP8 過渡期終止）**：新增 `make inbox-triage`——人類逐件核准/駁回 held 外部任務；核准寫入 ROADMAP（帶 `triage_accepted_by/at` + provenance 標記）並由**人類自行 commit**（該 commit 作者即機械可驗證的授權記號）。autopilot provenance 閘擴充 triage 分支：以 `git log -S` 驗證 entry 引入 commit 作者，撞 bot 樣式（`[bot]`/asp-op/autopilot）→ blocked（DP4 bot 不可自核）；人類 triage → 放行、管線深度仍依既有 severity 分類（DP2）。**外部非架構路徑自此啟用（DP8 過渡期結束）**。測試：`test_inbox_triage.sh`（20 斷言）；SPEC-008 契約 15/15 不回退。
+
 ### Added
 
 - **ADR-012 — operator↔autopilot 互動信任模型（Accepted）**：provenance-scoped、授權隨架構影響縮放（外部架構級→Accepted ADR；外部非架構→人類 triage-accept；人類手寫 ROADMAP 任務機制完全不變）。新增 INV-1（autopilot 僅人類啟動）/ INV-2（外部工作須人類放行）兩不變量與 DP1–DP8 決策點；威脅模型新增 **T-14**（external-artifact → autopilot poisoning）併入 `threat-model-v4.0.md`；ADR-001 Relations 補記 C2 profile/skill 漂移。

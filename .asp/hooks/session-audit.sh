@@ -262,7 +262,7 @@ if [ -f "$INBOX_FILE" ] && [ -f "$INBOX_SCRIPT" ]; then
     INBOX_PENDING=$(jq '[.[] | select(.status == "pending")] | length' "$INBOX_FILE" 2>/dev/null || echo 0)
     if [ "$INBOX_PENDING" -gt 0 ]; then
         bash "$INBOX_SCRIPT" 2>&1 | grep -v "^$" || true
-        WARNINGS+=("A15.1: Task Inbox ${INBOX_PENDING} 個外部任務 held（待人類授權，SPEC-009）")
+        WARNINGS+=("A15.1: Task Inbox ${INBOX_PENDING} 個外部任務 held（人類授權：make inbox-triage）")
     fi
 fi
 
