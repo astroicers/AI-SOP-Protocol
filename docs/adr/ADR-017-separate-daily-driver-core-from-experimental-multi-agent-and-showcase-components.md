@@ -2,7 +2,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-11 |
 | **決策者** | astroicers（v5 簡報 Phase 4）+ AI（連動面設計） |
 
@@ -132,5 +132,5 @@ core `Makefile.inc` 末尾 `-include experimental/multi-agent/Makefile.inc` + `-
 |------|------|
 | **POC 分支 / 測試結果** | branch `asp/v5-slimming`：test_separation.sh 38/38；make test 綠（core）；make test-experimental 9/9 一次性綠；L5 稅 -34.5%（達 ADR-016 遞延之 ≥30%）；暫存 HOME 安裝驗證於 Phase 4 commit 後重跑（clone 取 committed 狀態），結果記入 PR |
 | **驗證日期** | 2026-06-11 |
-| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更） |
+| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更；Accepted：2026-06-11 使用者明確指示「幫我同意，修改成 Accepted」，AI 代筆） |
 | **驗證摘要** | Core/Experimental/Showcase 實體分離；安裝面由目錄結構單一規則決定；profiles 達 12 |

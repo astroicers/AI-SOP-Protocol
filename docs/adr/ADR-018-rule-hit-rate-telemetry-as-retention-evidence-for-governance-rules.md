@@ -2,7 +2,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-11 |
 | **決策者** | astroicers（v5 簡報 Phase 5 + 方案 A 裁決）+ AI（registry/統計設計） |
 
@@ -112,5 +112,5 @@ v5 原則 5：「任何規則的存留以命中率數據為準，不憑感覺」
 |------|------|
 | **POC 分支 / 測試結果** | branch `asp/v5-slimming`：test_rule_metrics / test_rule_stats / test_rule_registry 全綠；本 repo 實際 fire 記錄 |
 | **驗證日期** | 2026-06-11 |
-| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更） |
+| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更；Accepted：2026-06-11 使用者明確指示「幫我同意，修改成 Accepted」，AI 代筆） |
 | **驗證摘要** | 規則命中遙測（方案 A）：穩定 rule_id 註冊表 + 評估點計數 + 90 天零命中待刪報表，失敗永不影響主流程 |

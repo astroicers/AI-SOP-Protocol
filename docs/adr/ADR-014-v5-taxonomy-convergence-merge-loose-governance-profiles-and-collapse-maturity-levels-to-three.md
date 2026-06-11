@@ -2,7 +2,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-11 |
 | **決策者** | astroicers（v5 重構簡報 Phase 1）+ AI（合併裁決設計） |
 
@@ -136,5 +136,5 @@ v5 瘦身重構原則 3：「分類學收斂：組合空間從數百種降到個
 |------|------|
 | **POC 分支 / 測試結果** | branch `asp/v5-slimming`：test_level_resolve / test_levels_schema / test_profile_merge 全綠；grep 驗收組零殘留；`make asp-level-check` 三級制輸出正常 |
 | **驗證日期** | 2026-06-11 |
-| **驗證者** | astroicers（2026-06-11 對話授權，含 ADR-015~018 同模式授權；AI 代筆狀態變更） |
+| **驗證者** | astroicers（2026-06-11 對話授權，含 ADR-015~018 同模式授權；AI 代筆狀態變更；Accepted：2026-06-11 使用者明確指示「幫我同意，修改成 Accepted」，AI 代筆） |
 | **驗證摘要** | 合併後 13 profiles + 3 levels，舊 .ai_profile 數字值映射相容，紅線 1-4 全數保留 |

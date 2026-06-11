@@ -2,7 +2,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-11 |
 | **決策者** | astroicers（v5 重構簡報）+ AI（實作設計） |
 
@@ -106,5 +106,5 @@
 |------|------|
 | **POC 分支 / 測試結果** | branch `asp/v5-slimming`：`tests/test_asp_metrics.sh` 全綠（含可重複性 T4、真 repo 煙霧測 T7）；`.asp-metrics-baseline.json` 已產出 |
 | **驗證日期** | 2026-06-11 |
-| **驗證者** | astroicers（2026-06-11 對話明確授權，AI 代筆狀態變更） |
+| **驗證者** | astroicers（2026-06-11 對話明確授權，AI 代筆狀態變更；Accepted：2026-06-11 使用者明確指示「幫我同意，修改成 Accepted」，AI 代筆） |
 | **驗證摘要** | asp-metrics.sh 對真實 repo 產出確定性基線，三組態 context 稅與 profile-map 展開一致 |

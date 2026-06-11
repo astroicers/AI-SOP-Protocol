@@ -2,7 +2,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-11 |
 | **決策者** | astroicers（v5 簡報 Phase 3）+ AI（編譯器設計） |
 
@@ -119,5 +119,5 @@ Profile 檔頭的 `<!-- requires / optional / conflicts -->` 宣告目前靠 LLM
 |------|------|
 | **POC 分支 / 測試結果** | branch `asp/v5-slimming`：test_asp_compile.sh（含契約測試 T11）+ test_session_audit_compile.sh 全綠；本 repo 實際編譯產出產物 |
 | **驗證日期** | 2026-06-11 |
-| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更） |
+| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更；Accepted：2026-06-11 使用者明確指示「幫我同意，修改成 Accepted」，AI 代筆） |
 | **驗證摘要** | 依賴解析移至編譯期：三組態編譯成功、衝突兩段式裁決、mtime 自動重編、與 metrics 契約鎖定 |

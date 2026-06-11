@@ -2,7 +2,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-11 |
 | **決策者** | astroicers（v5 簡報 Phase 2——本次重構核心）+ AI（三分法切割設計） |
 
@@ -126,5 +126,5 @@ Markdown 只留一行「執行 `make orch-classify` 取得分類結果」。
 |------|------|
 | **POC 分支 / 測試結果** | branch `asp/v5-slimming`：5 支 orch 測試全綠；task_orchestrator.md ≤300 行；Part G diff 保真；`make test` 全綠 |
 | **驗證日期** | 2026-06-11 |
-| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更） |
+| **驗證者** | astroicers（2026-06-11 對話 blanket 授權 ADR-015~018；AI 代筆狀態變更；Accepted：2026-06-11 使用者明確指示「幫我同意，修改成 Accepted」，AI 代筆） |
 | **驗證摘要** | 確定性邏輯下沉為 4 支可測試腳本，orchestrator 縮至語意核心，hitl:minimal 矛盾以 confidence 門檻機械解 |
