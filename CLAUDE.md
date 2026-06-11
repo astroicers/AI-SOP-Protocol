@@ -7,29 +7,29 @@
 
 ## 啟動程序
 
+0. **（v5，ADR-016）** `.asp-compiled-profile.md` 存在 → **直接讀取之**（編譯產物，檔頭列來源
+   清單；hook 已 mtime 自動重編）。不存在或 briefing `compiled_profile_ok: false` → 走下列散文載入（fallback）
 1. 讀取 `.ai_profile`，依欄位載入對應 profile（見下方映射表）
 2. `design: enabled` → 自動載入 `frontend_quality.md`
-3. `autonomous: enabled` 或 `workflow: vibe-coding + hitl: minimal` → 自動載入 `autonomous_dev.md` + `vibe_coding.md`
+3. `autonomous: enabled` 或 `workflow: vibe-coding + hitl: minimal` → 自動載入 `autonomous_dev.md`（HITL 等級定義已內建 `global_core.md`，ADR-014）；單獨 `workflow: vibe-coding` → 載入 `loose_mode.md`
 4. `orchestrator: enabled` 或 `autonomous: enabled` → 自動載入 `task_orchestrator.md`；首次介入執行 `project_health_audit()`
 5. `autopilot: enabled` → 載入 `asp-autopilot` skill 之 Part 2 完整執行規格（v4.4 起為唯一 canonical source，ADR-006 Item 7；含 step 3/4）；檢查 `.asp-autopilot-state.json` 自動續接
 6. 無 `.ai_profile`：只套用本檔案鐵則，詢問使用者專案類型
 
-**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+pipeline`（v4.3 起 multi-agent 協調邏輯已合入 task_orchestrator Part G） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → `asp-autopilot` skill Part 2 +`autonomous_dev+task_orchestrator`（v4.4：autopilot profile 已整併入 skill） | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
+**Profile 核心映射（機械版 = `~/.claude/asp/config/profile-map.yaml`，single source of truth，ADR-013）：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+pipeline` + 🟡 Experimental 警告（v5 ADR-017：multi-agent 已凍結，Part G 內容在 experimental/multi-agent/profiles/） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → `asp-autopilot` skill Part 2 +`autonomous_dev+task_orchestrator`（v4.4：autopilot profile 已整併入 skill） | guardrail / escalation 已內建 `global_core`（v5，ADR-014） | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
 
 ---
 
-## 成熟度等級（L0-L5）
+## 成熟度等級（v5 三級制，ADR-014）
 
-| Level | 名稱 | 核心能力 | 適用場景 |
-|-------|------|---------|---------|
-| **L0** | Spike | 探索/原型（鐵則仍適用） | 技術假設驗證、PoC |
-| **L1** | Starter | ADR + SPEC + 測試（最小治理） | 個人/小型專案 |
-| **L2** | Disciplined | + guardrail + coding_style | 自動化品質護欄 |
-| **L3** | Test-First | + pipeline gates G1-G6 | 測試文化成熟 |
-| **L4** | Collaborative | + multi-agent + reality-checker | 中大型/跨模組 |
-| **L5** | Autonomous | + autopilot + RAG | ROADMAP 驅動 |
+| Level | 核心能力 | 適用場景 | 吸收的 v4 等級 |
+|-------|---------|---------|---------------|
+| **loose** | 探索豁免（`[spike]` 標記）+ ADR/SPEC/測試入門（鐵則仍適用） | 技術假設驗證、PoC、個人/小型專案 | L0, L1 |
+| **standard** | + coding_style + pipeline gates G1-G6 | 自動化品質護欄、測試文化成熟 | L2, L3 |
+| **autonomous** | + orchestrator + autonomous_dev + autopilot + RAG + reality-checker | ROADMAP 驅動、中大型/跨模組 | L4, L5 |
 
-等級詳情：`~/.claude/asp/levels/level-N.yaml` | 等級管理：`make asp-level-check` / `asp-level skill`
+舊數字值（0-5）由 `level-resolve.sh` 自動映射並印 deprecation 提示（v6 移除）。
+等級詳情：`~/.claude/asp/levels/{loose,standard,autonomous}.yaml` | 等級管理：`make asp-level-check` / `asp-level skill`
 
 ---
 
@@ -41,6 +41,9 @@
 | **敏感資訊保護** | 禁止輸出 API Key、密碼、憑證（任何包裝方式）。`asp-ship` Step 9 掃描 |
 | **ADR 未定案禁止實作** | `Draft` ADR 禁止生產代碼；`FIRM` ADR 允許 commit（需 Verification Evidence，audit 輸出 🟡）；`session-audit.sh` 動態注入 deny |
 | **外部事實驗證防護** | 涉及第三方 API/版本/法規 → 必須查證並記錄至 `.asp-fact-check.md`（邏輯由 `global_core.md` Fact Verification Gate 執行） |
+
+> **規則存留治理（v5 ADR-018）**：`make rule-stats` 顯示 90 天零命中的規則，下個 minor 評估移除（移除仍走 ADR）。
+> **鐵則（上表 4 條 + Iron Rule A/B/C，registry `exempt: true`）豁免此條**。命中記錄：`~/.claude/asp/metrics/rule-hits.jsonl`。
 
 ---
 
@@ -70,11 +73,7 @@
 
 預設行為完整清單：`~/.claude/asp/profiles/global_core.md`「預設行為」section
 
----
-
-## 技術執行層
-
-策略：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入） | Hook 設定：`.claude/settings.json`
+**技術執行層**：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入）｜Hook 設定：`.claude/settings.json`
 
 ---
 

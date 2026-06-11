@@ -1,16 +1,15 @@
-# Task Orchestrator — 任務協調與專案健康審計
+# Task Orchestrator — 任務協調與專案健康審計（v5 語意核心版）
 
 <!-- requires: global_core, system_dev -->
-<!-- optional: autonomous_dev, multi_agent, vibe_coding, design_dev, openapi, guardrail, rag_context, frontend_quality -->
+<!-- optional: autonomous_dev, multi_agent, loose_mode, design_dev, openapi, rag_context, frontend_quality -->
 <!-- conflicts: (none) -->
 
 適用：統一任務入口，自動分類與路由任何任務類型；首次介入專案時自動審計並強制補齊缺失。
 載入條件：`orchestrator: enabled` 或 `autonomous: enabled`（自動載入）
 
-> **設計原則**：
-> - 任何時候介入任何專案，都能讓該專案走回正軌
-> - 先審計、後執行：確保基礎設施健全，再做功能開發
-> - 每次任務完成都產出完整文件，且文件與代碼同步
+> **v5 重構**（ADR-015/SPEC-011）：確定性判斷已下沉至 `.asp/scripts/orchestrator/`（make orch-*），
+> 本檔只留語意判斷與協調框架；原 1,587 行版在 `docs/archive/profiles/task_orchestrator-v4.3-1587L.md`，
+> Part G 逐字抽出至 `orchestrator_multi_agent.md`。
 
 ---
 
@@ -21,1549 +20,266 @@
 ```
 FUNCTION on_task_received(request):
 
-  // ─── Step 0: 專案健康審計（首次介入或過期）───
-  IF NOT exists(".asp-audit-baseline.json") OR audit_expired(7_days):
-    health = project_health_audit()
+  // ─── Step 0: 專案健康審計（機械判斷下沉）───
+  EXECUTE("make orch-audit-check")   // exit 2 = 需審計（無/過期 baseline 或缺檔）
+  IF exit_code == 2:
+    health = EXECUTE("make audit-health")   // 審計本體（唯一實作，不重寫）
     IF health.has_blockers:
-      remediate_gaps(health)  // 先補齊 blocker 再做主任務
-      // autonomous: 自動建立 remediation SPEC
-      // standard:   列出 blocker，建議建立 SPEC
+      remediate_gaps(health)   // 見 Part A「強制補齊」
 
-  // ─── Step 1: 任務分類 ───
-  task_type = classify_task(request)
-  PRESENT("任務分類：[{task_type}] {request.summary}")
-  PRESENT("  理由：{classification_reason}")
-  AWAIT human_confirm  // 即使 hitl: minimal 也確認，錯誤分類代價太高
-
-  // ─── Step 1.5: 團隊推薦（v3.0）───
-  IF mode == "multi-agent":
-    team = recommend_team(task_type, request)
-    PRESENT("建議團隊：{team.agents}（場景：{team.scenario}）")
-    PRESENT("管線階段：{team.pipeline_phases}")
-    IF team.parallel:
-      PRESENT("並行策略：{team.parallel_strategy}")
+  // ─── Step 1: 任務分類（機械分類 + 信心門檻）───
+  result = EXECUTE("make orch-classify TASK=\"{request}\" HITL={hitl_level}")
+  PRESENT("任務分類：[{result.type}] {request.summary}")
+  PRESENT("  理由：{result.reason}（confidence={result.confidence}）")
+  IF result.await_required:
+    AWAIT human_confirm        // 低信心、或 hitl ≠ minimal
+  ELSE:
+    PRESENT("hitl: minimal 且 confidence ≥ {result.threshold} → 自主續行（分類已留痕）")
+  // MODIFICATION 帶 post_checks: target 不存在於 codebase → 改走 NEW_FEATURE（語意判斷）
 
   // ─── Step 2: 路由執行 ───
-  MATCH task_type:
+  MATCH result.type:
     NEW_FEATURE  → execute_new_feature(request)
     BUGFIX       → execute_bugfix(request)
     MODIFICATION → execute_modification(request)
     REMOVAL      → execute_removal(request)
     GENERAL      → execute_general(request)
 
-  // ─── Step 3: 後置審計（最多 2 輪）───
-  post_health = quick_audit()  // 輕量版，只檢查本次修改相關
-  IF post_health.new_gaps:
-    IF post_health.audit_round >= 2:
-      WARN("後置審計已達上限（2 輪），剩餘 gap 記入 tech-debt")
-      FOR gap IN post_health.new_gaps:
-        LOG_TECH_DEBT("post-audit-overflow: {gap}")
+  // ─── Step 3: 後置審計（輪數上限下沉）───
+  IF quick_audit().new_gaps:
+    EXECUTE("make orch-round ACTION=increment")   // exit 4 = 已達 2 輪上限
+    IF exit_code == 4:
+      FOR gap IN new_gaps: EXECUTE("make orch-debt-log CATEGORY=post-audit-overflow DESC=\"{gap}\"")
     ELSE:
-      WARN("本次修改引入新的 gap，需補齊")
-      remediate_gaps(post_health, audit_round = post_health.audit_round + 1)
+      remediate_gaps(new_gaps)
 
-  // ─── Step 4: 更新基線 ───
-  update_audit_baseline(post_health)
+  // ─── Step 4: 任務完成 → reset 輪數、更新基線 ───
+  EXECUTE("make orch-round ACTION=reset")
+  EXECUTE("make audit-health")   // 末尾自動更新 .asp-audit-baseline.json
 ```
 
 ---
 
 ## Part A: 專案健康審計
 
-### 觸發時機
-
-| 條件 | 動作 |
+| 觸發時機 | 動作 |
 |------|------|
-| 首次介入專案（無 `.asp-audit-baseline.json`） | **自動觸發**完整審計 |
-| 距上次審計 > 7 天 | **建議觸發**（autonomous: 自動 / standard: 提示） |
-| `make audit-health` | **手動觸發**隨時可用 |
-| 任務完成後 | **自動觸發**快速審計（只檢查本次修改相關） |
+| 首次介入 / baseline 過期（`make orch-audit-check` exit 2） | 自動觸發 `make audit-health` |
+| `make audit-health` | 手動隨時可用 |
+| 任務完成後 | 快速審計（只檢查本次修改相關） |
 
-### 掃描維度（7 項）
+審計本體 = `make audit-health`（9 維度掃描，Makefile 為唯一實作）；session 級結果讀
+`.asp-session-briefing.json`。分級標準：🔴 Blocker（ADR Draft 有實作、核心模組無測試）
+必須先修復；🟡 Warning 主任務後處理；🟢 Info 建議改善。
 
-```
-FUNCTION project_health_audit():
+### 強制補齊（remediation SPEC 撰寫指引——語意判斷，保留）
 
-  report = { blockers: [], warnings: [], info: [] }
-
-  // ─── 1. 測試覆蓋 ───
-  source_files = find_source_files()  // *.go, *.ts, *.py, etc.
-  test_files = find_test_files()      // *_test.go, *.test.ts, test_*.py, etc.
-  FOR file IN source_files:
-    IF NOT has_corresponding_test(file, test_files):
-      // 核心模組（auth, payment, data）無測試 → BLOCKER
-      // 其他模組 → WARNING
-      severity = is_core_module(file) ? BLOCKER : WARNING
-      report.add(severity, "無測試覆蓋：{file}")
-
-  // ─── 1c. E2E 測試審計（全端專案專用）───
-  IF exists("frontend/") AND (exists("backend/") OR exists("api/") OR exists("server/")):
-    IF NOT exists("playwright.config.ts") AND NOT exists("playwright.config.js"):
-      report.add(BLOCKER, "全端專案缺少 Playwright 設定（playwright.config.ts）")
-    ELSE:
-      e2e_dir = find_e2e_directory()  // e2e/, tests/e2e/, frontend/e2e/ 等
-      IF NOT e2e_dir:
-        report.add(BLOCKER, "全端專案缺少 E2E 測試目錄")
-      ELSE:
-        e2e_count = count_files_matching(e2e_dir, "*.spec.ts", "*.e2e.ts", "*.test.ts")
-        IF e2e_count == 0:
-          report.add(BLOCKER, "E2E 測試目錄存在但無測試檔案")
-        ELIF e2e_count < 3:
-          report.add(WARNING, "E2E 測試僅 {e2e_count} 個（建議 ≥ 3，至少覆蓋：導航、核心 CRUD、錯誤處理）")
-
-  // ─── 2. SPEC 覆蓋 ───
-  specs = list_specs()  // make spec-list
-  modules = identify_major_modules()  // src/ 下的一級目錄
-  FOR module IN modules:
-    IF NOT any_spec_covers(module, specs):
-      report.add(WARNING, "模組 {module} 無對應 SPEC")
-
-  // ─── 3. ADR 覆蓋 ───
-  adrs = list_adrs()  // make adr-list
-  // 檢查核心架構組件是否有 ADR
-  FOR adr IN adrs:
-    IF adr.status == "Draft" AND has_implementation_code(adr):
-      report.add(BLOCKER, "ADR-{adr.id} 狀態為 Draft 但已有實作代碼（鐵則違反）")
-    IF adr.status == "FIRM" AND has_implementation_code(adr):
-      report.add(WARNING, "ADR-{adr.id} 狀態為 FIRM（🟡）— 允許，待升級至 Accepted")
-
-  // ─── 4. 文件完整性 ───
-  required_docs = ["README.md", "CHANGELOG.md"]
-  optional_docs = ["docs/architecture.md"]
-  FOR doc IN required_docs:
-    IF NOT exists(doc):
-      report.add(WARNING, "缺少 {doc}")
-    ELIF file_age(doc) > 90_days:
-      report.add(INFO, "{doc} 超過 90 天未更新")
-  FOR doc IN optional_docs:
-    IF NOT exists(doc) AND project_type == "system":
-      report.add(WARNING, "缺少 {doc}（系統專案建議有架構文件）")
-
-  // ─── 5. 程式碼衛生 ───
-  // grep 全專案
-  deprecated_count = count_pattern("DEPRECATED|@deprecated")
-  todo_no_owner = count_pattern("TODO[^(]|TODO$")  // TODO 後無 (owner)
-  fixme_count = count_pattern("FIXME")
-  tech_debt_count = count_pattern("tech-debt:")
-  IF deprecated_count > 0:
-    report.add(WARNING, "{deprecated_count} 個 DEPRECATED 標記待清理")
-  IF todo_no_owner > 0:
-    report.add(WARNING, "{todo_no_owner} 個 TODO 無 owner")
-  IF tech_debt_count > 0:
-    report.add(INFO, "{tech_debt_count} 個 tech-debt 標記")
-
-  // ─── 6. 依賴健康 ───
-  IF has_package_manager():
-    IF NOT exists(lock_file):
-      report.add(WARNING, "缺少 lock file（{expected_lock_file}）")
-    IF has_loose_versions():
-      report.add(INFO, "存在未鎖定版本（* 或 latest）")
-  IF NOT exists(".env.example") AND uses_env_vars():
-    report.add(INFO, "缺少 .env.example")
-
-  // ─── 7. 文件新鮮度 ───
-  IF specs.count > 0 AND NOT any(spec.has_traceability FOR spec IN specs):
-    report.add(WARNING, "所有 SPEC 均無 Traceability 資料，無法驗證文件新鮮度。建議回填。")
-  ELSE:
-    FOR spec IN specs:
-      IF spec.has_traceability:
-        FOR impl_file IN spec.traceability.impl_files:
-          IF git_modified_date(impl_file) > spec.last_verified_date:
-            report.add(WARNING, "SPEC-{spec.id} 的實作檔案已更新但 SPEC 未同步（doc-stale）")
-
-  RETURN report
-```
-
-### 分級標準
-
-| 等級 | 判定條件 | 處理 |
-|------|----------|------|
-| 🔴 **Blocker** | ADR Draft 有實作代碼；核心模組無測試 | 必須先修復才能做主任務 |
-| 🟡 **Warning** | 模組無 SPEC；無 lock file；DEPRECATED 未清理；文件過期 | 主任務完成後處理 |
-| 🟢 **Info** | 缺 .env.example；tech-debt 標記；文件 > 90 天未更新 | 建議改善 |
-
-### 強制補齊流程
-
-```
-FUNCTION remediate_gaps(health_report):
-
-  blockers = health_report.blockers
-  warnings = health_report.warnings
-
-  IF blockers.not_empty:
-    PRESENT("🔴 發現 {LEN(blockers)} 個 blocker，必須先修復：")
-    FOR gap IN blockers:
-      PRESENT("  - {gap.description}")
-
-    IF autonomous_enabled:
-      // 自動建立 remediation SPEC
-      FOR gap IN blockers:
-        spec = EXECUTE("make spec-new TITLE=\"AUDIT-{NNN}: {gap.summary}\"")
-        FILL spec:
-          Goal: "補齊 {gap.description}"
-          Done_When: gap.resolution_criteria
-      PAUSE("已建立 {LEN(blockers)} 個修復 SPEC，請確認是否立即執行補齊")
-    ELSE:
-      PAUSE("請決定處理順序，或執行 make spec-new 建立修復 SPEC")
-
-  IF warnings.not_empty:
-    LOG("🟡 {LEN(warnings)} 個 warning 排入佇列，將在主任務完成後處理")
-```
-
-### 審計基線
-
-審計完成後產生 `.asp-audit-baseline.json`（加入 `.gitignore`）：
-
-```json
-{
-  "last_audit": "2026-03-11T10:00:00Z",
-  "test_coverage_ratio": 0.65,
-  "spec_count": 12,
-  "adr_count": 5,
-  "blockers": 2,
-  "warnings": 8,
-  "info": 3,
-  "lint_warning_count": 0,
-  "todo_fixme_count": 0,
-  "side_effects_unverified": 0,
-  "rollback_untested_count": 0
-}
-```
-
-用途：追蹤改善趨勢，下次審計時比對。
+發現 blocker 時：
+1. 逐項向人類列出 blocker 與影響。
+2. autonomous 啟用 → 為每個 blocker 建 `make spec-new TITLE="AUDIT-NNN: {gap}"`，
+   SPEC 的 Goal 寫「補齊 {gap.description}」、Done When 寫 gap 的可二元驗證消除條件
+   （例：「`make audit-health` 不再列出此項」），**然後 PAUSE 等人類確認執行順序**。
+3. standard → 列出 blocker 與建議 SPEC 標題，由人類決定。
+4. Warning 排入佇列，主任務完成後處理；無法處理者 `make orch-debt-log` 留痕。
 
 ---
 
 ## Part B: 任務分類
 
-### 分類決策樹
+分類執行 `make orch-classify TASK="..." HITL=...`（關鍵字表與信心門檻在
+`.asp/scripts/orchestrator/rules/classification.json`，回傳 type/confidence/await_required）。
+
+### 模糊案例裁決原則（語意判斷，腳本不裁決）
+
+- **MODIFICATION 的 post_check**：腳本回傳 `target_exists_in_codebase` 時，由 AI grep
+  確認目標存在；不存在 → 改走 NEW_FEATURE 並說明。
+- **複合需求**（GENERAL）：永遠人類確認拆解，不論 hitl 等級（拆解錯誤代價跨任務放大）。
+- **分類與使用者明示意圖矛盾**：使用者說「這是 bug」但腳本判 MODIFICATION → 以使用者
+  意圖為準，PRESENT 兩者差異後採用使用者分類。
+- **confidence 介於 0.5-0.8 的灰帶**：即使 standard 模式也補一句分類依據（matched 關鍵字），
+  讓人類確認時有判斷材料。
+
+### 人類確認話術格式（保留）
 
 ```
-FUNCTION classify_task(request):
-
-  signals = extract_signals(request)
-
-  // 優先匹配明確意圖
-  IF signals.match("remove", "delete", "deprecate", "drop", "cleanup",
-                   "移除", "刪除", "廢棄", "拿掉", "砍掉"):
-    RETURN { type: TASK_REMOVAL, reason: "包含移除/刪除意圖" }
-
-  IF signals.match("bug", "fix", "broken", "error", "crash", "regression",
-                   "修復", "修 bug", "錯誤", "壞了", "不正常", "hotfix"):
-    RETURN { type: TASK_BUGFIX, reason: "包含修復/錯誤意圖" }
-
-  IF signals.match("modify", "change", "update", "refactor", "adjust", "optimize",
-                   "修改", "調整", "重構", "優化", "改善"):
-    IF target_exists_in_codebase(signals.target):
-      RETURN { type: TASK_MODIFICATION, reason: "修改既有功能 {signals.target}" }
-    ELSE:
-      RETURN { type: TASK_NEW_FEATURE, reason: "目標不存在，視為新增功能" }
-
-  IF signals.match("add", "create", "implement", "build", "new",
-                   "新增", "建立", "實作", "開發"):
-    RETURN { type: TASK_NEW_FEATURE, reason: "包含新增/建立意圖" }
-
-  // 複合需求或無明確信號
-  RETURN { type: TASK_GENERAL, reason: "複合需求，需進一步分解" }
+任務分類：[BUGFIX] 修復登入逾時
+  理由：包含修復/錯誤意圖（confidence=0.86，matched: 修復）
+  → 確認分類正確？（回覆「對」繼續；或直接給正確分類）
 ```
 
-**重要**：分類結果必須向人類確認。即使 `hitl: minimal`，這是唯一在任務開始前的確認點。
+**繞過藉口與反駁（分類執行）：**
+| 藉口 | 反駁 |
+|------|------|
+| 「分類很明顯，不用跑腳本」 | 「明顯」是主觀判斷。腳本 1 秒回傳含 confidence 的可審計結果，跳過 = 留痕斷裂 |
+| 「confidence 低但我覺得分類對」 | 你的「覺得」無法被 audit。低信心 → AWAIT 是機械規則，覺得對就讓人類花 3 秒確認 |
+| 「使用者趕時間，跳過確認」 | 錯誤分類走錯工作流的代價 >> 3 秒確認。趕時間更要確認方向 |
+| 「上次同類任務確認過了」 | 分類確認是 per-task 的。上次的確認不延續（同 Assumption Checkpoint 豁免規則） |
 
 ---
 
 ## Part C: 架構影響評估
 
-```
-FUNCTION assess_architecture_impact(request):
-
-  impact = { requires_adr: false, reasons: [] }
-
-  // 根據 system_dev.md ADR 必要性表格
-  IF request.adds_new_module_or_service:
-    impact.requires_adr = true
-    impact.reasons.append("新增模組/服務")
-
-  IF request.changes_tech_stack:
-    impact.requires_adr = true
-    impact.reasons.append("更換技術棧（DB、框架、協議）")
-
-  IF request.modifies_core_architecture:
-    // Auth, API Gateway, DB schema (high risk)
-    impact.requires_adr = true
-    impact.reasons.append("調整核心架構")
-
-  IF request.adds_new_db_table:
-    impact.requires_adr = true
-    impact.reasons.append("新增資料表")
-
-  // 啟發式：影響檔案數
-  affected = grep_for_affected_files(request.target_modules)
-  IF LEN(affected) > 15:
-    impact.requires_adr = true
-    impact.reasons.append("影響超過 15 個檔案")
-
-  IF impact.requires_adr:
-    LOG("架構影響評估：需要 ADR — {impact.reasons}")
-  ELSE:
-    LOG("架構影響評估：無架構影響，跳過 ADR")
-
-  RETURN impact
-```
+依 `/asp-plan` Step 2 的五問清單判斷是否需要 ADR（跨模組／新依賴／schema 或 API 合約／
+3+ 檔案或跨團隊／安全效能合規）。保留啟發式：`assess_architecture_impact()` ——
+影響 > 15 個檔案（grep 計數）→ 需要 ADR。
 
 ---
 
 ## Part D: 五種任務工作流
 
-### D1. TASK_NEW_FEATURE（新增功能）
-
-```
-FUNCTION execute_new_feature(request):
-
-  // Phase 1: 架構影響評估
-  impact = assess_architecture_impact(request)
-
-  IF impact.requires_adr:
-    adr = EXECUTE("make adr-new TITLE=\"{request.title}\"")
-    FILL adr from request context
-    PAUSE("ADR 需要人類審核（AI 不可自行 Accept ADR — 鐵則）")
-    WAIT_UNTIL adr.status IN ["Accepted", "FIRM"] OR timeout(30_minutes):
-      IF adr.status == "FIRM":
-        PRESENT("🟡 ADR-{adr.id} 為 FIRM 狀態，允許繼續執行（建議盡快升至 Accepted）")
-      ON_TIMEOUT:
-        PRESENT("⚠️ ADR-{adr.id} 等待超過 30 分鐘仍為 Draft。")
-        PRESENT("  (1) 繼續等待  (2) 暫存進度並終止  (3) 跳過（標記 tech-debt: adr-pending）")
-        choice = AWAIT human_choice
-        IF choice == 3: LOG_TECH_DEBT("adr-pending: ADR-{adr.id}")
-
-  // Phase 2: SPEC 建立
-  spec = EXECUTE("make spec-new TITLE=\"{request.title}\"")
-  FILL spec:
-    Goal, Inputs, Outputs, Side Effects, Edge Cases, Rollback Plan,
-    Done When (含測試條件), NFR (若適用), Traceability (預留)
-  IF impact.requires_adr:
-    spec.related_adr = adr.id
-
-  // Phase 3: Gates（條件觸發，含 profile 載入檢查）
-  IF design_enabled:
-    IF NOT profile_loaded("design_dev"):
-      WARN("design: enabled 但 profile 未載入，跳過 Design Gate")
-      LOG_TECH_DEBT("design-gate-skipped")
-    ELSE:
-      CALL design_gate(spec)
-  IF openapi_enabled:
-    IF NOT profile_loaded("openapi"):
-      WARN("openapi: enabled 但 profile 未載入，跳過 OpenAPI Gate")
-      LOG_TECH_DEBT("openapi-gate-skipped")
-    ELSE:
-      CALL openapi_gate(spec)
-  IF rag_enabled:      EXECUTE("make rag-search Q=\"{spec.keywords}\"")
-
-  // Phase 4: 變更影響評估
-  CALL assess_change_impact(spec)  // from system_dev.md
-
-  // Phase 5: TDD（v3.2 場景驅動）
-  IF spec.has_scenarios:
-    // 5a: 從 Gherkin 場景產生測試骨架
-    test_skeleton = generate_test_skeleton(spec.scenarios, spec.test_matrix)
-    WRITE test_skeleton TO spec.test_file
-
-    // 5b: 填入 assertion（從 Then 子句推導）
-    FOR scenario IN spec.scenarios:
-      FILL test_case(scenario) WITH assertions FROM scenario.then_clauses
-
-    // 5c: 驗證三方覆蓋（矩陣行 ↔ 場景 ↔ 測試）
-    verify_scenario_coverage(spec.test_matrix, spec.scenarios, test_files)
-  ELSE:
-    // fallback: 原有行為（從 Done When 推測測試）
-    WRITE test_files
-
-  EXECUTE("make test-filter FILTER={spec.filter}")  // 確認 FAIL
-
-  // Phase 6: 實作
-  IMPLEMENT source_files
-
-  // Phase 7: 驗證（含 autonomous 三重防護）
-  IF autonomous_enabled:
-    result = CALL auto_fix_loop("make test")  // from autonomous_dev.md
-    IF result.guard_triggered:  // oscillation / cascade / smuggling
-      PAUSE("auto_fix_loop 防護觸發：{result.guard_type}，需人類介入")
-      // 不繼續文件管線，等待人類決定
-  ELSE:
-    EXECUTE("make test")
-  CALL verify_stable_state(spec)   // from system_dev.md
-
-  // Phase 8: 提交前自審
-  EXECUTE pre_commit_checklist()    // from system_dev.md
-
-  // Phase 9: 文件管線
-  CALL documentation_pipeline(spec, task_type=NEW_FEATURE)
-
-  // Phase 10: 完成報告
-  RETURN completion_report(spec)
-```
-
-### D2. TASK_BUGFIX（修復 Bug）
-
-```
-FUNCTION execute_bugfix(request):
-
-  // Phase 1: 判斷是否為 Hotfix
-  IF request.is_production_incident:
-    CALL execute_hotfix(request)  // 走 system_dev.md Hotfix 流程
-    RETURN
-
-  // Phase 2: 嚴重度判斷
-  severity = assess_severity(request)
-
-  // Phase 2.5: 根因領域偵測（v3.1）
-  domain_info = detect_bug_domain(request, severity)
-  PRESENT("根因領域：[{domain_info.domain}]")
-  IF domain_info.add_agents:
-    PRESENT("  領域追加角色：{domain_info.add_agents}")
-
-  // Phase 2.7: 主動記憶檢查（v3.1）
-  IF exists(".asp-agent-memory.yaml"):
-    proactive = proactive_memory_check("BUGFIX", domain_info.domain, request.module)
-    IF proactive.warnings:
-      PRESENT("📚 Agent Memory 歷史資訊：")
-      FOR w IN proactive.warnings:
-        PRESENT("  " + w)
-    IF proactive.suggested_strategy:
-      PRESENT("💡 建議策略：{proactive.suggested_strategy.strategy}（成功率 {proactive.suggested_strategy.success_rate}%）")
-    IF proactive.additional_agents:
-      domain_info.add_agents = domain_info.add_agents + proactive.additional_agents
-    IF proactive.pre_scan_targets:
-      PRESENT("🔍 修復前預掃描：")
-      FOR target IN proactive.pre_scan_targets:
-        EXECUTE("grep -rn \"{target.pattern}\" {target.module} --include=\"*.{ext}\"")
-
-  IF severity == TRIVIAL:
-    // 快速路徑
-    LOG("trivial bug，豁免 SPEC，理由：{reason}")
-    FIX the_bug
-    EXECUTE("make test")
-    CALL grep_full_project(bug_pattern)  // mandatory，無豁免
-    UPDATE "CHANGELOG.md"
-    RETURN completion_report_lite()
-
-  // Phase 3: Non-trivial Bug
-  IF involves_architecture_decision(request):
-    adr = EXECUTE("make adr-new TITLE=\"{request.title}\"")
-    PAUSE("涉及架構決策，需先完成 ADR")
-
-  // Phase 4: SPEC
-  spec = EXECUTE("make spec-new TITLE=\"BUG-{request.summary}\"")
-  FILL spec:
-    Goal: "修復 {symptom}，根因：{root_cause_hypothesis}"
-    Done When: 含重現測試條件
-
-  // Phase 4.5: Bug 場景矩陣（v3.2）
-  IF severity != TRIVIAL:
-    FILL spec.test_matrix:
-      P1: "修復後的正確行為"
-      N1: "原始 bug 的重現條件（reproduction test）"
-
-    // 根據根因領域追加典型負向案例
-    IF domain_info AND domain_info.domain != "general":
-      MATCH domain_info.domain:
-        "auth":         ADD N_cases: ["未授權存取", "token 過期", "權限不足"]
-        "null_safety":  ADD N_cases: ["null 輸入", "空字串", "undefined"]
-        "boundary":     ADD N_cases: ["最大值", "最小值", "零值"]
-        "api_contract": ADD N_cases: ["缺少必填欄位", "錯誤型別", "超出長度"]
-        "concurrency":  ADD N_cases: ["並發寫入", "讀寫競爭"]
-        "data_integrity": ADD N_cases: ["重複資料", "外鍵違反", "schema 不符"]
-        "state_machine":  ADD N_cases: ["非法狀態轉換", "並發狀態更新"]
-
-    FILL spec.scenarios FROM spec.test_matrix  // 自動產生 Gherkin 場景骨架
-
-  // Phase 4.7: 回歸基線捕獲（v3.3）
-  regression_baseline = EXECUTE("make test")
-  regression_baseline.snapshot = {
-    total_tests: regression_baseline.total,
-    passed: regression_baseline.passed,
-    failed: regression_baseline.failed,
-    test_names: regression_baseline.test_list
-  }
-
-  // Phase 5: 重現（Reproduce）
-  WRITE reproduction_test  // 必須 FAIL
-  VERIFY reproduction_test FAILS
-
-  // Phase 6: 修復
-  IMPLEMENT fix
-
-  // Phase 7: 驗證（含 autonomous 三重防護）
-  VERIFY reproduction_test PASSES
-  IF autonomous_enabled:
-    result = CALL auto_fix_loop("make test")
-    IF result.guard_triggered:
-      PAUSE("auto_fix_loop 防護觸發：{result.guard_type}，需人類介入")
-  ELSE:
-    EXECUTE("make test")
-  // 資料層 bug 強制全量測試（v3.1）
-  IF domain_info.force_full_test AND test_was_filtered:
-    EXECUTE("make test")  // 全量，覆蓋之前的 test-filter
-
-  // Phase 7.5: 回歸比對（v3.3）
-  post_result = EXECUTE("make test")
-  regression_check = compare_test_results(regression_baseline.snapshot, post_result)
-  IF regression_check.newly_failing:
-    WARN("🔴 回歸偵測：{LEN(regression_check.newly_failing)} 個之前通過的測試現在失敗")
-    FOR test IN regression_check.newly_failing:
-      WARN("  - {test.name}（PASS → FAIL）")
-    PAUSE("回歸偵測觸發，請修復後重新驗證")
-  IF regression_check.disappeared_tests:
-    WARN("⚠️ {LEN(regression_check.disappeared_tests)} 個測試消失（可能被誤刪）")
-
-  // Phase 8: 全專案掃描（mandatory — global_core.md 鐵則）
-  CALL grep_full_project(bug_pattern)
-  // Phase 8.5: 領域增強掃描（v3.1）
-  IF domain_info.grep_hint:
-    LOG("領域增強掃描：{domain_info.grep_hint}")
-  // 回覆格式：「已掃描全專案，共 N 處相同模式，已全部修復」或「無其他相同模式」
-  IF bug_type == STATE_DEPENDENCY:
-    CALL scan_state_dependencies()
-
-  // Phase 9: 下游驗證（共用模組）
-  IF modified_file.is_shared_module:
-    EXECUTE("make test")  // 全量，非 test-filter
-    LIST downstream_consumers
-
-  // Phase 10: Postmortem 評估
-  IF meets_postmortem_criteria(severity, retry_count):
-    EXECUTE("make postmortem-new TITLE=\"{request.summary}\"")
-
-  // Phase 11: 文件管線
-  CALL documentation_pipeline(spec, task_type=BUGFIX)
-  // commit message 含 bug 分類標籤：[bug:logic] / [bug:boundary] / etc.
-
-  RETURN completion_report(spec)
-```
-
-### D3. TASK_MODIFICATION（修改功能）
-
-```
-FUNCTION execute_modification(request):
-
-  // Phase 1: 找到既有 artifacts
-  existing_spec = find_related_spec(request.target)
-  existing_adr = find_related_adr(request.target)
-
-  // Phase 2: 影響分析
-  affected_files = grep_for_affected_files(request.target_modules)
-
-  // Phase 3: 變更等級判定（from global_core.md L1-L4）
-  level = determine_change_level(request, existing_spec, existing_adr)
-
-  // Phase 4: 依等級路由
-  MATCH level:
-    L1:  // 細節修改
-      UPDATE existing_spec  // 底部追加「變更記錄」
-      LOG("L1 變更：更新既有 SPEC")
-
-    L2:  // SPEC 推翻
-      CANCEL existing_spec  // 標記 Cancelled + 原因
-      spec = EXECUTE("make spec-new TITLE=\"{request.title}\"")
-      PAUSE("L2 變更：舊 SPEC 已取消，新 SPEC 需確認")
-
-    L3:  // ADR 推翻
-      adr = EXECUTE("make adr-new TITLE=\"{request.title}\"")
-      PAUSE("L3 變更：需要新 ADR（即使 hitl: minimal 也暫停）")
-      UPDATE existing_adr.status = "Superseded by {adr.id}"
-      // grep -r 掃描所有引用舊 ADR 的 SPEC
-      CALL reverse_scan_adr(existing_adr.id)
-
-    L4:  // 方向 Pivot
-      PAUSE("L4 方向 Pivot：暫停所有進行中的 SPEC 開發")
-      PRESENT full_impact_assessment
-      AWAIT human_direction
-
-  // Phase 4.5: 場景同步驗證（v3.2）
-  IF existing_spec AND existing_spec.has_scenarios:
-    stale_scenarios = []
-    FOR scenario IN existing_spec.scenarios:
-      // 檢查場景是否與新行為矛盾
-      IF scenario_conflicts_with(scenario, request):
-        stale_scenarios.append(scenario)
-
-    IF stale_scenarios:
-      PRESENT("⚠️ 以下場景與新行為矛盾，自動更新：")
-      FOR s IN stale_scenarios:
-        PRESENT("  - {s.id}: {s.name}")
-      // AI 自動更新場景——不需要人類手動維護
-      FOR s IN stale_scenarios:
-        UPDATE_SCENARIO(s, request.new_behavior)
-
-    // 檢查是否需要新增場景（新行為可能帶來新的正/負向案例）
-    new_behaviors = extract_new_behaviors(request, existing_spec)
-    IF new_behaviors:
-      PRESENT("📝 新行為需要新增場景：")
-      FOR behavior IN new_behaviors:
-        new_scenario = GENERATE_SCENARIO(behavior)
-        existing_spec.scenarios.append(new_scenario)
-        PRESENT("  + {new_scenario.id}: {new_scenario.name}")
-
-    // 更新測試矩陣（新增/修改/刪除行）
-    sync_test_matrix(existing_spec.test_matrix, existing_spec.scenarios)
-
-  // L2 的新 SPEC 自帶場景（在 Phase 4 建立時已要求）
-  // L3/L4 的場景由新 ADR/SPEC 流程處理
-
-  // Phase 4.7: 回歸基線捕獲（v3.3）
-  regression_baseline = EXECUTE("make test")
-  regression_baseline.snapshot = {
-    total_tests: regression_baseline.total,
-    passed: regression_baseline.passed,
-    failed: regression_baseline.failed,
-    test_names: regression_baseline.test_list
-  }
-
-  // Phase 5: 更新測試
-  IDENTIFY affected_tests
-  UPDATE or ADD tests to reflect new behavior
-  // 如果場景已更新，從新場景重新產生測試骨架
-  IF existing_spec AND existing_spec.has_scenarios AND stale_scenarios:
-    regenerate_test_skeleton(existing_spec.scenarios, existing_spec.test_matrix, affected_tests)
-  EXECUTE("make test-filter FILTER={spec.filter}")
-
-  // Phase 6: 實作
-  IMPLEMENT changes
-
-  // Phase 7: 驗證（含 autonomous 三重防護）
-  IF autonomous_enabled:
-    result = CALL auto_fix_loop("make test")
-    IF result.guard_triggered:
-      PAUSE("auto_fix_loop 防護觸發：{result.guard_type}，需人類介入")
-  ELSE:
-    EXECUTE("make test")
-  CALL verify_stable_state(spec)
-
-  // Phase 7.5: 回歸比對（v3.3）
-  post_result = EXECUTE("make test")
-  regression_check = compare_test_results(regression_baseline.snapshot, post_result)
-  IF regression_check.newly_failing:
-    WARN("🔴 回歸偵測：{LEN(regression_check.newly_failing)} 個之前通過的測試現在失敗")
-    FOR test IN regression_check.newly_failing:
-      WARN("  - {test.name}（PASS → FAIL）")
-    PAUSE("回歸偵測觸發，請修復後重新驗證")
-  IF regression_check.disappeared_tests:
-    WARN("⚠️ {LEN(regression_check.disappeared_tests)} 個測試消失（可能被誤刪）")
-
-  // Phase 8: 文件管線
-  CALL documentation_pipeline(spec, task_type=MODIFICATION)
-
-  RETURN completion_report(spec)
-```
-
-### D4. TASK_REMOVAL（移除功能）
-
-> 全新工作流。移除比新增更危險——殘留比缺少更有害。
-
-```
-FUNCTION execute_removal(request):
-
-  // Phase 1: 識別移除範圍
-  target = identify_removal_target(request)
-
-  // Phase 2: 依賴分析（最關鍵的步驟）
-  dependents = {
-    code_refs:    grep -r "{target}" --include="*.{go,ts,py,java,...}",
-    test_refs:    grep -r "{target}" in test directories,
-    doc_refs:     grep -r "{target}" in docs/,
-    config_refs:  grep -r "{target}" in config files,
-    spec_refs:    grep -r "{target}" in docs/specs/,
-    adr_refs:     grep -r "{target}" in docs/adr/
-  }
-
-  PRESENT("移除影響分析：")
-  PRESENT("  程式碼引用：{LEN(dependents.code_refs)} 處")
-  PRESENT("  測試引用：  {LEN(dependents.test_refs)} 處")
-  PRESENT("  文件引用：  {LEN(dependents.doc_refs)} 處")
-  PRESENT("  設定引用：  {LEN(dependents.config_refs)} 處")
-
-  IF LEN(dependents.code_refs) > 0:
-    PAUSE("以下模組依賴即將移除的功能，請確認移除策略")
-
-  // Phase 3: 外部消費者評估
-  IF target.has_external_consumers OR target.is_public_api:
-    PRESENT("⚠️ 外部消費者存在，建議分階段移除：")
-    PRESENT("  Phase 1: 標記 DEPRECATED + 設定清理期限")
-    PRESENT("  Phase 2: 到期後執行移除")
-    MARK target as DEPRECATED
-    PAUSE("請決定：立即移除 or 分階段 deprecation")
-
-  // Phase 4: 架構評估
-  IF target.is_module OR target.is_service OR target.is_api_endpoint:
-    adr = EXECUTE("make adr-new TITLE=\"REMOVE-{target.name}\"")
-    adr.context = "為什麼移除 {target.name}"
-    PAUSE("架構級移除，需 ADR 審核")
-
-  // Phase 5: SPEC
-  spec = EXECUTE("make spec-new TITLE=\"REMOVE-{target.name}\"")
-  FILL spec:
-    Goal: "安全移除 {target.name} 及所有引用"
-    Side Effects: dependents list
-    Edge Cases:
-      Rollback Plan: 如何還原
-      Data Impact: 使用者資料是否受影響
-      API Breaking Change: 是否影響外部消費者
-    Done When:
-      - grep -r "{target}" returns 0 results（排除 docs/adr/、CHANGELOG）
-      - make test 通過
-      - 無孤立 imports / configs
-
-  // Phase 6: 執行移除（順序重要）
-  // 6a: 先更新依賴方（移除引用、更新 imports）
-  FOR dep IN dependents.code_refs:
-    UPDATE dep to remove dependency on target
-
-  // 6b: 清理測試
-  REMOVE tests that ONLY test the removed target
-  UPDATE tests that reference the target alongside other features
-
-  // 6c: 移除目標代碼
-  REMOVE target files
-  // 注意：檔案刪除在 autonomous 模式仍需 PAUSE（鐵則）
-
-  // 6d: 清理設定
-  REMOVE config entries referencing target
-  REMOVE environment variables specific to target
-
-  // Phase 7: 驗證
-  EXECUTE("make test")  // 全套
-  result = EXECUTE("grep -r \"{target.identifiers}\"")
-  IF result.has_matches:
-    // 排除合理殘留（CHANGELOG 歷史記錄、ADR 記錄）
-    unexpected = filter_out_acceptable(result, ["CHANGELOG", "docs/adr/"])
-    IF unexpected.not_empty:
-      WARN("仍有殘留引用：{unexpected}")
-      FIX unexpected references
-
-  // Phase 8: 文件管線
-  CALL documentation_pipeline(spec, task_type=REMOVAL)
-
-  RETURN completion_report(spec)
-```
-
-### D5. TASK_GENERAL（複合需求）
-
-```
-FUNCTION execute_general(request):
-
-  // Phase 1: 深度分析
-  analysis = analyze_requirement(request)
-
-  // Phase 2: 分解為子任務
-  sub_tasks = decompose(analysis)
-  FOR sub_task IN sub_tasks:
-    sub_task.type = classify_task(sub_task)
-
-  // Phase 3: 向人類確認拆解
-  PRESENT("需求分析結果：")
-  FOR sub_task IN sub_tasks:
-    PRESENT("  {sub_task.id}: [{sub_task.type}] {sub_task.description}")
-  PAUSE("請確認任務拆解是否正確")
-
-  // Phase 4: 執行
-  IF mode == multi-agent AND LEN(sub_tasks) > 1:
-    // 多 Agent 並行（需符合 Part G 的低耦合要求）
-    CALL multi_agent_dispatch(sub_tasks)
-  ELSE:
-    FOR sub_task IN sub_tasks:
-      MATCH sub_task.type:
-        NEW_FEATURE:   execute_new_feature(sub_task)
-        BUGFIX:        execute_bugfix(sub_task)
-        MODIFICATION:  execute_modification(sub_task)
-        REMOVAL:       execute_removal(sub_task)
-
-  // Phase 5: 跨任務整合驗證
-  EXECUTE("make test")  // 全套
-
-  // Phase 6: 統一文件管線
-  CALL documentation_pipeline(sub_tasks, task_type=GENERAL)
-
-  RETURN completion_report(sub_tasks)
-```
+> 各工作流只保留協調骨架與 Phase 編號（pipeline.md G1-G6 映射錨點）；ADR/SPEC/TDD/
+> 提交細節一律引用對應 skill：建立規劃 → `/asp-plan`；品質門 → `/asp-gate`；
+> 提交前 → `/asp-ship`。
+
+### D1. TASK_NEW_FEATURE — `execute_new_feature(request)`
+
+| Phase | 動作 |
+|-------|------|
+| 1 | 架構影響評估（Part C）；需 ADR → `/asp-plan` Step 3，**等人類升 Accepted/FIRM**（FIRM 🟡 留 bypass log；Draft 超時 30 分鐘 → 人類三選一：等待／暫存終止／跳過記 `adr-pending` tech-debt） |
+| 2 | SPEC 建立（`/asp-plan` Step 4，七欄位 + 場景） |
+| 3 | 條件 Gates：design/openapi enabled 且 profile 已載入 → 各自 Gate；rag enabled → `make rag-search` 查歷史教訓；enabled 但未載入 → WARN + `make orch-debt-log` |
+| 4 | 變更影響評估（`assess_change_impact()`，system_dev.md） |
+| 5 | TDD：有 Gherkin 場景 → 場景驅動產測試骨架並填 assertion；無 → 從 Done When 推測試。先確認 FAIL（`/asp-gate G3`） |
+| 6 | 實作 |
+| 7 | 驗證：autonomous → `auto_fix_loop`（防護觸發 = PAUSE）；否則 `make test`；`verify_stable_state()` |
+| 8 | 提交前自審（`/asp-ship`） |
+| 9 | 文件管線（Part E） |
+| 10 | 完成報告（Part F） |
+
+### D2. TASK_BUGFIX — `execute_bugfix(request)`
+
+| Phase | 動作 |
+|-------|------|
+| 1 | production 事故 → 轉 `execute_hotfix()`（system_dev.md Hotfix 流程），結束 |
+| 2 | 嚴重度判斷（`classify_bug_severity()`，global_core）；2.5 領域偵測 `make orch-classify --domain`（追加角色/grep_hint/force_full_test） |
+| 3 | TRIVIAL → 快速路徑：修復 → `make test` → **全專案 grep（鐵則，無豁免）** → CHANGELOG → 結束 |
+| 4 | non-trivial：SPEC（`BUG-` 前綴，Done When 含重現條件）+ 場景矩陣（P1 修復後正確行為、N1 重現條件 + 領域典型負向案例，從 rules/classification.json 的 domain 對應） |
+| 4.7 | 回歸基線捕獲：`make test` 結果快照（total/passed/failed/test_names） |
+| 5 | 重現測試（必須先 FAIL） |
+| 6 | 修復 |
+| 7 | 驗證：重現測試 PASS + 全量測試；`force_full_test` 域（data_integrity）強制全量；7.5 回歸比對——快照中 PASS→FAIL 的測試 = 回歸，PAUSE；測試消失 = WARN 可能誤刪 |
+| 8 | **全專案掃描（global_core 鐵則）**：grep 指令本身必須輸出在回覆中；領域 grep_hint 加掃；STATE_DEPENDENCY 型 → `scan_state_dependencies()` |
+| 9 | 共用模組 → 全量測試 + 列下游消費者 |
+| 10 | Postmortem 評估（`meets_postmortem_criteria()`，global_core 觸發表） |
+| 11 | 文件管線；commit 帶 `[bug:logic|boundary|concurrency|integration|config]` 分類標籤 |
+
+### D3. TASK_MODIFICATION — `execute_modification(request)`
+
+| Phase | 動作 |
+|-------|------|
+| 1 | 找既有 artifacts（SPEC/ADR） |
+| 2 | 影響分析（grep affected files） |
+| 3 | 變更等級判定（Part H `determine_change_level()`，L1-L4 = 需求變更等級） |
+| 4 | 路由：L1 → 更新既有 SPEC（追加變更記錄）；L2 → 舊 SPEC 標 Cancelled + 新 SPEC，PAUSE 確認；L3 → 新 ADR + `PAUSE("L3 變更：需要新 ADR（即使 hitl: minimal 也暫停）")` + 舊 ADR 標 Superseded + `reverse_scan_adr()`；L4 → 暫停所有進行中 SPEC，PRESENT 全量影響，AWAIT 人類方向 |
+| 4.5 | 場景同步（語意判斷）：既有場景與新行為矛盾 → AI 自動更新並 PRESENT；新行為 → 產新場景；同步測試矩陣 |
+| 4.7 | 回歸基線捕獲（同 D2） |
+| 5 | 更新測試（場景變更 → 重生測試骨架）；確認 FAIL |
+| 6 | 實作 |
+| 7 | 驗證 + 回歸比對（同 D2 Phase 7/7.5） |
+| 8 | 文件管線 |
+
+### D4. TASK_REMOVAL — `execute_removal(request)`
+
+> 移除比新增更危險——殘留比缺少更有害。
+
+| Phase | 動作 |
+|-------|------|
+| 1 | 識別移除範圍 |
+| 2 | 依賴分析（六類 grep：code/test/doc/config/spec/adr 引用計數，PRESENT 影響表）；code 引用 > 0 → PAUSE 確認策略 |
+| 3 | 外部消費者/public API → 建議分階段：先 DEPRECATED + 清理期限，到期再移除；PAUSE 決定 |
+| 4 | 模組/服務/API endpoint 級 → ADR（`REMOVE-` 前綴），PAUSE 審核 |
+| 5 | SPEC：Done When 含「grep 0 結果（排除 docs/adr/、CHANGELOG）+ make test 過 + 無孤立 imports/configs」 |
+| 6 | 執行順序（重要）：6a 先更新依賴方 → 6b 清理測試 → 6c 移除目標（**檔案刪除在 autonomous 仍 PAUSE——鐵則**）→ 6d 清理設定/環境變數 |
+| 7 | 驗證：全量測試 + 殘留 grep（過濾合理殘留：CHANGELOG/ADR 歷史） |
+| 8 | 文件管線（ADR 標 Deprecated + 反向掃描） |
+
+### D5. TASK_GENERAL — `execute_general(request)`
+
+| Phase | 動作 |
+|-------|------|
+| 1-2 | 深度分析 + 拆解為低耦合子任務，逐個 `make orch-classify` |
+| 3 | **PAUSE 確認拆解**（複合需求永遠人類確認，見 Part B 裁決原則） |
+| 4 | multi-agent 且子任務 >1 → `orchestrator_multi_agent.md` 分派；否則依類型逐個執行 D1-D4 |
+| 5 | 跨任務整合驗證（全量測試） |
+| 6 | 統一文件管線 |
 
 ---
 
 ## Part E: 文件產出管線
 
-所有任務類型共用，確保文件產出的一致性與完整性。
+`documentation_pipeline(spec, task_type)` = `/asp-ship` Step 3-5（CHANGELOG 分類
+Added/Fixed/Changed/Removed、README、SPEC Traceability 回填）之外的 delta：
 
-```
-FUNCTION documentation_pipeline(spec_or_tasks, task_type):
-
-  artifacts = []
-
-  // ─── 1. CHANGELOG.md ───
-  IF NOT trivial:
-    section = MATCH task_type:
-      NEW_FEATURE  → "### Added"
-      BUGFIX       → "### Fixed"
-      MODIFICATION → "### Changed"
-      REMOVAL      → "### Removed"
-      GENERAL      → 依各子任務分別歸類
-    UPDATE "CHANGELOG.md" with section entry:
-      "- {description} (SPEC-NNN)"
-    artifacts.append("CHANGELOG.md")
-
-  // ─── 2. README.md ───
-  IF spec.changes_user_facing_behavior OR is_final_task:
-    UPDATE "README.md" affected sections
-    // is_final_task: 最後一個任務完成時，全面檢視 README 是否反映專案最新狀態
-    artifacts.append("README.md")
-
-  // ─── 3. docs/architecture.md ───
-  IF spec.related_adr OR task_type == REMOVAL:
-    UPDATE "docs/architecture.md"
-    artifacts.append("docs/architecture.md")
-
-  // ─── 4. OpenAPI spec ───
-  IF openapi_enabled AND spec.changes_api:
-    UPDATE openapi spec file
-    artifacts.append("openapi spec")
-
-  // ─── 5. ADR 狀態 ───
-  IF task_type == REMOVAL AND spec.related_adr:
-    UPDATE adr.status = "Deprecated"
-    EXECUTE("grep -r \"ADR-{adr.id}\"")  // 反向掃描
-
-  // ─── 6. SPEC 完成更新 ───
-  UPDATE spec:
-    Done When: 所有項目打勾 ✅
-    Traceability: 回填實作檔案 + 測試檔案 + 最後驗證日期（今天）
-    // 在 SPEC 底部追加完成時間戳：
-    // | **完成時間** | YYYY-MM-DD HH:MM |
-
-  // ─── 7. Session checkpoint ───
-  EXECUTE("make session-checkpoint NEXT=\"{next_task_or_done}\"")
-
-  LOG("文件管線完成，已更新 {LEN(artifacts)} 個文件")
-  RETURN artifacts
-```
+- 架構異動 / REMOVAL → 更新 `docs/architecture.md`
+- REMOVAL → 關聯 ADR 標 Deprecated + `grep -r "ADR-{id}"` 反向掃描
+- 結束 → `make session-checkpoint NEXT="{next_task_or_done}"`
 
 ---
 
 ## Part F: 完成報告
 
-```
-FUNCTION completion_report(spec):
+`completion_report(spec)` 欄位（PRESENT 為表格）：
 
-  report = {
-    task_type:          spec.task_type,
-    spec_id:            spec.id,
-    related_adr:        spec.related_adr or "N/A",
-    files_modified:     list_modified_files(),
-    files_created:      list_created_files(),
-    files_deleted:      list_deleted_files(),
-    tests_added:        count_new_tests(),
-    tests_result:       "make test" result summary,
-    docs_updated:       list_updated_docs(),
-    changelog_entry:    spec.changelog_entry,
-    commit_tags:        [bug_tag or feature_tag],
-    health_improvement: {
-      blockers:       before → after,
-      warnings:       before → after,
-      test_coverage:  before% → after%
-    },
-    next_steps:         remaining_todos or "None"
-  }
+| 欄位 | 內容 |
+|------|------|
+| 任務 | type / SPEC-id / 關聯 ADR |
+| 變更 | 修改/新增/刪除檔案數；新增測試數；`make test` 結果 |
+| 文件 | 已更新文件清單；CHANGELOG 條目；commit 標籤 |
+| 健康 | blockers/warnings before → after |
+| 後續 | 殘餘 TODO 或 None |
 
-  PRESENT("═══════════════════════════════════════")
-  PRESENT("  任務完成報告")
-  PRESENT("═══════════════════════════════════════")
-  PRESENT("  類型：{report.task_type}")
-  PRESENT("  SPEC：{report.spec_id}")
-  PRESENT("  修改：{LEN(report.files_modified)} 檔案")
-  PRESENT("  新增：{LEN(report.files_created)} 檔案")
-  PRESENT("  刪除：{LEN(report.files_deleted)} 檔案")
-  PRESENT("  測試：+{report.tests_added}，{report.tests_result}")
-  PRESENT("  文件：{report.docs_updated}")
-  PRESENT("  健康：blockers {report.health_improvement.blockers}")
-  PRESENT("═══════════════════════════════════════")
-
-  RETURN report
-```
+trivial 路徑用 `completion_report_lite()`（變更 + 測試結果兩行）。
 
 ---
 
-## Part G: Multi-Agent 整合
+## Part G: Multi-Agent 整合（stub）
 
-> **v4.3 合併**：`multi_agent.md` 內容已整合於此。原 canonical source 為 `multi_agent.md`（v4.2 前），v4.3 起本節為唯一來源。
-> Autonomous Worker 擴展規則見 `autonomous_dev.md`「Multi-Agent 整合」。
-
-適用：`mode: multi-agent`，並行任務分治、大型功能拆解。
-
-> **與 committee 模式的區別**（committee mode 已於 2026-05-10 deprecated）：
-> - `multi-agent`：實作期使用，需求已確定，拆分為並行子任務加速執行。
-> - ~~`committee`：決策期使用。~~ → 已 archive；高風險決策改用 `/asp-plan` + ADR + 人類 review。
-
-> ⚠️ **v3.7「Context 全量傳遞」機制已廢止（D-001, 2026-05-04）**：
-> 新作法採 `/clear` + scratchpad（檔案路徑 + hash + 邊界限制）取代 context dump，
-> 避免跨 agent prompt injection 污染。完整 worktree 隔離架構已於 v4.1 實作（SPEC-004 Accepted）。
-
-### 角色分派
-
-Orchestrator 根據 `team_compositions.yaml` 選擇角色：
-
-```
-FUNCTION assign_roles(task_type, complexity):
-  scenario = match_scenario(task_type, complexity)  // from team_compositions.yaml
-  team = scenario.agents
-  FOR role IN team:
-    role_def = LOAD(".asp/agents/{role}.yaml")
-    // role_def 提供 description / personality / capabilities / decision_examples
-  RETURN team
-```
-
-> **v4.1.1**：scope 強制在 SPEC-004 的 TASK manifest（`scope.allow` / `scope.forbid`）+ git worktree 檔案系統隔離。Agent yaml 的 `scope_constraints` / `max_spawn_depth` 是描述性欄位，無 enforcement 程式碼。
-
-### Orchestrator 職責
-
-開始並行任務前，必須完成：
-
-```
-1. 讀取 docs/architecture.md 與 docs/adr/ 確認現況
-2. 將需求拆解為低耦合子任務
-3. 為每個子任務定義 Task Manifest（見下）
-4. 指派 Worker，設定 Done Definition（呼叫 assign_roles(type, complexity)）
-```
-
-> ⚠️ v3.7「建立 `.agent-lock.yaml` 登記文件鎖定」已廢止（D-001, 2026-05-04）。
-> 改用 git worktree 硬性隔離（SPEC-004），每 agent 一個 worktree，無需檔案鎖。
-
-### Task Manifest 格式
-
-```yaml
-task_id: TASK-001
-agent: worker-a
-scope:
-  allow:  [src/store/, src/api/routes.go]
-  forbid: [src/auth/, src/config/]
-input:
-  - docs/specs/SPEC-XXX.md
-output:
-  - src/store/feature_x.go
-  - tests/store/feature_x_test.go
-done_when: "make test-filter FILTER=feature_x 全數通過"
-agent_role: impl          # role from .asp/agents/
-track: A                  # parallel track identifier
-level: 0                  # topological level (0=independent)
-```
-
-### 衝突隔離（v4.1 起：git worktree 硬性隔離）
-
-每個 Worker 在獨立的 git worktree 中工作，由 Orchestrator 在 `converge` 階段以 git merge 匯流。隔離由檔案系統層保證，**不靠 AI 自律**。
-
-```bash
-# Dispatch：為每個 task 建 worktree + branch
-# ASP_AUDIT_ROOT 錨定「主 repo」（git-common-dir）—— 即使從 worktree 內執行也指向主 repo，
-# audit/bypass/escalation NDJSON 一律寫主 repo（SPEC-004 §🔒）。worktree 作 audit root 會被
-# _validate_audit_root Stage D2 以 exit 7 擋下（ADR-010 Pattern B fail-closed）。
-ASP_AUDIT_ROOT="$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")" \
-    bash .asp/scripts/multi-agent/dispatch.sh --manifests <dir>
-
-# Converge：rebase + merge 每個完成的 task
-ASP_AUDIT_ROOT="$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")" \
-    bash .asp/scripts/multi-agent/converge.sh --task TASK-001 --task TASK-002
-
-# List + GC（運維）
-make agent-worktree-list
-make agent-worktree-gc-dry-run
-make agent-worktree-gc
-```
-
-**強制要求**：
-- `ASP_AUDIT_ROOT` 必填，必須是主 repo 的絕對路徑。未設定 / 相對路徑 / 非 git repo → exit 7。
-- 所有 Worker 寫入 bypass / telemetry / escalation log 一律走 `audit-write.sh` wrapper。
-- `max_parallel` 硬上限 10 個 worker；超過 → exit 6。
-- scope.allow 重疊偵測在 dispatch 階段拒絕（exit 5）。
-
-**規格書**：`docs/specs/SPEC-004-multi-agent-worktree-isolation.md`（Accepted）
-
-**退出碼**：1=scope/path outside repo / 2=bad args / 3=merge conflict / 4=disk space / 5=scope overlap / 6=max_parallel / 7=ASP_AUDIT_ROOT invalid / 8=rollback verify failed / 13=install runtime precheck failed
-
-### 並行軌道
-
-```
-FUNCTION plan_parallel_execution(sub_tasks):
-  graph = build_dependency_graph(sub_tasks)
-  levels = topological_levels(graph)
-
-  execution_plan = []
-  FOR level_num, tasks IN levels:
-    track_group = {
-      level: level_num,
-      tracks: [],
-      marker: "[P]" if LEN(tasks) > 1 else "[S]"
-    }
-    FOR task IN tasks:
-      track = {
-        task: task,
-        assigned_role: select_role(task),
-        locked_files: task.scope.allow,
-        track_id: NEXT_TRACK_ID()
-      }
-      track_group.tracks.append(track)
-    execution_plan.append(track_group)
-
-  // 鎖衝突偵測
-  FOR group IN execution_plan:
-    all_locks = flatten(t.locked_files FOR t IN group.tracks)
-    IF has_duplicates(all_locks):
-      resolve_lock_conflicts(group)  // 移到下一層 or 指派 integ agent
-
-  RETURN execution_plan
-
-
-FUNCTION converge_tracks(completed_tracks, integ_agent):
-  handoffs = [track.final_handoff FOR track IN completed_tracks]
-  conflicts = integ_agent.detect_conflicts(handoffs)
-  IF conflicts:
-    FOR conflict IN conflicts:
-      IF conflict.resolvable:
-        integ_agent.resolve(conflict)
-      ELSE:
-        escalate(severity="P1", reason="並行軌道不可解衝突", context={conflict})
-  result = EXECUTE("make test")
-  IF result.failed:
-    INVOKE_SKILL("/asp-dev-qa-loop", task=integration_task, dev=integ_agent, qa=qa_agent)
-```
-
-### MCP 安全邊界
-
-Worker Agent 可自行執行：
-- filesystem MCP：讀寫自己 scope 內的文件
-- bash MCP：`make test-filter`、`make lint`
-
-需要 Orchestrator 審核才能執行：
-- git push / git merge
-- 刪除操作（rm、DROP TABLE）
-- 外部 API 的寫入操作
-- 環境變數修改 / Docker image 推送
-
-### Worker 完成流程
-
-```
-FUNCTION on_worker_done(handoff):
-  task = handoff.task_id
-  test_result = EXECUTE("make test-filter FILTER={task.manifest.scope.filter}")
-
-  IF test_result.passed:
-    IF pipeline_active:
-      gate_result = evaluate_gate(current_gate, artifacts, gate_agents)
-    IF autonomous_enabled:
-      // 可自動合併到工作分支（非主分支）
-    ELSE:
-      AWAIT human_confirm("merge")
-  ELSE:
-    IF escalation_loaded AND task.retry_count < MAX_RETRIES(2):
-      memory_hint = get_memory_hint(task, handoff.failure_context)
-      reassign(task, create_handoff(REASSIGNMENT, memory_ref=memory_hint))
-    ELSE:
-      escalate(severity="P1", reason="Worker auto_fix + Orchestrator 重派皆耗盡", task_id=task.id)
-```
-
-#### Worker 輸出契約（`.asp-out/`，ADR-010 Pattern A）
-
-每個 Worker 在自己的 worktree 內，把產出落在固定的 canonical 目錄（與 `.asp-worktrees/<task>/` 並列），讓 Orchestrator 能**確定性定位**產出（強化 v4.1 D-001 scratchpad 慣例）：
-
-```
-.asp-worktrees/<task-id>/.asp-out/
-  summary.txt      # 一行 summary（agent 對 Orchestrator 回傳的唯一內容）
-  diff.txt         # → TASK_COMPLETE.artifacts.diff_summary
-  test-output.txt  # → TASK_COMPLETE.artifacts.test_output
-  checksums.json   # → TASK_COMPLETE.artifacts.test_checksums（smuggling 偵測）
-  handoff.yaml     # TASK_COMPLETE.yaml 實例
-```
-
-- **強制檔名**（ASP 風格：**log 不擋**，經 `audit-write.sh` telemetry，不新增 fail-closed 卡點）：
-  `^(summary|diff|test-output|checksums|handoff)\.(txt|json|yaml)$`
-- **Worker 對 Orchestrator 只回一行**（其餘細節落 `.asp-out/`，避免噪音淹沒上下文）：
-  `TASK-NNN <status> | out=<path> | files=<n> | tests=<summary>`
-- 暫定**僅約定 + log**；未來如需 converge 自動收集再接線（ADR-010 §7 Q5）。
-
-### Sub-Agent 深度準則（設計約束，非執行性）
-
-- Orchestrator 是任務拆解唯一入口
-- Worker 遇到超出能力的子問題 → 上報 escalation_target，由 Orchestrator 重新分派
-- Worker 若呼叫 Task 工具，子 agent 結果以 tool response 形式注入主迴圈，不可再派生第三層
-
-### 交接單類型參考
-
-| 類型 | 用途 | 產生方 |
-|------|------|--------|
-| `TASK_COMPLETE` | Worker 完成單一任務 | Worker |
-| `REASSIGNMENT` | Orchestrator 重派任務（含 memory hint） | Orchestrator |
-| `PHASE_GATE` | Pipeline 階段轉換（G1-G6 通過） | Orchestrator |
-| `ESCALATION` | 重試耗盡，升級至人類 | Orchestrator |
-| `SESSION_BRIDGE` | 跨 session 上下文保留 | Orchestrator |
-| `SPRINT_SUMMARY` | Sprint 邊界彙總（autopilot 跨 session 用） | Orchestrator |
-
-交接單格式詳見 `.asp/templates/handoff/`。
-
-### Dispatch 入口函數
-
-當 `mode: multi-agent` 且 TASK_GENERAL 分解出多個獨立子任務時：
-
-```
-FUNCTION multi_agent_dispatch(sub_tasks):
-
-  FOR sub_task IN sub_tasks:
-    manifest = {
-      task_id:   "TASK-{NNN}",
-      workflow:  sub_task.type,
-      scope:     infer_scope(sub_task),
-      input:     [sub_task.spec],
-      output:    infer_outputs(sub_task),
-      done_when: sub_task.spec.done_when
-    }
-    team = recommend_team(sub_task.type, sub_task)
-    manifest.agent_role = select_role_for_subtask(sub_task, team)
-
-  CALL orchestrator_dispatch(manifests)
-  EXECUTE("make test")  // 跨任務整合測試
-```
+全文已抽出至 **`orchestrator_multi_agent.md`**（ADR-015；Phase 4 隨 multi-agent 凍結至
+experimental/）。`mode: multi-agent` 時**必須一併載入**該檔（profile-map.yaml 已綁定）。
+本節保留標題作為外部引用錨點（pipeline.md、asp-dispatch、asp-autopilot）。
 
 ---
 
-## Part H: Helper Function 定義
+## Part H: 裁決原則（語意判斷函數）
 
-> 以下定義 task_orchestrator 內部呼叫的 helper function。已在其他 Profile 定義的函數僅列交叉引用。
+`determine_change_level(request, existing_spec, existing_adr)` —— L1-L4 = **需求變更等級**
+（global_core「需求變更回溯協議」，非成熟度等級）：
 
-### 審計用函數
+| 判定 | 等級 | 範例 |
+|------|------|------|
+| 多個 SPEC（>2）或 ADR（>1）失效 | L4 | B2C → B2B 轉型 |
+| 與既有 ADR 決策矛盾 | L3 | REST 改 GraphQL |
+| SPEC Goal 改變，或影響 >10 檔且超出 SPEC 範圍 | L2 | 新增 OAuth Provider（已有 auth SPEC） |
+| Goal 不變的內部調整 | L1 | 新增 optional API 欄位 |
 
-```
-is_core_module(file):
-  // 判定檔案是否屬於核心模組（核心模組無測試 → BLOCKER）
-  匹配路徑模式：auth/, payment/, data/, security/, core/, api/, model/
-  若專案根目錄有 .asp-audit-config.yaml → 使用自定義 patterns
-  預設不確定 → 視為非核心（WARNING 而非 BLOCKER）
+不確定時 → 視為高一級（保守原則）。
 
-identify_major_modules():
-  // 列出專案主要模組，用於 SPEC 覆蓋檢查
-  掃描 src/（或語言慣例根目錄：cmd/, lib/, app/, packages/）下的一級目錄
-  排除：vendor/, node_modules/, .venv/, test/, tests/, __pycache__, .git/
-  回傳目錄名稱列表
+`meets_postmortem_criteria()` → global_core「Postmortem 觸發條件」表（severity ≥ HIGH、
+retry ≥ 3、影響 production、需 rollback）。
 
-has_corresponding_test(file, test_files):
-  // 判定 source file 是否有對應測試
-  語言慣例：
-    Go:     {name}_test.go
-    Python: test_{name}.py 或 {name}_test.py
-    TS/JS:  {name}.test.ts 或 {name}.spec.ts 或 {name}.test.js
-    Java:   {Name}Test.java
-  匹配策略：basename 去除副檔名，在 test_files 中模糊比對
-  回傳 true/false
-
-has_implementation_code(adr):
-  // 判定 ADR 是否已有對應的實作代碼（Draft + 實作 → BLOCKER）
-  EXECUTE: grep -r "ADR-{adr.id}" --include="*.go" --include="*.ts" --include="*.py" --include="*.java" . | grep -v docs/ | grep -v CHANGELOG
-  有結果 → true
-```
-
-### 任務分解函數
-
-```
-FUNCTION analyze_requirement(request):
-  // 將自然語言需求結構化
-  // 1. 關鍵字提取 → grep 全專案 → 識別涉及的檔案
-  // 2. 從檔案路徑推導涉及模組
-  // 3. 分析 import/require 圖 → 識別模組間依賴
-  // 4. 回傳 {
-       modules: ["auth", "api"],        // 涉及的模組
-       dependencies: [("auth", "api")], // 模組間依賴邊
-       estimated_files: 12,             // 預估影響檔案數
-       complexity: "medium"             // low: ≤3 files, medium: 4-15, high: >15
-     }
-
-FUNCTION decompose(analysis):
-  // 將結構化分析拆解為可獨立執行的子任務
-  // 規則：
-  //   - 以模組邊界分割，每個子任務的修改檔案集合不重疊
-  //   - 有跨模組依賴 → 串行（標記 depends_on）
-  //   - 無依賴 → 可並行
-  // 回傳 [{
-    id: "SUB-1",
-    description: "...",
-    modules: ["auth"],
-    estimated_files: ["src/auth/handler.go", ...],
-    depends_on: []  // 或 ["SUB-2"]
-  }]
-```
-
-### 根因領域偵測（v3.1）
-
-```
-FUNCTION detect_bug_domain(request, severity):
-
-  signals = {
-    keywords:   extract_keywords(request.description),
-    files:      request.affected_files OR grep_infer_files(request),
-    modules:    infer_modules(signals.files),
-    error_msg:  request.error_message OR ""
-  }
-
-  // ─── 領域規則表（優先序由上往下）───
-  domain_rules = [
-    {
-      domain: "auth",
-      trigger: signals.modules INTERSECT ["auth/", "permission/", "rbac/", "session/", "middleware/auth"]
-               OR signals.keywords INTERSECT ["login", "token", "JWT", "permission", "RBAC", "session",
-                                              "認證", "授權", "登入", "權限"],
-      add_agents: ["sec"],
-      grep_hint: "擴大掃描到所有 auth 相關模組"
-    },
-    {
-      domain: "concurrency",
-      trigger: signals.keywords INTERSECT ["race", "concurrent", "deadlock", "mutex", "lock",
-                                            "atomic", "channel", "goroutine", "竟爭", "死鎖"]
-               OR signals.files MATCH "*cache*|*queue*|*worker*|*pool*",
-      add_agents: ["dep-analyst"],
-      grep_hint: "搜尋所有共享狀態存取點"
-    },
-    {
-      domain: "data_integrity",
-      trigger: signals.keywords INTERSECT ["schema", "migration", "constraint", "FK", "unique",
-                                            "duplicate", "資料", "遷移"]
-               OR signals.modules INTERSECT ["model/", "migration/", "db/", "store/", "repository/"],
-      add_agents: [],
-      grep_hint: "掃描同 schema 的所有 CRUD 操作",
-      force_full_test: true
-    },
-    {
-      domain: "api_contract",
-      trigger: signals.keywords INTERSECT ["API", "response", "status code", "breaking", "contract",
-                                            "endpoint", "schema mismatch"]
-               OR signals.modules INTERSECT ["api/", "handler/", "routes/", "controller/"],
-      add_agents: ["sec", "dep-analyst"],
-      grep_hint: "掃描所有消費該 API 的 client 端"
-    },
-    {
-      domain: "state_machine",
-      trigger: signals.keywords INTERSECT ["state", "transition", "status", "workflow", "FSM",
-                                            "狀態", "流程"]
-               OR signals.error_msg CONTAINS "invalid state|illegal transition",
-      add_agents: [],
-      force_state_scan: true
-    },
-    {
-      domain: "boundary",
-      trigger: signals.keywords INTERSECT ["edge case", "boundary", "overflow", "off-by-one",
-                                            "empty", "max", "min", "zero", "邊界"],
-      add_agents: [],
-      grep_hint: "掃描同模組所有比較運算和邊界檢查"
-    },
-    {
-      domain: "null_safety",
-      trigger: signals.keywords INTERSECT ["null", "nil", "undefined", "NullPointer",
-                                            "TypeError: Cannot read", "空指標"]
-               OR signals.error_msg CONTAINS "nil pointer|null reference|undefined is not",
-      add_agents: [],
-      grep_hint: "掃描同模組所有未檢查的 nullable 存取"
-    }
-  ]
-
-  matched = [r FOR r IN domain_rules IF evaluate_trigger(r.trigger, signals)]
-
-  IF matched:
-    primary = matched[0]
-    RETURN {
-      domain:           primary.domain,
-      add_agents:       primary.add_agents,
-      force_state_scan: primary.force_state_scan OR false,
-      force_full_test:  primary.force_full_test OR false,
-      grep_hint:        primary.grep_hint OR null
-    }
-  ELSE:
-    RETURN { domain: "general", add_agents: [], force_state_scan: false, grep_hint: null }
-```
-
-### 工作流判斷函數
-
-```
-determine_change_level(request, existing_spec, existing_adr):
-  // 判定 MODIFICATION 的變更等級（L1-L4）
-
-  // L4: 產品方向轉變（多個 SPEC/ADR 失效）
-  invalidated_specs = find_specs_invalidated_by(request)
-  invalidated_adrs = find_adrs_invalidated_by(request)
-  IF LEN(invalidated_specs) > 2 OR LEN(invalidated_adrs) > 1:
-    RETURN L4
-
-  // L3: ADR 層級技術決策被推翻
-  IF existing_adr AND request.contradicts(existing_adr.decision):
-    RETURN L3
-
-  // L2: SPEC Goal 被改變，或規模超出既有 SPEC 範圍
-  IF existing_spec AND request.changes_goal(existing_spec):
-    RETURN L2
-  affected = grep_for_affected_files(request.target_modules)
-  IF LEN(affected) > 10 AND NOT existing_spec.covers(request.scope):
-    RETURN L2
-
-  // L1: SPEC 內部調整（Goal 不變）
-  RETURN L1
-
-  // ── 判定範例 ──
-  // | 場景                              | 等級 | 理由                         |
-  // |-----------------------------------|------|------------------------------|
-  // | 新增 optional API 欄位            | L1   | Goal 不變，edge case 追加    |
-  // | 新增 OAuth Provider（已有 auth SPEC）| L2 | 新 auth flow 超出原 SPEC     |
-  // | 從 REST 改 GraphQL                | L3   | ADR 層級技術棧變更           |
-  // | B2C → B2B 轉型                    | L4   | 多個 SPEC/ADR 失效           |
-  // 不確定時 → 視為高一級（保守原則）
-```
-
-```
-meets_postmortem_criteria(severity, retry_count):
-  // → 詳見 global_core.md「Postmortem 觸發條件」
-  // 簡要：severity >= HIGH，或 retry_count >= 3，或影響生產環境
-  RETURN severity >= HIGH OR retry_count >= 3 OR affected_production
-```
-
-### 交叉引用（已在其他 Profile 定義）
-
-| 函數 | 定義位置 | 用途 |
-|------|----------|------|
-| `scan_state_dependencies()` | `global_core.md`「State Dependency Scan」 | Bug 修復後掃描狀態依賴 |
-| `reverse_scan_adr(adr_id)` | `global_core.md`「ADR 反向掃描」 | L3 變更時掃描受影響 SPEC |
-| `pre_commit_checklist()` | `system_dev.md`「提交前自審清單」 | 提交前最終檢查 |
-| `verify_stable_state(spec)` | `system_dev.md`「穩定性驗證」 | 確認系統穩定 |
-| `auto_fix_loop()` | `autonomous_dev.md`（含三重防護） | 自動修復循環（oscillation/cascade/smuggling 偵測） |
-| `design_gate(spec)` | `design_dev.md`「Design Gate」 | 設計規範驗證 |
-| `openapi_gate(spec)` | `openapi.md`「OpenAPI Gate」 | API 規格驗證 |
-| `detect_bug_domain()` | `task_orchestrator.md` Part H | Bug 根因領域偵測，產出 domain + 追加角色建議 |
-
-### 測試骨架產生（v3.2）
-
-```
-FUNCTION generate_test_skeleton(scenarios, test_matrix):
-  // 從 Gherkin 場景產生測試檔案骨架
-  //
-  // 輸出格式（依語言慣例）：
-  //   Go:     func TestS1_ValidLogin(t *testing.T) { ... }
-  //   Python: def test_s1_valid_login(): ...
-  //   TS/JS:  it("S1 - valid login", async () => { ... })
-  //
-  // 規則：
-  //   1. Scenario → test function
-  //   2. Scenario Outline + Examples → parameterized test
-  //   3. 測試分組：Positive / Negative / Boundary（依 test_matrix 類型）
-  //   4. Background → test setup / beforeEach
-  //   5. Given → arrange, When → act, Then → assert
-
-  skeleton = []
-  FOR scenario IN scenarios:
-    test_case = {
-      name: scenario.id + "_" + slugify(scenario.name),
-      group: lookup_matrix_type(scenario.id, test_matrix),
-      setup: scenario.given_clauses,
-      action: scenario.when_clauses,
-      assertions: scenario.then_clauses,
-      is_outline: scenario.has_examples
-    }
-    skeleton.append(test_case)
-
-  RETURN skeleton
-
-
-FUNCTION verify_scenario_coverage(test_matrix, scenarios, test_files):
-  // 驗證矩陣行 ↔ 場景 ↔ 測試三方覆蓋
-  uncovered = []
-  FOR row IN test_matrix:
-    IF row.scenario_ref NOT IN scenarios.ids:
-      uncovered.append("矩陣 {row.id} 無對應場景")
-    IF NOT has_test_for_scenario(row.scenario_ref, test_files):
-      uncovered.append("場景 {row.scenario_ref} 無對應測試")
-
-  IF uncovered:
-    WARN("場景覆蓋不完整：{uncovered}")
-    FOR gap IN uncovered:
-      AUTO_GENERATE missing scenario or test
-```
-
-### 場景同步維護（v3.2）
-
-```
-FUNCTION scenario_conflicts_with(scenario, request):
-  // 判斷既有場景是否與新行為矛盾
-  //
-  // 矛盾信號：
-  //   1. scenario.then_clauses 中的預期結果與 request 的新行為不一致
-  //      例：舊場景 Then status 200，新行為要改為 Then status 201
-  //   2. scenario.when_clauses 中的操作已被移除或重命名
-  //      例：舊場景 When POST /api/v1/login，新行為改為 /api/v2/auth
-  //   3. scenario.given_clauses 中的前置條件已不成立
-  //      例：舊場景 Given admin role exists，新行為移除 admin 角色
-  //
-  // 比對方式：
-  //   - 將 request.description 與 scenario 的 Given/When/Then 逐一比對
-  //   - 如果 request 修改了 scenario 涉及的 API endpoint / 資料欄位 / 狀態值 → 矛盾
-  //   - 如果 request.affected_files 包含 scenario 測試引用的 source file → 可能矛盾（需進一步檢查）
-
-  affected = request.affected_files OR grep_infer_files(request)
-  scenario_refs = extract_code_references(scenario)  // 從 When/Then 中提取 API path、函數名等
-
-  IF any(ref IN affected FOR ref IN scenario_refs):
-    RETURN true  // 場景引用的程式碼被修改 → 場景可能過時
-
-  IF request.changes_api_contract AND scenario.when_clauses REFERENCES request.changed_endpoints:
-    RETURN true
-
-  IF request.changes_response_format AND scenario.then_clauses REFERENCES request.changed_fields:
-    RETURN true
-
-  RETURN false
-
-
-FUNCTION sync_test_matrix(test_matrix, scenarios):
-  // 同步測試矩陣：確保矩陣行與場景 ID 一致
-  //
-  // 1. 移除矩陣中引用已刪除場景的行
-  // 2. 為新場景自動新增矩陣行
-  // 3. 更新矩陣行的「預期結果」欄位（從場景 Then 推導）
-
-  // 移除過時行
-  FOR row IN test_matrix:
-    IF row.scenario_ref NOT IN scenarios.ids:
-      REMOVE row
-      LOG("矩陣行 {row.id} 已移除（場景 {row.scenario_ref} 不存在）")
-
-  // 新增缺失行
-  FOR scenario IN scenarios:
-    IF scenario.id NOT IN test_matrix.scenario_refs:
-      new_row = {
-        id: next_matrix_id(test_matrix, scenario),  // P{N} / N{N} / B{N}
-        type: infer_type_from_scenario(scenario),     // 正向/負向/邊界
-        input: summarize(scenario.given_clauses + scenario.when_clauses),
-        expected: summarize(scenario.then_clauses),
-        scenario_ref: scenario.id
-      }
-      test_matrix.append(new_row)
-      LOG("矩陣新增行 {new_row.id}（對應場景 {scenario.id}）")
-
-
-FUNCTION regenerate_test_skeleton(scenarios, test_matrix, existing_tests):
-  // 當場景更新後，重新產生測試骨架
-  //
-  // 策略：增量更新（不覆蓋已有的測試邏輯）
-  //   - 新場景 → 產生新 test function
-  //   - 修改的場景 → 更新 test function 的 Given/When/Then 註解，保留手寫的 assertion
-  //   - 刪除的場景 → 標記對應 test function 為 DEPRECATED（不自動刪除）
-
-  new_skeleton = generate_test_skeleton(scenarios, test_matrix)
-
-  FOR test_case IN new_skeleton:
-    existing = find_existing_test(test_case.name, existing_tests)
-    IF NOT existing:
-      // 新場景 → 產生新測試
-      APPEND test_case TO test_file
-    ELIF existing.scenario_hash != test_case.scenario_hash:
-      // 場景已更新 → 更新註解，保留 assertion body
-      UPDATE existing.comments WITH test_case.setup, test_case.action, test_case.assertions
-      LOG("更新測試 {test_case.name} 的場景註解（保留 assertion body）")
-
-  // 標記刪除的場景對應測試
-  FOR existing_test IN existing_tests:
-    IF existing_test.scenario_id NOT IN scenarios.ids:
-      MARK existing_test AS DEPRECATED
-      LOG("標記測試 {existing_test.name} 為 DEPRECATED（場景已移除）")
-```
-
-### 回歸比對（v3.3）
-
-```
-FUNCTION compare_test_results(baseline, current):
-  // 比較修改前後的測試結果，偵測回歸和測試消失
-  baseline_set = SET(baseline.test_names)
-  current_set = SET(current.test_names)
-
-  RETURN {
-    newly_failing: [t FOR t IN current.test_list
-                    IF t.name IN baseline_set
-                    AND baseline.status(t.name) == PASS
-                    AND t.status == FAIL],
-    newly_passing: [t FOR t IN current.test_list
-                    IF t.name IN baseline_set
-                    AND baseline.status(t.name) == FAIL
-                    AND t.status == PASS],
-    disappeared_tests: baseline_set - current_set,
-    new_tests: current_set - baseline_set
-  }
-```
+`is_core_module()` / 場景衝突判定 / 測試骨架產生為語意判斷——原則：核心模組 =
+auth/payment/data 類（無測試 = BLOCKER）；場景與新行為矛盾 → AI 自動更新不需人類手動；
+詳細 pseudocode 見 archive 版 Part H。
 
 ---
 
-## Part I: 團隊推薦（v3.0）
+## Part I: 團隊推薦（v5 移除）
 
-```
-FUNCTION recommend_team(task_type, request):
-  // 載入場景表
-  compositions = LOAD(".asp/agents/team_compositions.yaml")
-
-  // 根據 task_type 和複雜度選擇場景
-  MATCH task_type:
-    NEW_FEATURE:
-      impact = assess_architecture_impact(request)
-      IF impact.requires_adr OR LEN(grep_affected_files(request)) > 15:
-        scenario = compositions.scenarios.NEW_FEATURE_complex
-      ELSE:
-        scenario = compositions.scenarios.NEW_FEATURE_simple
-
-    BUGFIX:
-      severity = assess_severity(request)
-      domain_info = detect_bug_domain(request, severity)  // v3.1
-
-      IF request.is_production_incident:
-        scenario = compositions.scenarios.BUGFIX_hotfix
-      ELIF severity == TRIVIAL:
-        scenario = compositions.scenarios.BUGFIX_trivial
-      ELSE:
-        scenario = compositions.scenarios.BUGFIX_non_trivial
-
-      // v3.1: 根據領域追加角色
-      IF domain_info.add_agents:
-        scenario = copy(scenario)
-        scenario.agents = deduplicate(scenario.agents + domain_info.add_agents)
-
-    MODIFICATION:
-      level = determine_change_level(request)
-      IF level IN [L3, L4]:
-        scenario = compositions.scenarios.MODIFICATION_L3_L4
-      ELSE:
-        scenario = compositions.scenarios.MODIFICATION_L1_L2
-
-    REMOVAL:
-      scenario = compositions.scenarios.REMOVAL
-
-    GENERAL:
-      scenario = compositions.scenarios.GENERAL
-
-  RETURN scenario
-```
+`recommend_team()` 由 `/asp-team-pick` skill 提供（`team_compositions.yaml`）；Phase 4 隨 multi-agent 凍結。
 
 ---
 
-## Part J: 管線整合（v3.0）
-
-> 將 Part D 的 execute_*() 包裝到管線階段中。pipeline.md 定義管線邏輯，本節定義整合點。
+## Part J: 管線整合
 
 ```
 FUNCTION execute_with_pipeline(task_type, request, team):
-  // 載入管線（如果 pipeline.md 已載入）
   IF pipeline_loaded:
-    phases = team.pipeline_phases
-    RETURN execute_pipeline(request, team, phases)  // from pipeline.md
+    RETURN execute_pipeline(request, team, team.pipeline_phases)  // from pipeline.md
   ELSE:
-    // fallback: 原有行為（直接呼叫 execute_*）
-    MATCH task_type:
-      NEW_FEATURE:   RETURN execute_new_feature(request)
-      BUGFIX:        RETURN execute_bugfix(request)
-      MODIFICATION:  RETURN execute_modification(request)
-      REMOVAL:       RETURN execute_removal(request)
-      GENERAL:       RETURN execute_general(request)
+    MATCH task_type:  // fallback：直接呼叫 Part D 對應 execute_*()
+      NEW_FEATURE → execute_new_feature(request)   | BUGFIX   → execute_bugfix(request)
+      MODIFICATION → execute_modification(request) | REMOVAL  → execute_removal(request)
+      GENERAL → execute_general(request)
 ```
 
 ---
@@ -1572,16 +288,13 @@ FUNCTION execute_with_pipeline(task_type, request, team):
 
 ```
 task_orchestrator.md
-  ├── 依賴 global_core.md（鐵則 + 文件同步 + 迴歸預防）
+  ├── 依賴 global_core.md（鐵則 + HITL 等級 + 三層回應 + 升級路徑 + 文件同步 + 迴歸預防）
   ├── 依賴 system_dev.md（ADR/SPEC/TDD 流程 + Gates + Hotfix）
+  ├── 確定性腳本 .asp/scripts/orchestrator/（make orch-classify / orch-audit-check / orch-round / orch-debt-log）
   ├── 可選 autonomous_dev.md（auto_fix_loop + 自主決策邊界）
-  ├── Part G（本文件，v4.3 起含 multi-agent 並行任務分派協調邏輯）
-  ├── 可選 vibe_coding.md（HITL 等級 + context 管理）
-  ├── 可選 design_dev.md（Design Gate）
-  ├── 可選 openapi.md（OpenAPI Gate）
-  ├── 可選 guardrail.md（敏感資訊保護）
-  └── 可選 rag_context.md（歷史教訓查詢）
+  ├── Part G → orchestrator_multi_agent.md（mode: multi-agent 時一併載入）
+  ├── 可選 loose_mode.md（spike 豁免 + context 管理）
+  ├── 可選 design_dev.md（Design Gate）／openapi.md（OpenAPI Gate）／rag_context.md（歷史教訓）
+  └── 健康審計本體 = make audit-health（Makefile 唯一實作）
 ```
 
-健康審計是 task_orchestrator 的獨有功能。
-任務工作流則是將既有 Profile 的規則串接成端到端流程。

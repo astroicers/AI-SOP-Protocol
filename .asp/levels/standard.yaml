@@ -1,0 +1,69 @@
+level: standard
+name: Standard
+aliases: [2, 3]   # v4 legacy 數字等級（由 level-resolve.sh 映射；v6 移除）
+tagline: 自動化品質護欄 + Pipeline Gates — 規則自動生效
+description: |
+  standard 是 v5 的日常開發等級（吸收 v4 的 L2 Disciplined + L3 Test-First，ADR-014 D7
+  ——合併取較嚴格側，pipeline gates 內建）。敏感資訊三層回應與升級路徑已內建於
+  global_core（v5 起永遠載入，無需 guardrail 欄位）。目標：每一個 commit 都有
+  可驗證的品質證據，減少人工審查負擔。
+
+profiles:
+  - global_core
+  - system_dev
+  - coding_style
+  - pipeline
+  # openapi 由 .ai_profile 的 openapi: enabled 顯式啟用（非所有專案都有 API）
+
+ai_profile_hint: |
+  type: system
+  level: standard
+  coding_style: enabled
+  openapi: enabled   # 若專案有 API 合約
+  name: your-project
+
+prerequisites:
+  - level: loose
+    reason: "必須先完成 loose 的 graduation_checklist"
+
+graduation_checklist:
+  - id: lint-clean
+    description: "make lint 通過（無 error）"
+    check: "make lint >/dev/null 2>&1"
+  - id: no-hardcoded-secrets
+    description: "近 30 次 commit 中無被 asp-ship Step 9 攔截的硬編碼密碼事件"
+    check: "! grep -l 'BLOCK.*password=\\|BLOCK.*api_key=' .asp-bypass-log.json 2>/dev/null"
+  - id: spec-has-done-when
+    description: "所有 SPEC 的 Done When 欄位均已填寫（可二元測試）"
+    check: "! grep -L 'Done When' docs/specs/SPEC-*.md 2>/dev/null"
+  - id: gate-state-exists
+    description: ".asp-gate-state.json 存在且 G1-G4 至少曾達 PASSED"
+    check: "test -f .asp-gate-state.json"
+  - id: test-coverage-target
+    description: "有 make coverage target 可執行"
+    check: "make -n coverage >/dev/null 2>&1"
+  - id: tdd-evidence
+    description: "近 10 個 commit 中，test 檔案的修改時間早於或等於對應 impl 檔案（近似 TDD）"
+    check: "true"  # soft check, verified in asp-level skill
+  - id: bypass-log-healthy
+    description: "asp-bypass-log 中 SkippedGate 事件 < 5 次（過去 30 天）"
+    check: "true"  # computed by asp-level skill
+
+warnings:
+  - "舊 L2 專案映射到 standard 後會啟用 pipeline gates（ADR-014 D7 升嚴）。"
+
+use_cases:
+  - "正式產品開發（個人或小團隊）"
+  - "對品質要求高、願意投入測試基礎建設的專案"
+
+benefits_of_upgrading: |
+  升到 autonomous 後，你會獲得：
+  - task_orchestrator：統一任務入口、自動分類與健康審計
+  - autonomous_dev：AI 在明確邊界內自主決策
+  - autopilot：ROADMAP 驅動連續執行、跨 session 續接
+  - rag_context：本地知識庫檢索
+
+  ⚠️ autonomous 需要完善的測試覆蓋與 reality-checker 流程，
+  請確認 standard 的 graduation_checklist 全部通過再升級。
+
+next_level: autonomous

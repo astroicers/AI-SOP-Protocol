@@ -49,7 +49,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
 
 同一支腳本，第二次在**專案目錄**跑時，會偵測已有 user-level 並只執行 Phase 2：建立 `.ai_profile`、`CLAUDE.md`、`.claude/settings.json`（hooks 設定）。
 
-安裝腳本會問兩題：**專案類型**（system / content / architecture）→ **成熟度等級（L1–L5）**。全按 Enter 用預設值。
+安裝腳本會問兩題：**專案類型**（system / content / architecture）→ **成熟度等級（loose / standard / autonomous，v5 三級制）**。全按 Enter 用預設值。
 
 ---
 
@@ -84,7 +84,7 @@ AI 回覆會列出已載入的 Profile 名稱，和當前 session 的 BLOCKER / 
 
 ```yaml
 type: system        # system | content | architecture
-level: 1            # L1 Starter → L5 Autonomous
+level: loose        # loose | standard | autonomous（v5；遺留 0-5 自動映射）
 mode: auto          # auto（推薦） | single | multi-agent
 hitl: standard      # minimal | standard | strict
 autopilot: disabled # enabled 時讀 ROADMAP.yaml 自動執行
@@ -159,14 +159,24 @@ make asp-update
 
 ---
 
+## 功能矩陣（v5：Core / Experimental / Showcase，ADR-017）
+
+| 分類 | 內容 | 安裝方式 |
+|------|------|---------|
+| **Core**（daily-driver） | hooks（session-audit + 動態 deny）、15 個 asp-* skills、gates G1-G6、12 個 profiles、asp-compile、orchestrator 確定性腳本、levels（loose/standard/autonomous） | `install.sh` 預設 |
+| **Experimental**（凍結） | multi-agent worktree 並行（8 腳本 + 10 角色 + 3 skills + Part G profile + SPEC-004 測試） | 不安裝；見 [experimental/multi-agent/](experimental/multi-agent/README.md)（解凍條件 + 手動啟用） |
+| **Showcase**（展示/研究） | telemetry、RAG（本地向量知識庫）、ai-performance 月度回顧 | `install.sh --with-showcase`；見 [showcase/](showcase/README.md) |
+
+---
+
 ## 深入了解
 
 | 主題 | 位置 |
 |------|------|
 | 不確定下什麼指令（場景決策樹） | [docs/where-to-start.md](docs/where-to-start.md) |
 | MVP / 大型功能 / 事故應急 | [docs/runbooks/](docs/runbooks/) |
-| 成熟度等級 L0–L5 | `~/.claude/asp/levels/level-N.yaml` |
-| Multi-Agent worktree 隔離 | [docs/specs/SPEC-004-multi-agent-worktree-isolation.md](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |
+|  成熟度等級（v5 三級制） | `~/.claude/asp/levels/{loose,standard,autonomous}.yaml` |
+| Multi-Agent worktree 隔離（Experimental，v5 凍結） | [docs/specs/SPEC-004-multi-agent-worktree-isolation.md](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |
 | Autopilot（ROADMAP 驅動） | [docs/autopilot.md](docs/autopilot.md) |
 | 架構總覽（含序列圖） | [docs/architecture.md](docs/architecture.md) |
 | Task Inbox schema | [.asp/templates/task-inbox-schema.json](.asp/templates/task-inbox-schema.json) |

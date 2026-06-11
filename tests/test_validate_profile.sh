@@ -39,6 +39,35 @@ echo "T3: invalid level value → ERROR"
 printf 'type: system\nlevel: 9\n' > "$(P)"; run
 echo "$OUT" | grep -q "level 值無效" && pass "invalid level → ERROR" || fail "invalid level not caught"
 
+# ── T3a: legacy numeric level → deprecation WARNING, not ERROR (v5 ADR-014) ──
+echo ""
+echo "T3a: legacy numeric level → WARNING + mapped, exit != 1"
+printf 'type: system\nlevel: 3\n' > "$(P)"; run
+echo "$OUT" | grep -q "v4 數字等級" && pass "deprecation warning shown" || fail "no deprecation warning"
+echo "$OUT" | grep -q "level: standard" && pass "mapped to standard" || fail "not mapped to standard"
+[ "$RC" != "1" ] && pass "numeric level does not exit 1" || fail "numeric level exits 1"
+
+# ── T3b: named level passes cleanly ──
+echo ""
+echo "T3b: level: standard → ✅, no warning"
+printf 'type: system\nlevel: standard\n' > "$(P)"; run
+{ echo "$OUT" | grep -q "✅ level: standard" && [ "$RC" = "0" ]; } \
+  && pass "named level ok, exit 0" || fail "named level rc=$RC"
+
+# ── T3c: workflow vibe-coding loads loose_mode; with autonomous → conflict WARNING ──
+echo ""
+echo "T3c: vibe-coding → loose_mode; +autonomous → conflict warning"
+printf 'type: system\nlevel: standard\nworkflow: vibe-coding\n' > "$(P)"; run
+echo "$OUT" | grep -q "loose_mode.md" && pass "vibe-coding lists loose_mode.md" || fail "loose_mode.md not listed"
+printf 'type: system\nworkflow: vibe-coding\nautonomous: enabled\n' > "$(P)"; run
+echo "$OUT" | grep -q "衝突" && pass "vibe-coding+autonomous → conflict warning" || fail "no conflict warning"
+
+# ── T3d: guardrail field deprecated → INFO ──
+echo ""
+echo "T3d: guardrail: enabled → deprecated INFO"
+printf 'type: system\nlevel: standard\nguardrail: enabled\n' > "$(P)"; run
+echo "$OUT" | grep -q "guardrail 欄位已 deprecated" && pass "guardrail INFO shown" || fail "no guardrail INFO"
+
 # ── T4: invalid hitl → ERROR ──
 echo ""
 echo "T4: invalid hitl value → ERROR"
@@ -63,7 +92,7 @@ run
 # ── T7: fully valid profile → 驗證通過, exit 0 ──
 echo ""
 echo "T7: valid profile → pass, exit 0"
-printf 'type: system\nlevel: 2\nhitl: standard\nmode: single\n' > "$(P)"; run
+printf 'type: system\nlevel: standard\nhitl: standard\nmode: single\n' > "$(P)"; run
 { echo "$OUT" | grep -q "驗證通過" && [ "$RC" = "0" ]; } \
   && pass "valid profile passes with exit 0" || fail "valid profile not passing (rc=$RC)"
 

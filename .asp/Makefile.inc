@@ -13,9 +13,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         adr-new adr-list \
         spec-new spec-list \
         postmortem-new postmortem-list \
-        agent-done agent-locks agent-unlock agent-lock-gc \
+        agent-done \
         session-checkpoint session-log \
-        rag-index rag-search rag-stats rag-rebuild \
         guardrail-log guardrail-reset \
         audit-health audit-quick doc-audit tech-debt-list \
         task-start \
@@ -23,7 +22,6 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         audit-baseline-init \
         asp-unlock-commit asp-refresh asp-enforcement-status \
         runbook-list runbook-view \
-        asp-performance-review asp-performance-review-update \
         ci-install \
         daily-audit \
         doc-new srs-new sds-new uiux-spec-new deploy-spec-new
@@ -47,11 +45,9 @@ endif
 	@echo "📄 Spec:        spec-new TITLE=... | spec-list"
 	@echo "🔥 Postmortem:  postmortem-new TITLE=... | postmortem-list"
 	@echo "🤖 Agent:       agent-done TASK=... STATUS=..."
-	@echo "                (v3.7 lock targets DEPRECATED: agent-unlock / agent-lock-gc / agent-locks → use SPEC-004 worktree)"
-	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log | agent-memory-show | agent-team-recommend TYPE=..."
+	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log"
 	@echo "🤖 Agent Init:  audit-baseline-init"
 	@echo "💾 Session:     session-checkpoint NEXT=... | session-log"
-	@echo "🧠 RAG:         rag-index | rag-search Q=... | rag-stats | rag-rebuild"
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
 	@echo "🔒 Enforce:     asp-unlock-commit | asp-refresh | asp-enforcement-status"
@@ -60,8 +56,7 @@ endif
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
 	@echo "📝 Documents:   doc-new TYPE=srs|sds|uiux|deploy"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
-	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
-	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf | agent-rollback"
+	@echo "🧩 Experimental/Showcase targets：目錄存在時自動載入（-include；見 experimental/ 與 showcase/ README）"
 	@echo "🔧 CI:          ci-install (copy GitHub Actions workflow to .github/workflows/)"
 	@echo "📆 Daily:       daily-audit (generate .asp-daily-report.md; see cron-setup.md)"
 	@echo ""
@@ -145,16 +140,17 @@ lint:
 	if [ -f "package.json" ] && grep -q '"lint"' package.json 2>/dev/null; then \
 		echo "── npm ──"; LINT_RAN=1; npm run lint || LINT_FAIL=1; \
 	fi; \
-	if ls .asp/scripts/multi-agent/*.sh tests/*.sh >/dev/null 2>&1; then \
+	if ls tests/*.sh >/dev/null 2>&1; then \
 		LINT_RAN=1; \
 		if command -v shellcheck >/dev/null 2>&1; then \
-			echo "── shellcheck (.asp + tests) ──"; \
+			echo "── shellcheck (.asp v5 scripts + tests) ──"; \
 			shellcheck -S warning -e SC1090,SC1091,SC2086,SC2207 \
-				.asp/scripts/multi-agent/*.sh tests/*.sh \
+				.asp/scripts/asp-metrics.sh .asp/scripts/asp-compile.sh \
+				.asp/scripts/level-resolve.sh .asp/scripts/orchestrator/*.sh tests/*.sh \
 				|| LINT_FAIL=1; \
 		else \
 			echo "── bash -n (shellcheck not installed) ──"; \
-			for f in .asp/scripts/multi-agent/*.sh tests/*.sh; do \
+			for f in .asp/scripts/orchestrator/*.sh tests/*.sh; do \
 				bash -n "$$f" || { echo "syntax error: $$f"; LINT_FAIL=1; }; \
 			done; \
 		fi; \
@@ -356,39 +352,11 @@ agent-done: ## Worker 完成回報 (TASK=xxx STATUS=success|failed [REASON=...])
 	echo "{\"id\":\"$$HID\",\"type\":\"TASK_COMPLETE\",\"task\":\"$(TASK)\",\"status\":\"$(STATUS)\",\"ts\":\"$$TS\"}" >> .agent-events/handoffs/index.jsonl; \
 	echo "✅ $(TASK) $(STATUS) — $$HID"
 
-# v3.7 file-lock targets — DEPRECATED in v4.1 (SPEC-004 worktree isolation
-# replaces them). Kept as stubs that print deprecation warnings + point to
-# the new mechanism. v3.7 user upgrades safely without these silently failing.
-# Will be removed in v5.0.
+# v3.7 file-lock deprecated stubs（agent-unlock / agent-lock-gc / agent-locks）
+# 已於 v5.0 移除（ADR-017，依 v4.1 預告）。
 
-agent-unlock:
-	@echo "⚠️  DEPRECATED: agent-unlock (v3.7 .agent-lock.yaml mechanism)"
-	@echo "    v4.1+ uses git worktree isolation instead — file locks are gone."
-	@echo "    See: docs/specs/SPEC-004-multi-agent-worktree-isolation.md"
-	@if [ -f .agent-lock.yaml ]; then \
-		echo "    Found legacy .agent-lock.yaml — safe to delete:"; \
-		echo "        rm .agent-lock.yaml"; \
-	fi
-
-agent-lock-gc:
-	@echo "⚠️  DEPRECATED: agent-lock-gc (v3.7 .agent-lock.yaml mechanism)"
-	@echo "    v4.1+ uses 'make agent-worktree-gc' (worktree-level GC) instead."
-	@echo "    See: docs/specs/SPEC-004-multi-agent-worktree-isolation.md"
-	@if [ -f .agent-lock.yaml ]; then \
-		echo "    Found legacy .agent-lock.yaml — safe to delete:"; \
-		echo "        rm .agent-lock.yaml"; \
-	fi
-
-agent-locks:
-	@echo "⚠️  DEPRECATED: agent-locks (v3.7 .agent-lock.yaml mechanism)"
-	@echo "    v4.1+ uses 'make agent-worktree-list' instead."
-	@if [ -f .agent-lock.yaml ]; then \
-		echo "    Legacy .agent-lock.yaml content (informational only):"; \
-		sed 's/^/      /' .agent-lock.yaml; \
-	fi
-
-# ─── Agent Handoff（v3.0）───────────────────────────────────────────
-.PHONY: agent-handoff-list agent-handoff-view agent-tracks agent-track-status agent-escalation-log agent-memory-show agent-memory-prune agent-team-recommend
+# ─── Agent Handoff（v3.0；讀取 .agent-events/，無凍結路徑依賴故留 core）───
+.PHONY: agent-handoff-list agent-handoff-view agent-tracks agent-track-status agent-escalation-log
 
 agent-handoff-list: ## 列出所有交接單
 	@echo "═══ Agent Handoffs ═══"
@@ -434,57 +402,6 @@ agent-escalation-log: ## 顯示升級歷史
 			grep -E "^(severity|task_id|reason|timestamp):" "$$f"; \
 		done || echo "  (無升級記錄)"
 
-agent-memory-show: ## DEPRECATED (2026-05-10) — 顯示 Agent 學習記憶 (.asp-agent-memory.yaml 從未實際使用，v4.2 ROADMAP)
-	@echo "═══ Agent Memory ═══"
-	@if [ -f .asp-agent-memory.yaml ]; then \
-		cat .asp-agent-memory.yaml; \
-	else \
-		echo "  (無記憶——首次執行)"; \
-	fi
-
-agent-memory-prune: ## DEPRECATED (2026-05-10) — 修剪過期記憶 (AGE=90 天)
-	@echo "修剪超過 $(or $(AGE),90) 天的記憶..."
-	@if [ -f .asp-agent-memory.yaml ]; then \
-		python3 -c " \
-import sys, yaml, datetime; \
-age = int(sys.argv[1]); \
-d = yaml.safe_load(open('.asp-agent-memory.yaml')) or {}; \
-now = datetime.datetime.now(); \
-cutoff = now - datetime.timedelta(days=age); \
-for key in ['fix_strategies', 'common_failures']: \
-    if key in d: \
-        before = len(d[key]); \
-        d[key] = [x for x in d[key] if datetime.datetime.fromisoformat(x.get('last_used', x.get('last_occurrence', now.isoformat()))[:10]) >= cutoff]; \
-        print(f'  {key}: {before} → {len(d[key])}'); \
-yaml.dump(d, open('.asp-agent-memory.yaml', 'w'), allow_unicode=True)" "$(or $(AGE),90)" 2>/dev/null \
-		|| echo "  (修剪失敗——需要 PyYAML)"; \
-	else \
-		echo "  (無記憶可修剪)"; \
-	fi
-
-agent-team-recommend: ## 推薦團隊組成 (TYPE=NEW_FEATURE COMPLEXITY=simple|complex)
-	@if [ -z "$(TYPE)" ]; then echo "用法: make agent-team-recommend TYPE=NEW_FEATURE COMPLEXITY=simple"; exit 1; fi
-	@SCENARIO="$(TYPE)_$(COMPLEXITY)"; \
-	if [ -f .asp/agents/team_compositions.yaml ]; then \
-		echo "═══ Team Recommendation: $$SCENARIO ═══"; \
-		python3 -c " \
-import yaml; \
-d = yaml.safe_load(open('.asp/agents/team_compositions.yaml')); \
-s = d.get('scenarios',{}).get('$$SCENARIO'); \
-if s: \
-    print(f\"  場景: $$SCENARIO\"); \
-    print(f\"  說明: {s.get('description','')}\"); \
-    print(f\"  角色: {', '.join(s.get('agents',[]))}\"); \
-    print(f\"  管線: {', '.join(s.get('pipeline_phases',[]))}\"); \
-    print(f\"  並行: {'是' if s.get('parallel') else '否'}\"); \
-else: \
-    print(f'場景 $$SCENARIO 不存在。可用場景:'); \
-    [print(f'  - {k}') for k in d.get('scenarios',{}).keys()]" 2>/dev/null \
-		|| echo "  (需要 PyYAML)"; \
-	else \
-		echo "  (team_compositions.yaml 不存在)"; \
-	fi
-
 # ─── Agent Init（v3.3）───────────────────────────────────────────
 audit-baseline-init: ## 初始化審計基線
 	@echo "🏥 建立審計基線..."
@@ -512,33 +429,6 @@ session-checkpoint:
 
 session-log:
 	@tail -30 docs/session-log.md 2>/dev/null || echo "(無 Session 紀錄)"
-
-#---------------------------------------------------------------------------
-# RAG 知識庫
-#---------------------------------------------------------------------------
-
-rag-index:
-	@echo "🔍 Building RAG index (incremental)..."
-	@python3 .asp/scripts/rag/build_index.py \
-		--source docs/ \
-		--source .asp/profiles/ \
-		--output .rag/index \
-		--model all-MiniLM-L6-v2 \
-		--incremental 2>/dev/null || \
-	echo "⚠️  請先執行: pip install chromadb sentence-transformers"
-
-rag-search:
-	@if [ -z "$(Q)" ]; then echo "使用方式：make rag-search Q=\"你的問題\""; exit 1; fi
-	@python3 .asp/scripts/rag/search.py --query "$(Q)" --top-k 3 2>/dev/null || \
-	echo "⚠️  RAG 尚未初始化，請先執行 make rag-index"
-
-rag-stats:
-	@python3 .asp/scripts/rag/stats.py 2>/dev/null || \
-	echo "⚠️  RAG 尚未初始化，請先執行 make rag-index"
-
-rag-rebuild:
-	@rm -rf .rag/index
-	@$(MAKE) rag-index
 
 #---------------------------------------------------------------------------
 # Guardrail
@@ -647,18 +537,16 @@ asp-bypass-review: ## 檢視 bypass 記錄（AI 繞過 skill 的歷史）
 	echo ""; \
 	echo "💡 若某 skill bypass 次數過高，考慮：(1) 補強 skill 文件 (2) 在 CLAUDE.md 加入對應鐵則"
 
-asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度
-	@LEVEL=$$(grep -E '^level:' .ai_profile 2>/dev/null | awk '{print $$2}'); \
+asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度（v5：loose/standard/autonomous）
+	@LEVEL=$$(bash .asp/scripts/level-resolve.sh 2>/dev/null); \
 	if [ -z "$$LEVEL" ]; then \
-		echo "⚠️  .ai_profile 無 level 欄位 — 使用 Level 推斷規則"; \
-		if grep -q 'autopilot: enabled\|autonomous: enabled' .ai_profile 2>/dev/null; then LEVEL=5; \
-		elif grep -q 'mode: multi-agent' .ai_profile 2>/dev/null; then LEVEL=4; \
-		elif grep -q 'openapi: enabled' .ai_profile 2>/dev/null; then LEVEL=3; \
-		elif grep -q 'guardrail: enabled\|coding_style: enabled' .ai_profile 2>/dev/null; then LEVEL=2; \
-		else LEVEL=1; fi; \
-		echo "   推斷等級：L$$LEVEL（建議在 .ai_profile 中補上 \`level: $$LEVEL\`）"; \
+		echo "⚠️  .ai_profile 無 level 欄位 — 使用 Level 推斷規則（三級制）"; \
+		if grep -q 'autopilot: enabled\|autonomous: enabled\|mode: multi-agent' .ai_profile 2>/dev/null; then LEVEL=autonomous; \
+		elif grep -q 'openapi: enabled\|coding_style: enabled' .ai_profile 2>/dev/null; then LEVEL=standard; \
+		else LEVEL=loose; fi; \
+		echo "   推斷等級：$$LEVEL（建議在 .ai_profile 中補上 \`level: $$LEVEL\`）"; \
 	fi; \
-	LEVEL_FILE=".asp/levels/level-$$LEVEL.yaml"; \
+	LEVEL_FILE=".asp/levels/$$LEVEL.yaml"; \
 	if [ ! -f "$$LEVEL_FILE" ]; then echo "❌ $$LEVEL_FILE 不存在"; exit 1; fi; \
 	echo ""; \
 	echo "🎯 ASP Level Check"; \
@@ -666,21 +554,21 @@ asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度
 	echo ""; \
 	NAME=$$(grep -E '^name:' "$$LEVEL_FILE" | head -1 | sed 's/name: *//'); \
 	TAGLINE=$$(grep -E '^tagline:' "$$LEVEL_FILE" | sed 's/tagline: *//'); \
-	echo "Current: L$$LEVEL ($$NAME)"; \
+	echo "Current: $$LEVEL ($$NAME)"; \
 	echo "         $$TAGLINE"; \
 	echo ""; \
-	echo "已啟用 profile (從 .asp/levels/level-$$LEVEL.yaml)："; \
+	echo "已啟用 profile (從 $$LEVEL_FILE)："; \
 	awk '/^profiles:/{flag=1; next} /^[a-z]/{flag=0} flag && /^  -/{print "  "$$0}' "$$LEVEL_FILE"; \
 	echo ""; \
 	NEXT_LEVEL=$$(grep -E '^next_level:' "$$LEVEL_FILE" | awk '{print $$2}'); \
 	if [ "$$NEXT_LEVEL" = "null" ] || [ -z "$$NEXT_LEVEL" ]; then \
-		echo "✅ 已在最高等級 (L5)"; \
+		echo "✅ 已在最高等級 (autonomous)"; \
 	else \
-		NEXT_FILE=".asp/levels/level-$$NEXT_LEVEL.yaml"; \
+		NEXT_FILE=".asp/levels/$$NEXT_LEVEL.yaml"; \
 		NEXT_NAME=$$(grep -E '^name:' "$$NEXT_FILE" | head -1 | sed 's/name: *//'); \
-		echo "Next Level: L$$NEXT_LEVEL ($$NEXT_NAME)"; \
+		echo "Next Level: $$NEXT_LEVEL ($$NEXT_NAME)"; \
 		echo ""; \
-		echo "📋 L$$LEVEL Graduation Checklist（shell 可驗證的項目）："; \
+		echo "📋 $$LEVEL Graduation Checklist（shell 可驗證的項目）："; \
 		awk '/^graduation_checklist:/{flag=1; next} /^[a-z]/{flag=0} flag' "$$LEVEL_FILE" | \
 			awk '/- id:/{id=$$3} /description:/{desc=$$0; sub(/[^"]*"/,"",desc); sub(/".*/,"",desc); print "  ["id"] "desc}'; \
 		echo ""; \
@@ -689,18 +577,18 @@ asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度
 	echo ""
 
 asp-level-upgrade: ## 升級到下一個 ASP 等級（需先通過 asp-level-check）
-	@CURRENT=$$(grep -E '^level:' .ai_profile 2>/dev/null | awk '{print $$2}'); \
+	@CURRENT=$$(bash .asp/scripts/level-resolve.sh 2>/dev/null); \
 	if [ -z "$$CURRENT" ]; then echo "❌ .ai_profile 無 level 欄位，先執行 make asp-level-check"; exit 1; fi; \
-	LEVEL_FILE=".asp/levels/level-$$CURRENT.yaml"; \
+	LEVEL_FILE=".asp/levels/$$CURRENT.yaml"; \
 	NEXT=$$(grep -E '^next_level:' "$$LEVEL_FILE" | awk '{print $$2}'); \
-	if [ "$$NEXT" = "null" ] || [ -z "$$NEXT" ]; then echo "✅ 已在最高等級 (L$$CURRENT)"; exit 0; fi; \
-	NEXT_FILE=".asp/levels/level-$$NEXT.yaml"; \
+	if [ "$$NEXT" = "null" ] || [ -z "$$NEXT" ]; then echo "✅ 已在最高等級 ($$CURRENT)"; exit 0; fi; \
+	NEXT_FILE=".asp/levels/$$NEXT.yaml"; \
 	if [ ! -f "$$NEXT_FILE" ]; then echo "❌ $$NEXT_FILE 不存在"; exit 1; fi; \
 	NEXT_NAME=$$(grep -E '^name:' "$$NEXT_FILE" | head -1 | sed 's/name: *//'); \
-	echo "🚀 升級 L$$CURRENT → L$$NEXT ($$NEXT_NAME)"; \
+	echo "🚀 升級 $$CURRENT → $$NEXT ($$NEXT_NAME)"; \
 	echo ""; \
-	cp .ai_profile ".ai_profile.backup-L$$CURRENT"; \
-	echo "✅ 已備份 .ai_profile → .ai_profile.backup-L$$CURRENT"; \
+	cp .ai_profile ".ai_profile.backup-$$CURRENT"; \
+	echo "✅ 已備份 .ai_profile → .ai_profile.backup-$$CURRENT"; \
 	echo ""; \
 	echo "📋 請用 skill /asp-level 完成以下步驟："; \
 	echo "   1. 根據 $$NEXT_FILE 的 ai_profile_hint 更新 .ai_profile"; \
@@ -709,18 +597,19 @@ asp-level-upgrade: ## 升級到下一個 ASP 等級（需先通過 asp-level-che
 
 asp-level-list: ## 列出所有 ASP 等級
 	@echo ""; \
-	echo "🎯 ASP Maturity Levels"; \
-	echo "======================"; \
-	for f in .asp/levels/level-*.yaml; do \
+	echo "🎯 ASP Maturity Levels (v5)"; \
+	echo "==========================="; \
+	for n in loose standard autonomous; do \
+		f=".asp/levels/$$n.yaml"; \
 		if [ -f "$$f" ]; then \
-			LV=$$(grep -E '^level:' "$$f" | awk '{print $$2}'); \
 			NM=$$(grep -E '^name:' "$$f" | head -1 | sed 's/name: *//'); \
 			TG=$$(grep -E '^tagline:' "$$f" | sed 's/tagline: *//'); \
-			echo "  L$$LV  $$NM — $$TG"; \
+			AL=$$(grep -E '^aliases:' "$$f" | sed 's/aliases: *//;s/#.*//'); \
+			echo "  $$n ($$NM, legacy $$AL) — $$TG"; \
 		fi; \
 	done; \
 	echo ""; \
-	echo "詳細資訊：cat .asp/levels/level-N.yaml"; \
+	echo "詳細資訊：cat .asp/levels/{loose,standard,autonomous}.yaml"; \
 	echo "等級檢查：make asp-level-check"
 
 asp-bypass-record: ## 寫入 bypass 記錄（內部使用，或手動記錄：SKILL=asp-ship STEP=5 REASON="..."）
@@ -748,51 +637,10 @@ asp-update: ## Sync ASP core from local repo to ~/.claude/ (profiles/hooks/skill
 	@bash ~/.claude/scripts/asp-sync.sh
 .PHONY: asp-update
 
-asp-performance-review: ## Run monthly AI performance review (trust score + tier)
-	@python3 ~/.claude/asp/ai-performance/monthly-review.py
-.PHONY: asp-performance-review
-
-asp-performance-review-update: ## Run monthly AI performance review and update trust-tier.yaml
-	@python3 ~/.claude/asp/ai-performance/monthly-review.py --update-tier
-.PHONY: asp-performance-review-update
-
 asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Promotion Gate checks)
 	@bash .asp/scripts/l0-audit.sh .
 .PHONY: asp-l0-audit
 
-# SPEC-004 multi-agent worktree management ──────────────────────────────
-
-agent-worktree-list: ## List all SPEC-004 worktrees with age + branch + status
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-list.sh
-.PHONY: agent-worktree-list
-
-agent-worktree-gc: ## Garbage-collect stale SPEC-004 worktrees (idle > ASP_WORKTREE_IDLE_HOURS, default 2h)
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-gc.sh
-.PHONY: agent-worktree-gc
-
-agent-worktree-gc-dry-run: ## Show what agent-worktree-gc would remove without removing
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-gc.sh --dry-run
-.PHONY: agent-worktree-gc-dry-run
-
-agent-perf: ## Run SPEC-004 perf benchmarks (dispatch/converge p95 + S18 stress)
-	@bash tests/perf/test_spec_004_perf.sh
-.PHONY: agent-perf
-
-agent-perf-json: ## Run SPEC-004 perf benchmarks, JSON output for CI integration
-	@bash tests/perf/test_spec_004_perf.sh --json
-.PHONY: agent-perf-json
-
-agent-rollback: ## SPEC-004 rollback — discard in-flight worktrees + branches (base preserved)
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/rollback.sh
-.PHONY: agent-rollback
-
-agent-rollback-dry-run: ## Show what agent-rollback would do
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/rollback.sh --dry-run
-.PHONY: agent-rollback-dry-run
-
-spec-004-rollback-test: ## SPEC-004 Done When #9: full rollback regression suite
-	@bash tests/test_spec_004_rollback.sh
-.PHONY: spec-004-rollback-test
 
 security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	@if command -v semgrep &>/dev/null; then \
@@ -1204,18 +1052,60 @@ deploy-spec-new: ; @$(MAKE) doc-new TYPE=deploy
 profile-validate:
 	@bash .asp/scripts/validate-profile.sh
 
+#---------------------------------------------------------------------------
+# v5 Orchestrator 確定性腳本（ADR-015/SPEC-011）
+#---------------------------------------------------------------------------
+
+orch-classify: ## 任務分類（TASK="..." [HITL=minimal|standard|strict] [DOMAIN=1]）
+	@bash .asp/scripts/orchestrator/classify-task.sh $(if $(filter 1,$(DOMAIN)),--domain,) --hitl "$${HITL:-standard}" "$$TASK"
+
+orch-audit-check: ## 審計前置判斷（exit 2 = 需要審計）
+	@bash .asp/scripts/orchestrator/audit-check.sh --project "$$(pwd)"
+
+orch-round: ## 後置審計輪數（ACTION=get|increment|reset，exit 4 = 達上限）
+	@bash .asp/scripts/orchestrator/post-audit-round.sh --"$${ACTION:-get}" --project "$$(pwd)"
+
+orch-debt-log: ## 記錄 tech-debt（CATEGORY=... DESC="..." [SEVERITY=HIGH|MED|LOW] [DUE=YYYY-MM-DD]）
+	@bash .asp/scripts/orchestrator/tech-debt-log.sh --category "$$CATEGORY" --desc "$$DESC" \
+		$(if $(SEVERITY),--severity "$(SEVERITY)",) $(if $(DUE),--due "$(DUE)",)
+
+.PHONY: orch-classify orch-audit-check orch-round orch-debt-log
+
+#---------------------------------------------------------------------------
+# v5 Metrics（ADR-013：基線量測與對照）
+#---------------------------------------------------------------------------
+
+rule-stats: ## 規則命中率統計（90 天窗；DAYS=N 覆寫）— 零命中列待刪候選 (ADR-018)
+	@bash .asp/scripts/rule-stats.sh --days "$${DAYS:-90}"
+
+.PHONY: rule-stats
+
+asp-compile: ## Compile .ai_profile → .asp-compiled-profile.md (ADR-016)
+	@bash .asp/scripts/asp-compile.sh --project "$$(pwd)"
+
+asp-compile-check: ## Recompile only if stale (mtime check)
+	@bash .asp/scripts/asp-compile.sh --project "$$(pwd)" --check
+
+.PHONY: asp-compile asp-compile-check
+
+asp-metrics: ## Show repo metrics JSON (lines / rules / context tax)
+	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)"
+
+asp-metrics-baseline: ## Write metrics baseline to .asp-metrics-baseline.json (committed)
+	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)" --output .asp-metrics-baseline.json
+
+asp-metrics-compare: ## Compare current metrics vs baseline (BASELINE=.asp-metrics-baseline.json)
+	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)" --compare "$${BASELINE:-.asp-metrics-baseline.json}"
+
+.PHONY: asp-metrics asp-metrics-baseline asp-metrics-compare
+
 # ─── Telemetry ───────────────────────────────────────────────────────────────
 daily-audit: ## Generate daily health report to .asp-daily-report.md (P3)
 	@CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/scripts/daily-audit.sh
 
-asp-telemetry-collect:
-	@python3 .asp/scripts/telemetry/collect.py
-	@echo "[ASP] Telemetry event collected"
-
-asp-telemetry-report:
-	@python3 .asp/scripts/telemetry/report.py --days 7
-
-asp-telemetry-prune:
-	@python3 .asp/scripts/telemetry/prune.py --days 90
-
-.PHONY: asp-telemetry-collect asp-telemetry-report asp-telemetry-prune
+#---------------------------------------------------------------------------
+# v5 分區（ADR-017）：Experimental / Showcase targets 隨目錄存在自動載入
+# （安裝到一般專案時無這兩個目錄，targets 自然消失——零 stub 維護）
+#---------------------------------------------------------------------------
+-include experimental/multi-agent/Makefile.inc
+-include showcase/Makefile.inc

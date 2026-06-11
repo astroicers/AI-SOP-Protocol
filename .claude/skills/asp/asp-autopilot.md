@@ -819,7 +819,7 @@ asp-autopilot（skill，本檔）
   ├── 依賴 system_dev.md profile（ADR/SPEC/TDD 流程）
   ├── 依賴 global_core.md profile（鐵則 + 連帶修復）
   ├── 可選 task_orchestrator.md Part G（並行任務執行，由 ROADMAP.requires 觸發）
-  ├── 可選 vibe_coding.md（context 衰退偵測）
+  ├── context 衰退偵測：global_core HITL 節 + loose_mode Context 管理（v5 併自 vibe coding）
   ├── 可選 design_dev.md / openapi.md / frontend_quality.md / coding_style.md / rag_context.md
   │       （由 ROADMAP.requires 對應欄位觸發，見 Part 2「Profile 自動載入」）
   └── 觸發方式：使用者 /asp-autopilot（INV-1：僅人類主動啟動，ADR-012）

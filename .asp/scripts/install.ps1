@@ -134,9 +134,16 @@ function Get-DetectedType {
     return 'content'
 }
 
-# ─── 套用 preset（對應 install.sh apply_preset）───────────────────────
+# ─── 套用 preset（對應 install.sh apply_preset；v5 三級制：loose/standard/autonomous，
+#     遺留數字 0-5 自動映射，ADR-014）─────────────────────────────────────
 function Set-Preset {
-    param([int]$Level)
+    param([string]$Level)
+    switch ($Level) {
+        { $_ -in '0','1' } { $Level = 'loose' }
+        { $_ -in '2','3' } { $Level = 'standard' }
+        { $_ -in '4','5' } { $Level = 'autonomous' }
+    }
+    if ($Level -notin 'loose','standard','autonomous') { $Level = 'loose' }
     $script:ASP_LEVEL = $Level
     $script:HITL_LEVEL = 'standard'
     $script:WORKFLOW = 'standard'
@@ -145,16 +152,14 @@ function Set-Preset {
     $script:ENABLE_ORCHESTRATOR = 'n'
     $script:ENABLE_AUTOPILOT = 'n'
     $script:ENABLE_RAG = 'n'
-    $script:ENABLE_GUARDRAIL = 'n'
     $script:ENABLE_CODING_STYLE = 'n'
 
     switch ($Level) {
-        2 { $script:ENABLE_GUARDRAIL='y'; $script:ENABLE_CODING_STYLE='y' }
-        3 { $script:ENABLE_GUARDRAIL='y'; $script:ENABLE_CODING_STYLE='y' }
-        4 { $script:MODE='multi-agent'; $script:ENABLE_ORCHESTRATOR='y'; $script:ENABLE_GUARDRAIL='y'; $script:ENABLE_CODING_STYLE='y' }
-        5 { $script:MODE='multi-agent'; $script:HITL_LEVEL='minimal'; $script:WORKFLOW='vibe-coding';
-            $script:ENABLE_AUTONOMOUS='y'; $script:ENABLE_ORCHESTRATOR='y'; $script:ENABLE_AUTOPILOT='y';
-            $script:ENABLE_RAG='y'; $script:ENABLE_GUARDRAIL='y'; $script:ENABLE_CODING_STYLE='y' }
+        'standard'   { $script:ENABLE_CODING_STYLE='y' }
+        'autonomous' { $script:MODE='multi-agent'; $script:HITL_LEVEL='minimal';
+                       # workflow=standard（非 vibe-coding）：ADR-014 D8
+                       $script:ENABLE_AUTONOMOUS='y'; $script:ENABLE_ORCHESTRATOR='y'; $script:ENABLE_AUTOPILOT='y';
+                       $script:ENABLE_RAG='y'; $script:ENABLE_CODING_STYLE='y' }
     }
 }
 
@@ -296,20 +301,23 @@ if ($Interactive -and -not $env:ASP_TYPE -and -not $env:ASP_LEVEL) {
     }
 
     Write-Host ''
-    Write-Host '  成熟度等級：'
-    Write-Host '    [1] L1 Starter       — 最小治理（ADR + SPEC + 測試）'
-    Write-Host '    [2] L2 Disciplined   — + guardrail + coding_style'
-    Write-Host '    [3] L3 Test-First    — + pipeline gates G1-G6'
-    Write-Host '    [4] L4 Collaborative — + multi-agent'
-    Write-Host '    [5] L5 Autonomous    — + autopilot + RAG'
-    $levelChoice = Read-Host '  選擇 level (Enter = L1)'
-    if (-not $levelChoice) { $levelChoice = '1' }
-    Set-Preset ([int]$levelChoice)
+    Write-Host '  成熟度等級（v5 三級制）：'
+    Write-Host '    [1] loose      — 探索與最小治理（spike 豁免 + ADR/SPEC/測試入門）'
+    Write-Host '    [2] standard   — 自動化品質護欄 + pipeline gates G1-G6'
+    Write-Host '    [3] autonomous — ROADMAP 驅動自主執行 + orchestrator + RAG'
+    $levelChoice = Read-Host '  選擇 level (Enter = loose)'
+    $mapped = switch ($levelChoice) {
+        '1' { 'loose' }
+        '2' { 'standard' }
+        '3' { 'autonomous' }
+        default { if ($levelChoice) { $levelChoice } else { 'loose' } }
+    }
+    Set-Preset $mapped
 } else {
     $PROJECT_TYPE = if ($env:ASP_TYPE) { $env:ASP_TYPE } else { $Detected }
-    $envLevel = if ($env:ASP_LEVEL) { [int]$env:ASP_LEVEL } else { 1 }
+    $envLevel = if ($env:ASP_LEVEL) { $env:ASP_LEVEL } else { 'loose' }
     Set-Preset $envLevel
-    Write-Host "  非互動模式 — type: $PROJECT_TYPE | level: L$envLevel"
+    Write-Host "  非互動模式 — type: $PROJECT_TYPE | level: $script:ASP_LEVEL"
 }
 
 $PROJECT_NAME = $DefaultName
@@ -320,7 +328,6 @@ if (Test-Path '.ai_profile') {
     Write-Warn '.ai_profile 已存在，保留（如需重設請刪除後重跑）'
 } else {
     $ragVal = if ($ENABLE_RAG -eq 'y') { 'enabled' } else { 'disabled' }
-    $grdVal = if ($ENABLE_GUARDRAIL -eq 'y') { 'enabled' } else { 'disabled' }
     $autVal = if ($ENABLE_AUTONOMOUS -eq 'y') { 'enabled' } else { 'disabled' }
     $orcVal = if ($ENABLE_ORCHESTRATOR -eq 'y') { 'enabled' } else { 'disabled' }
     $aplVal = if ($ENABLE_AUTOPILOT -eq 'y') { 'enabled' } else { 'disabled' }
@@ -333,7 +340,6 @@ mode: $MODE
 workflow: $WORKFLOW
 hitl: $HITL_LEVEL
 rag: $ragVal
-guardrail: $grdVal
 autonomous: $autVal
 orchestrator: $orcVal
 autopilot: $aplVal
@@ -477,6 +483,9 @@ if (Test-Path '.gitignore') {
 # 完成
 # ═══════════════════════════════════════════════════════════════════
 Write-Host ''
+# v5（ADR-016）：Windows 原生路徑暫不執行 asp-compile 首次編譯（known deviation）；
+# SessionStart hook 經 Git Bash 執行時會自動編譯，否則以散文 profile 載入為 fallback
+Write-Warn 'asp-compile 首次編譯於 Windows 原生路徑略過 — SessionStart（Git Bash）會自動補編，散文 profile 為 fallback'
 if ($IsProjectUpgrade) {
     Write-Host "🎉 升級完成！（v$NewVersion @ $NewCommit）"
 } else {

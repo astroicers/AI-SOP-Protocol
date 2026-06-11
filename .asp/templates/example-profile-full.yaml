@@ -1,9 +1,10 @@
 # 此為 .ai_profile 範例，供參考。實際設定請編輯專案根目錄的 .ai_profile。
 type: system
+level: autonomous    # v5 三級制：loose | standard | autonomous（遺留 0-5 自動映射）
 mode: multi-agent
-workflow: vibe-coding
+workflow: standard   # v5：vibe-coding 載入 loose_mode，與 autonomous 衝突（ADR-014 D8）
 rag: enabled
-guardrail: enabled
+# guardrail 欄位已 deprecated（v5：三層回應內建 global_core，ADR-014）
 hitl: strict
 autonomous: enabled
 orchestrator: enabled

@@ -7,13 +7,24 @@
 #
 # 用法：
 #   bash install.sh                          # 互動式安裝
-#   ASP_TYPE=system ASP_LEVEL=2 bash install.sh  # 非互動式（CI / curl | bash）
+#   ASP_TYPE=system ASP_LEVEL=standard bash install.sh  # 非互動式（CI / curl | bash）
+#   bash install.sh --with-showcase          # 連同 Showcase 元件（telemetry/RAG/ai-performance）
+#   ASP_WITH_SHOWCASE=1 bash install.sh      # 同上（curl | bash 場景用 env）
 #
 # 移除：bash uninstall.sh
 
 set -euo pipefail
 
-PROTOCOL_REPO="https://github.com/astroicers/AI-SOP-Protocol"
+# ─── 旗標（v5 ADR-017）───
+WITH_SHOWCASE="${ASP_WITH_SHOWCASE:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --with-showcase) WITH_SHOWCASE=1 ;;
+  esac
+done
+
+# ASP_REPO_URL 可覆寫（本地測試 / fork / 私有鏡像）
+PROTOCOL_REPO="${ASP_REPO_URL:-https://github.com/astroicers/AI-SOP-Protocol}"
 TMP_DIR=$(mktemp -d /tmp/asp-install-XXXXX)
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
@@ -142,25 +153,26 @@ detect_type() {
   echo "content"
 }
 
-# ─── Preset ───────────────────────────────────────────────────────
+# ─── Preset（v5 三級制；遺留數字 0-5 自動映射，ADR-014）───────────
 apply_preset() {
-  case "$1" in
-    1) ASP_LEVEL=1; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=n; ENABLE_CODING_STYLE=n ;;
-    2) ASP_LEVEL=2; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    3) ASP_LEVEL=3; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    4) ASP_LEVEL=4; HITL_LEVEL=standard; WORKFLOW=standard; MODE=multi-agent
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    5) ASP_LEVEL=5; HITL_LEVEL=minimal; WORKFLOW=vibe-coding; MODE=multi-agent
-       ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y
-       ENABLE_RAG=y; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    *) apply_preset 1 ;;
+  local lv="$1"
+  case "$lv" in
+    0|1) lv=loose ;;
+    2|3) lv=standard ;;
+    4|5) lv=autonomous ;;
+  esac
+  case "$lv" in
+    loose)      ASP_LEVEL=loose; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+                ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+                ENABLE_RAG=n; ENABLE_CODING_STYLE=n ;;
+    standard)   ASP_LEVEL=standard; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+                ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+                ENABLE_RAG=n; ENABLE_CODING_STYLE=y ;;
+    autonomous) ASP_LEVEL=autonomous; HITL_LEVEL=minimal; WORKFLOW=standard; MODE=multi-agent
+                # workflow=standard（非 vibe-coding）：ADR-014 D8，loose_mode 與 autonomous 衝突
+                ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y
+                ENABLE_RAG=y; ENABLE_CODING_STYLE=y ;;
+    *) apply_preset loose ;;
   esac
 }
 
@@ -202,16 +214,41 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
 
-  # ~/.claude/asp/（profiles/hooks/templates/levels/agents/config）
+  # ~/.claude/asp/（profiles/hooks/templates/levels/config/scripts）
+  # v5（ADR-015）：scripts 加入複製清單——orchestrator 確定性腳本與 asp-compile 需部署到 user-level
+  # v5（ADR-017）：agents 移除（multi-agent 凍結至 experimental/，不進預設安裝）
   mkdir -p "$USER_ASP"
-  for dir in profiles hooks templates levels agents config advanced; do
+  for dir in profiles hooks templates levels config scripts advanced; do
     if [ -d "$TMP_DIR/.asp/$dir" ]; then
       rm -rf "${USER_ASP:?}/$dir"
       cp -r "$TMP_DIR/.asp/$dir" "$USER_ASP/$dir"
     fi
   done
   cp -f "$TMP_DIR/.asp/VERSION" "$USER_ASP/VERSION" 2>/dev/null || true
-  chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
+  chmod +x "$USER_ASP/hooks/"*.sh "$USER_ASP/scripts/"*.sh "$USER_ASP/scripts/orchestrator/"*.sh 2>/dev/null || true
+
+  # ─── v5 升級殘留清理（ADR-017）：舊安裝的 multi-agent / showcase 內容 ───
+  if [ "$IS_USER_UPGRADE" = true ]; then
+    rm -rf "$USER_ASP/agents" "$USER_ASP/scripts/multi-agent" \
+           "$USER_ASP/scripts/telemetry" "$USER_ASP/scripts/rag" \
+           "$USER_ASP/ai-performance" 2>/dev/null || true
+    rm -f  "$USER_ASP/hooks/rag-auto-index.sh" "$USER_ASP/profiles/rag_context.md" \
+           "$USER_ASP/profiles/orchestrator_multi_agent.md" 2>/dev/null || true
+    [ "$WITH_SHOWCASE" = 1 ] || rm -f "$USER_ASP/.showcase-installed" 2>/dev/null || true
+  fi
+
+  # ─── Showcase 裝回（--with-showcase / ASP_WITH_SHOWCASE=1；原始佈局，ADR-017）───
+  if [ "$WITH_SHOWCASE" = 1 ] && [ -d "$TMP_DIR/showcase" ]; then
+    mkdir -p "$USER_ASP/scripts" "$USER_ASP/hooks" "$USER_ASP/profiles"
+    cp -r "$TMP_DIR/showcase/telemetry"   "$USER_ASP/scripts/telemetry"
+    cp -r "$TMP_DIR/showcase/rag/scripts" "$USER_ASP/scripts/rag"
+    cp -f "$TMP_DIR/showcase/rag/hooks/rag-auto-index.sh" "$USER_ASP/hooks/"
+    cp -f "$TMP_DIR/showcase/rag/profiles/rag_context.md" "$USER_ASP/profiles/"
+    cp -r "$TMP_DIR/showcase/ai-performance" "$USER_ASP/ai-performance"
+    chmod +x "$USER_ASP/hooks/rag-auto-index.sh" 2>/dev/null || true
+    touch "$USER_ASP/.showcase-installed"
+    success "Showcase 元件已裝回（telemetry / RAG / ai-performance；marker: .showcase-installed）"
+  fi
 
   # ~/.claude/skills/asp/
   mkdir -p "$USER_SKILLS"
@@ -237,18 +274,16 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
 | ADR 未定案禁止實作 | Draft ADR 狀態下禁止寫生產代碼 |
 | 外部事實驗證防護 | 涉及第三方 API/版本/法規 → 必須執行 asp-fact-verify，記錄至 .asp-fact-check.md |
 
-## 成熟度等級（L0-L5）
+## 成熟度等級（v5 三級制）
 
-| Level | 名稱 | 適用場景 |
-|-------|------|---------|
-| L0 | Spike | 技術假設驗證、PoC（≤5 working days） |
-| L1 | Starter | 個人/小型專案（最小治理） |
-| L2 | Disciplined | 自動化品質護欄 |
-| L3 | Test-First | 測試文化成熟 + pipeline gates G1-G6 |
-| L4 | Collaborative | 中大型/跨模組 + multi-agent |
-| L5 | Autonomous | ROADMAP 驅動 + RAG |
+| Level | 適用場景 | 吸收的 v4 等級 |
+|-------|---------|---------------|
+| loose | 探索/PoC（spike 豁免）+ 個人小型專案最小治理 | L0, L1 |
+| standard | 自動化品質護欄 + pipeline gates G1-G6 | L2, L3 |
+| autonomous | ROADMAP 驅動 + orchestrator + RAG | L4, L5 |
 
-Level details: see `~/.claude/skills/asp/` or `~/.claude/asp/levels/level-N.yaml`
+舊數字值（0-5）自動映射並印 deprecation 提示（v6 移除）。
+Level details: see `~/.claude/skills/asp/` or `~/.claude/asp/levels/{loose,standard,autonomous}.yaml`
 
 ## 啟動程序
 
@@ -353,18 +388,21 @@ if [ -t 0 ]; then
   esac
 
   echo ""
-  echo "  成熟度等級："
-  echo "    [1] L1 Starter       — 最小治理（ADR + SPEC + 測試）"
-  echo "    [2] L2 Disciplined   — + guardrail + coding_style"
-  echo "    [3] L3 Test-First    — + pipeline gates G1-G6"
-  echo "    [4] L4 Collaborative — + multi-agent"
-  echo "    [5] L5 Autonomous    — + autopilot + RAG"
-  read -rp "  選擇 level (Enter = L1): " LEVEL_CHOICE
-  apply_preset "${LEVEL_CHOICE:-1}"
+  echo "  成熟度等級（v5 三級制）："
+  echo "    [1] loose      — 探索與最小治理（spike 豁免 + ADR/SPEC/測試入門）"
+  echo "    [2] standard   — 自動化品質護欄 + pipeline gates G1-G6"
+  echo "    [3] autonomous — ROADMAP 驅動自主執行 + orchestrator + RAG"
+  read -rp "  選擇 level (Enter = loose): " LEVEL_CHOICE
+  case "${LEVEL_CHOICE:-}" in
+    1) apply_preset loose ;;
+    2) apply_preset standard ;;
+    3) apply_preset autonomous ;;
+    *) apply_preset "${LEVEL_CHOICE:-loose}" ;;
+  esac
 else
   PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
-  apply_preset "${ASP_LEVEL:-1}"
-  echo "  非互動模式 — type: $PROJECT_TYPE | level: L${ASP_LEVEL:-1}"
+  apply_preset "${ASP_LEVEL:-loose}"
+  echo "  非互動模式 — type: $PROJECT_TYPE | level: $ASP_LEVEL"
 fi
 
 PROJECT_NAME="$DEFAULT_NAME"
@@ -381,7 +419,6 @@ mode: ${MODE:-auto}
 workflow: ${WORKFLOW:-standard}
 hitl: ${HITL_LEVEL:-standard}
 rag: $([ "${ENABLE_RAG:-n}" = "y" ] && echo enabled || echo disabled)
-guardrail: $([ "${ENABLE_GUARDRAIL:-n}" = "y" ] && echo enabled || echo disabled)
 autonomous: $([ "${ENABLE_AUTONOMOUS:-n}" = "y" ] && echo enabled || echo disabled)
 orchestrator: $([ "${ENABLE_ORCHESTRATOR:-n}" = "y" ] && echo enabled || echo disabled)
 autopilot: $([ "${ENABLE_AUTOPILOT:-n}" = "y" ] && echo enabled || echo disabled)
@@ -398,7 +435,8 @@ elif [ ! -f "CLAUDE.md" ]; then
   cat > CLAUDE.md << CLAUDEMD
 # ${PROJECT_NAME} — AI 行為設定
 
-> ASP v4.0 | 讀取順序：本檔案 → \`.ai_profile\` → \`~/.claude/CLAUDE.md\`（user-level 鐵則）
+> ASP v5 | 讀取順序：本檔案 → \`.asp-compiled-profile.md\`（asp-compile 編譯產物，
+> 檔頭列來源清單；不存在 → 依 \`.ai_profile\` 載入散文 profile 為 fallback）→ \`~/.claude/CLAUDE.md\`（user-level 鐵則）
 > Profile 邏輯與 ASP skills 詳見 \`~/.claude/asp/profiles/\` 與 \`~/.claude/skills/asp/\`
 
 ## 專案說明
@@ -513,7 +551,10 @@ ASP_GITIGNORE_ENTRIES=(
   ".asp-telemetry.jsonl"
   ".asp-fact-check.md"
   ".asp-review-calibration.jsonl"
+  ".asp-orch-state.json"
+  ".asp-compiled-profile.md"
 )
+# 注意：.asp-metrics-baseline.json 刻意不在此清單（ADR-013：對照證據需 commit）
 if [ -f ".gitignore" ]; then
   ADDED=0
   for entry in "${ASP_GITIGNORE_ENTRIES[@]}"; do
@@ -523,6 +564,13 @@ if [ -f ".gitignore" ]; then
     fi
   done
   [ "$ADDED" -gt 0 ] && success ".gitignore（補充 $ADDED 條 ASP 執行時檔案）"
+fi
+
+# ─── 首次編譯 profile（v5 ADR-016；best-effort，失敗不擋安裝） ───
+if bash "$USER_CLAUDE/asp/scripts/asp-compile.sh" --project "$(pwd)" --quiet 2>/dev/null; then
+  success ".asp-compiled-profile.md（asp-compile 首次編譯）"
+else
+  warn "asp-compile 首次編譯未完成（將於 SessionStart 自動重試；散文 profile 為 fallback）"
 fi
 
 # ═══════════════════════════════════════════════════════════════════

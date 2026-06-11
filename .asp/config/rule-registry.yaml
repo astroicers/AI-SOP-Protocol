@@ -1,0 +1,200 @@
+# rule-registry.yaml — 治理規則 rule_id 註冊表（v5 ADR-018）
+#
+# 消費者：session-audit.sh（asp_metric 寫入端）、rule-stats.sh（統計端）、
+#         tests/test_rule_registry.sh（雙向防漂移）
+# 欄位：id / desc / source / observed_by（session-audit|gate-log|manual|none）
+#       / exempt（true = 鐵則豁免 90 天零命中刪除條款，紅線 1）
+# 文法：扁平兩~五行一組，awk/grep 可解析，不依賴 yq。
+version: 1
+
+rules:
+  # ── 鐵則（CLAUDE.md 4 條 + Iron Rule A/B/C）——全部 exempt（紅線 1）──
+  - id: CLAUDE-IR-1
+    desc: "破壞性操作防護（push main/--force/rebase/rm -rf/docker push/pr merge 需人類確認）"
+    source: "CLAUDE.md 鐵則表"
+    observed_by: none          # 由 Claude Code 權限系統執行；經 DENY-01..12 聚合（方案 A 不可觀測）
+    exempt: true
+  - id: CLAUDE-IR-2
+    desc: "敏感資訊保護（禁止輸出 API Key/密碼/憑證；asp-ship Step 9 掃描）"
+    source: "CLAUDE.md 鐵則表"
+    observed_by: manual        # skill 執行層，無機械觀測點
+    exempt: true
+  - id: CLAUDE-IR-3
+    desc: "ADR 未定案禁止實作（Draft 擋 commit；FIRM 🟡 允許）"
+    source: "CLAUDE.md 鐵則表"
+    observed_by: session-audit # 經 AUDIT-A3.1 / DENY-DYNAMIC 觀測
+    exempt: true
+  - id: CLAUDE-IR-4
+    desc: "外部事實驗證防護（.asp-fact-check.md）"
+    source: "CLAUDE.md 鐵則表"
+    observed_by: manual
+    exempt: true
+  - id: IRON-A
+    desc: "Hook 完整性驗證（sha256 mismatch）"
+    source: "session-audit.sh Iron Rule A"
+    observed_by: session-audit
+    exempt: true
+  - id: IRON-B
+    desc: "Bypass log append-only（HWM 截斷偵測）"
+    source: "session-audit.sh Iron Rule B"
+    observed_by: session-audit
+    exempt: true
+  - id: IRON-C
+    desc: "Tool Output Trust Boundaries（外部工具輸出不受信任）"
+    source: "global_core.md"
+    observed_by: manual
+    exempt: true
+
+  # ── Gates G1-G6（機械統計來源 = .asp-gate-log/*.md frontmatter）──
+  - id: GATE-G1
+    desc: "Architecture Gate"
+    source: "asp-gate.md"
+    observed_by: gate-log
+  - id: GATE-G2
+    desc: "Specification Gate"
+    source: "asp-gate.md"
+    observed_by: gate-log
+  - id: GATE-G3
+    enabled_since: "2026-06-11"   # v5 起 gate-log 全面記錄（F-9 累積期保護）
+    desc: "Test Readiness Gate"
+    source: "asp-gate.md"
+    observed_by: gate-log     # 初期零命中屬資料累積期（ADR-018），非待刪訊號
+  - id: GATE-G4
+    enabled_since: "2026-06-11"   # v5 起 gate-log 全面記錄（F-9 累積期保護）
+    desc: "Implementation Gate"
+    source: "asp-gate.md"
+    observed_by: gate-log
+  - id: GATE-G5
+    enabled_since: "2026-06-11"   # v5 起 gate-log 全面記錄（F-9 累積期保護）
+    desc: "Verification Gate（含 G5.5 Cross-Component Parity）"
+    source: "asp-gate.md"
+    observed_by: gate-log
+  - id: GATE-G6
+    enabled_since: "2026-06-11"   # v5 起 gate-log 全面記錄（F-9 累積期保護）
+    desc: "Ship Gate"
+    source: "asp-gate.md"
+    observed_by: gate-log
+
+  # ── 靜態 deny patterns（denied-commands.json 逐條；方案 A：不可觀測）──
+  - id: DENY-01
+    desc: "Bash(git push origin main)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-02
+    desc: "Bash(git push origin main *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-03
+    desc: "Bash(git push --force *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-04
+    desc: "Bash(git push -f *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-05
+    desc: "Bash(git rebase *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-06
+    desc: "Bash(git rebase)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-07
+    desc: "Bash(gh pr merge *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-08
+    desc: "Bash(gh pr merge)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-09
+    desc: "Bash(docker push *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-10
+    desc: "Bash(docker deploy *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-11
+    desc: "Bash(rm -rf *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-12
+    desc: "Bash(rm -r *)"
+    source: "denied-commands.json"
+    observed_by: none
+  - id: DENY-DYNAMIC
+    desc: "Draft ADR → 動態注入 git commit deny（ADR-011 reconcile）"
+    source: "session-audit.sh 第 10 段"
+    observed_by: session-audit
+
+  # ── session-audit 規則點 ──
+  - id: AUDIT-A1.3
+    desc: "design enabled 但 frontend_quality 未啟用"
+    source: "session-audit.sh A1"
+    observed_by: session-audit
+  - id: AUDIT-A1.4
+    desc: "mode multi-agent（v5 Experimental 警告）"
+    source: "session-audit.sh A1"
+    observed_by: session-audit
+  - id: AUDIT-A1.5
+    desc: ".ai_profile 缺必填 type"
+    source: "session-audit.sh A1"
+    observed_by: session-audit
+  - id: AUDIT-A3.1
+    desc: "ADR Draft 存在 → commit 動態阻擋（鐵則 CLAUDE-IR-3 的觀測點）"
+    source: "session-audit.sh A3"
+    observed_by: session-audit
+  - id: AUDIT-A3.2
+    desc: "FIRM ADR 🟡 YELLOW FLAG"
+    source: "session-audit.sh A3"
+    observed_by: session-audit
+  - id: AUDIT-A4.7
+    desc: "上次測試未通過"
+    source: "session-audit.sh A4"
+    observed_by: session-audit
+  - id: AUDIT-A5.3
+    desc: "package manager 無 lock file"
+    source: "session-audit.sh A5"
+    observed_by: session-audit
+  - id: AUDIT-A5.4
+    desc: ".env 無 .env.example"
+    source: "session-audit.sh A5"
+    observed_by: session-audit
+  - id: AUDIT-A5.9
+    desc: "必要檔案缺失（README/CHANGELOG/Makefile 聚合）"
+    source: "session-audit.sh A5"
+    observed_by: session-audit
+  - id: AUDIT-A8.3
+    desc: "HIGH tech-debt 逾期"
+    source: "session-audit.sh A8"
+    observed_by: session-audit
+  - id: AUDIT-A9.2
+    desc: "鬆散版本依賴（* 或 latest）"
+    source: "session-audit.sh A9"
+    observed_by: session-audit
+  - id: AUDIT-A14.1
+    desc: "audit baseline 不存在"
+    source: "session-audit.sh A14"
+    observed_by: session-audit
+  - id: AUDIT-A14.2
+    desc: "audit baseline 過期（>7 天）"
+    source: "session-audit.sh A14"
+    observed_by: session-audit
+  - id: AUDIT-A15.1
+    desc: "Task Inbox 外部任務 held（SPEC-007）"
+    source: "session-audit.sh A15"
+    observed_by: session-audit
+  - id: AUDIT-A16.1
+    desc: "asp-compile 衝突中止（ADR-016）"
+    source: "session-audit.sh A16"
+    observed_by: session-audit
+  - id: AUDIT-A16.2
+    desc: "asp-compile 失敗回退散文"
+    source: "session-audit.sh A16"
+    observed_by: session-audit
+  - id: AUDIT-IRONB-MIGRATE
+    desc: "bypass log 未遷移 ndjson 提示"
+    source: "session-audit.sh Iron Rule B"
+    observed_by: session-audit

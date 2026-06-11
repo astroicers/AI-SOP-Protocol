@@ -19,13 +19,14 @@ if [ ! -f "$AI_PROFILE" ]; then
     exit 0
 fi
 
-LEVEL=$(grep "^level:" "$AI_PROFILE" 2>/dev/null | awk '{print $2}' | tr -d '"')
-if [ "$LEVEL" != "0" ]; then
-    echo "Level: ${LEVEL:-unknown} — not L0, audit not applicable"
+RAW_LEVEL=$(grep "^level:" "$AI_PROFILE" 2>/dev/null | awk '{print $2}' | tr -d '"')
+LEVEL=$(bash "$(dirname "$0")/level-resolve.sh" "$RAW_LEVEL" 2>/dev/null || echo "")
+if [ "$LEVEL" != "loose" ]; then
+    echo "Level: ${RAW_LEVEL:-unknown} — not loose, audit not applicable"
     exit 0
 fi
 
-echo "Level: L0 (Spike)"
+echo "Level: loose (spike/exploration lifecycle audit; v5 併自 L0)"
 echo ""
 
 DAYS_SINCE=0

@@ -46,12 +46,14 @@ echo "$HITS" | grep -q "real.sh" && pass "the surviving hit is the real marker" 
 # ── T3: 本 repo 實際掃描 — 已知 global_core.md 範例不再命中 ──
 echo ""
 echo "T3: in-repo scan no longer hits global_core.md examples"
+# 排除清單與 session-audit.sh A8.3 同步（v5 ADR-018 dogfood：+compiled artifact、
+# archive、experimental/showcase——編譯產物複製框架範例曾復活假陽性）
 REPO_HITS=$(grep -rn "tech-debt:.*HIGH.*DUE:" "$ASP_ROOT" --include="*.md" --include="*.sh" --exclude-dir=".git" 2>/dev/null \
-    | grep -vE '(\.asp/profiles/|\.asp/templates/|\.claude/skills/|docs/runbooks/)' \
+    | grep -vE '(\.asp/profiles/|\.asp/templates/|\.claude/skills/|docs/runbooks/|\.asp-compiled-profile\.md|docs/archive/|experimental/|showcase/)' \
     | grep -v "tests/test_tech_debt_scan_exclusions.sh" \
     | grep -vE 'session-audit\.sh.*grep' || true)
-if echo "$REPO_HITS" | grep -q "global_core.md"; then
-    fail "global_core.md examples still scanned"
+if echo "$REPO_HITS" | grep -qE "global_core.md|asp-compiled-profile"; then
+    fail "global_core.md/compiled artifact examples still scanned"
 else
     pass "global_core.md examples excluded"
 fi

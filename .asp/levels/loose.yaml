@@ -1,0 +1,66 @@
+level: loose
+name: Loose
+aliases: [0, 1]   # v4 legacy 數字等級（由 level-resolve.sh 映射；v6 移除）
+tagline: 探索與最小治理 — 鐵則仍然適用
+description: |
+  loose 是 v5 的入門等級（吸收 v4 的 L0 Spike + L1 Starter，ADR-014）。
+  涵蓋兩種節奏：探索模式（spike 豁免：無 ADR/SPEC/TDD/gates，顯式 [spike] 標記、
+  強制 hitl strict、timebox ≤5 工作天）與正式入門開發（ADR + SPEC + 測試成為肌肉記憶）。
+  loose 是暫時狀態，不是永久豁免——治理需求出現時升級 standard。
+
+profiles:
+  - global_core
+  - system_dev
+  - loose_mode
+
+auto_load:
+  - loose_mode
+
+ai_profile_hint: |
+  type: system
+  level: loose
+  hitl: standard   # spike 豁免活動期間 AI 自動升 strict（ADR-014 D1）
+  name: your-project
+
+prerequisites: []
+
+graduation_checklist:
+  - id: spike-concluded
+    description: "若曾使用 spike 豁免：docs/spike-conclusion.md 已寫且 main 無未清理 [spike] commit"
+    check: "! git log main --oneline 2>/dev/null | grep -q '\\[spike\\]'"
+    manual: true
+  - id: has-test-target
+    description: "Makefile 有 `test` target 且可執行"
+    check: "make -n test >/dev/null 2>&1"
+  - id: has-at-least-one-adr
+    description: "docs/adr/ 至少有 1 個 ADR"
+    check: "ls docs/adr/ADR-*.md 2>/dev/null | head -1"
+  - id: has-at-least-one-spec
+    description: "docs/specs/ 至少有 1 個 SPEC"
+    check: "ls docs/specs/SPEC-*.md 2>/dev/null | head -1"
+  - id: ran-ship-successfully
+    description: "曾成功跑過 /asp-ship 並通過（.asp-test-result.json 存在）"
+    check: "test -f .asp-test-result.json"
+
+exit_triggers:
+  - "使用者說「這個方向可行，我們繼續開發」"
+  - "Spike 超過 3 天仍無結論"
+  - "出現外部協作者 commit"
+  - "使用者詢問「這個要加測試嗎」"
+
+warnings:
+  - "loose 沒有 pipeline gates。正式產品開發請升級 standard。"
+  - "spike 豁免的代碼不應直接進入生產（main 禁止 [spike] commit）。"
+
+use_cases:
+  - "評估新技術棧可行性（PoC、半天到 5 個工作天）"
+  - "個人/小型專案的最小治理起步"
+  - "新框架 / 第三方 API 可行性探索"
+
+benefits_of_upgrading: |
+  升到 standard 後，你會獲得：
+  - coding_style：統一命名與格式慣例
+  - pipeline G1-G6：每個 commit 都有可驗證的品質證據
+  - TDD 強制流程：測試先於代碼
+
+next_level: standard

@@ -104,11 +104,17 @@
 
 ## 流程與狀態
 
-### Maturity Level（L0-L5）
-**English:** Maturity Level (L0-L5)
-**定義：** ASP 的六個成熟度等級（L0 Spike → L5 Autonomous），定義啟用哪些 Profile 組合與 graduation_checklist；透過 `asp-level` skill 評估與升級。
-**避免使用：** [等級, 版本, tier]（Maturity Level 的 L0-L5 標記是 ASP 的固定用語）
-**相關 ADR：** —
+### Maturity Level（成熟度等級）
+**English:** Maturity Level (loose / standard / autonomous)
+**定義：** ASP v5 的三個成熟度等級（loose → standard → autonomous，ADR-014 由 v4 的 L0-L5 六級收斂），定義啟用哪些 Profile 組合與 graduation_checklist；透過 `asp-level` skill 評估與升級。遺留數字值 0-5 由 `level-resolve.sh` 自動映射（0,1→loose｜2,3→standard｜4,5→autonomous），v6 移除。
+**避免使用：** [等級, 版本, tier, L0-L5（歷史文件外）]（loose/standard/autonomous 是 v5 固定用語）
+**相關 ADR：** ADR-014
+
+### Loose Mode（鬆治理模式）
+**English:** Loose Mode
+**定義：** v5 的鬆治理 profile（`loose_mode.md`，ADR-014 併自 vibe coding + spike mode）：角色分工 + 探索豁免（`[spike]` commit 標記、豁免期間 hitl 強制 strict）+ Context 管理。載入條件：`level: loose` 或 `workflow: vibe-coding`。
+**避免使用：** [vibe coding profile, spike mode profile]（兩者已歸檔，v5 起統稱 Loose Mode）
+**相關 ADR：** ADR-014
 
 ### Autopilot
 **English:** Autopilot (ROADMAP-driven Continuous Execution)

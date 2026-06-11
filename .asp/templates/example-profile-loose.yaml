@@ -1,0 +1,29 @@
+# example-profile-loose.yaml
+# Copy to project root as .ai_profile when starting an exploration / small project.
+# Spike time-box: ≤5 working days, then graduate to standard or discard.
+#
+# Usage:
+#   cp .asp/templates/example-profile-loose.yaml .ai_profile
+#   git checkout -b spike/my-spike-name   # if doing a spike
+#
+# See also: .asp/profiles/loose_mode.md（v5 併自 vibe coding + spike mode，ADR-014）
+
+type: system           # required field — do not remove
+level: loose           # v5 三級制；遺留數字 0/1 仍可用（自動映射 + deprecation 提示）
+name: my-project       # short identifier (kebab-case)
+
+# Spike 豁免活動期間強制 hitl: strict（ADR-014 D1），其餘依此設定。
+hitl: standard
+
+# Spike metadata（進行 spike 時填寫，session-audit.sh 讀取作 context）
+# spike_question: "Can we use X for Y?"    # what hypothesis are you validating?
+# spike_deadline: "YYYY-MM-DD"             # ≤5 working days from today
+
+# Profiles loaded at loose:
+#   global_core  (always; 含敏感資訊三層回應 + HITL 等級 + 升級路徑)
+#   system_dev   (type: system)
+#   loose_mode   (auto-loaded by level: loose)
+#
+# Profiles NOT loaded (skipped at loose by design):
+#   pipeline, autonomous_dev, coding_style
+#   — add explicitly if truly needed, but reconsider whether you should upgrade to standard instead

@@ -7,9 +7,13 @@
 #   bash ~/.claude/scripts/asp-sync.sh --dry-run  # 只顯示差異，不同步
 #
 # 同步範圍：
-#   ~/.claude/asp/         ← .asp/（profiles/hooks/templates/levels/agents/config）
+#   ~/.claude/asp/         ← .asp/（profiles/hooks/templates/levels/config/scripts）
 #   ~/.claude/skills/asp/  ← .claude/skills/asp/（所有 asp-*.md skills）
 #   ~/.claude/CLAUDE.md    ← .claude/CLAUDE.md（user-level 鐵則，若已是 ASP 版本）
+#
+# v5（ADR-017）：若 ~/.claude/asp/.showcase-installed marker 存在，rsync --delete
+# 後會自 showcase/ 補同步裝回內容（telemetry/RAG/ai-performance），避免抹掉
+# 使用者以 install.sh --with-showcase 安裝的元件。
 
 set -euo pipefail
 
@@ -56,8 +60,15 @@ if [ "$DRY_RUN" = true ]; then
 fi
 echo ""
 
+# ─── Showcase marker（v5 ADR-017）────────────────────────────────
+SHOWCASE_MARKER="$USER_ASP/.showcase-installed"
+SHOWCASE_INSTALLED=false
+[ -f "$SHOWCASE_MARKER" ] && SHOWCASE_INSTALLED=true
+
 # ─── 差異偵測 ────────────────────────────────────────────────────
 DIFF_ASP=$(diff -rq --exclude="*.pyc" --exclude="__pycache__" \
+  --exclude=".showcase-installed" --exclude="telemetry" --exclude="rag" \
+  --exclude="rag-auto-index.sh" --exclude="rag_context.md" --exclude="ai-performance" \
   "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
 DIFF_SKILLS=$(diff -rq \
   "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
@@ -102,7 +113,7 @@ mkdir -p "$USER_ASP" "$USER_SKILLS"
 
 if command -v rsync &>/dev/null; then
   rsync -a --delete \
-    --exclude="*.pyc" --exclude="__pycache__" \
+    --exclude="*.pyc" --exclude="__pycache__" --exclude=".showcase-installed" \
     "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete \
     "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
@@ -112,8 +123,20 @@ else
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
 fi
 
+# ─── Showcase 補同步（v5 ADR-017：--delete 後依 marker 裝回）────────
+if [ "$SHOWCASE_INSTALLED" = true ] && [ -d "$ASP_REPO/showcase" ]; then
+  mkdir -p "$USER_ASP/scripts" "$USER_ASP/hooks" "$USER_ASP/profiles"
+  cp -r "$ASP_REPO/showcase/telemetry"   "$USER_ASP/scripts/telemetry"
+  cp -r "$ASP_REPO/showcase/rag/scripts" "$USER_ASP/scripts/rag"
+  cp -f "$ASP_REPO/showcase/rag/hooks/rag-auto-index.sh" "$USER_ASP/hooks/"
+  cp -f "$ASP_REPO/showcase/rag/profiles/rag_context.md" "$USER_ASP/profiles/"
+  cp -r "$ASP_REPO/showcase/ai-performance" "$USER_ASP/ai-performance"
+  touch "$SHOWCASE_MARKER"
+  success "Showcase 補同步（marker: .showcase-installed）"
+fi
+
 # hooks 需要執行權限
-chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
+chmod +x "$USER_ASP/hooks/"*.sh "$USER_ASP/scripts/"*.sh "$USER_ASP/scripts/orchestrator/"*.sh 2>/dev/null || true
 
 # user-level CLAUDE.md 同步（只更新 ASP 版本）
 USER_CLAUDE_MD="$USER_CLAUDE/CLAUDE.md"

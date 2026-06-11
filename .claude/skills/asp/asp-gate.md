@@ -377,6 +377,14 @@ make asp-bypass-record SKILL=asp-gate STEP=<GX_name> REASON="<skipped_reason>"
 }
 ```
 
+### Gate Log（v5 ADR-018 — 所有 gate 評估必寫）
+
+每次 `/asp-gate` 評估（G1-G6，不限 asp-plan auto-gate）結束後，**必須**將報告寫入
+`.asp-gate-log/{ISO_TIMESTAMP_UTC}-G{n}-{TARGET_ID}.md`（frontmatter schema 見
+SPEC-006：`gate:` / `target_id:` / `result:` / `findings_count:` 等欄位）。
+此記錄是 `make rule-stats` 對 GATE-G1..G6 命中率的**機械統計來源**——跳過寫入
+等於讓該 gate 在規則存留證據上隱形（90 天零命中 → 待刪候選誤判）。
+
 ---
 
 ## Common Rationalizations（AI 繞過時必讀）
