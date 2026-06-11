@@ -1204,6 +1204,21 @@ deploy-spec-new: ; @$(MAKE) doc-new TYPE=deploy
 profile-validate:
 	@bash .asp/scripts/validate-profile.sh
 
+#---------------------------------------------------------------------------
+# v5 Metrics（ADR-013：基線量測與對照）
+#---------------------------------------------------------------------------
+
+asp-metrics: ## Show repo metrics JSON (lines / rules / context tax)
+	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)"
+
+asp-metrics-baseline: ## Write metrics baseline to .asp-metrics-baseline.json (committed)
+	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)" --output .asp-metrics-baseline.json
+
+asp-metrics-compare: ## Compare current metrics vs baseline (BASELINE=.asp-metrics-baseline.json)
+	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)" --compare "$${BASELINE:-.asp-metrics-baseline.json}"
+
+.PHONY: asp-metrics asp-metrics-baseline asp-metrics-compare
+
 # ─── Telemetry ───────────────────────────────────────────────────────────────
 daily-audit: ## Generate daily health report to .asp-daily-report.md (P3)
 	@CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/scripts/daily-audit.sh

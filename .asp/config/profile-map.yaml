@@ -1,0 +1,76 @@
+# profile-map.yaml — .ai_profile 欄位 → profile 載入映射（single source of truth）
+#
+# 消費者：
+#   - .asp/scripts/asp-metrics.sh   （v5 Phase 0：context 稅量測，ADR-013）
+#   - .asp/scripts/level-resolve.sh （v5 Phase 1：level_aliases 數字→名稱映射）
+#   - .asp/scripts/asp-compile.sh   （v5 Phase 3：編譯期依賴解析）
+#   - .asp/scripts/validate-profile.sh（載入清單輸出）
+#
+# 文法（awk/grep 可解析，不依賴 yq/PyYAML）：
+#   rules 條目兩行一組：
+#     - when: "field=value[&field=value...]"   ← AND 條件
+#       load: "profile_a profile_b"            ← 空白分隔，不含 .md
+#   消費端約定：
+#     1. 全部命中規則的 load 取聯集去重，再依各 profile 檔頭
+#        <!-- requires: ... --> 遞移展開。
+#     2. 指到不存在的 profile（幽靈引用，如歷史名 multi_agent）→ 容錯：
+#        記入 missing_profiles / WARNING，不報錯。
+#   內容與 CLAUDE.md「Profile 核心映射」及 validate-profile.sh 載入清單
+#   雙向核對（差異記 ADR-013）。
+version: 1
+
+rules:
+  - when: "type=system"
+    load: "global_core system_dev"
+  - when: "type=architecture"
+    load: "global_core system_dev"
+  - when: "type=content"
+    load: "global_core content_creative"
+  # v4.3 起 multi-agent 協調邏輯在 task_orchestrator Part G；
+  # escalation 載入條件：mode multi-agent 或 autonomous enabled（見其檔頭）
+  - when: "mode=multi-agent"
+    load: "task_orchestrator pipeline escalation"
+  # reality_checker 載入條件：mode multi-agent + 團隊含 reality 角色；
+  # 量測上以 multi-agent+autonomous 組合近似（記 ADR-013）
+  - when: "mode=multi-agent&autonomous=enabled"
+    load: "reality_checker"
+  - when: "workflow=vibe-coding"
+    load: "vibe_coding"
+  - when: "workflow=vibe-coding&hitl=minimal"
+    load: "autonomous_dev"
+  - when: "design=enabled"
+    load: "design_dev frontend_quality"
+  - when: "frontend_quality=enabled"
+    load: "frontend_quality"
+  - when: "coding_style=enabled"
+    load: "coding_style"
+  - when: "openapi=enabled"
+    load: "openapi"
+  - when: "rag=enabled"
+    load: "rag_context"
+  - when: "guardrail=enabled"
+    load: "guardrail"
+  - when: "orchestrator=enabled"
+    load: "task_orchestrator"
+  - when: "autonomous=enabled"
+    load: "autonomous_dev task_orchestrator escalation"
+  - when: "autopilot=enabled"
+    load: "autonomous_dev task_orchestrator"
+  - when: "level=0"
+    load: "spike_mode"
+  - when: "level=3"
+    load: "pipeline"
+  - when: "level=4"
+    load: "pipeline"
+  - when: "level=5"
+    load: "pipeline"
+
+# level_aliases — 數字等級 → v5 名稱等級（Phase 1 起由 level-resolve.sh 消費；
+# 數字值將於 v6 移除）
+level_aliases:
+  - "0=loose"
+  - "1=loose"
+  - "2=standard"
+  - "3=standard"
+  - "4=autonomous"
+  - "5=autonomous"

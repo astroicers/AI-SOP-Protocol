@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-11T08:40:55Z",
+  "git_commit": "eb07438",
+  "asp_version": "4.3.0",
+  "profiles": {
+    "count": 16,
+    "total_lines": 5177,
+    "files": {
+      "autonomous_dev.md": 314,
+      "coding_style.md": 177,
+      "content_creative.md": 67,
+      "design_dev.md": 427,
+      "escalation.md": 91,
+      "frontend_quality.md": 218,
+      "global_core.md": 435,
+      "guardrail.md": 65,
+      "openapi.md": 245,
+      "pipeline.md": 506,
+      "rag_context.md": 136,
+      "reality_checker.md": 155,
+      "spike_mode.md": 84,
+      "system_dev.md": 493,
+      "task_orchestrator.md": 1587,
+      "vibe_coding.md": 177
+    }
+  },
+  "skills": {
+    "count": 18,
+    "total_lines": 4007,
+    "files": {
+      "SKILL.md": 130,
+      "asp-audit.md": 157,
+      "asp-autopilot.md": 829,
+      "asp-context.md": 149,
+      "asp-dev-qa-loop.md": 211,
+      "asp-dispatch.md": 97,
+      "asp-external-review.md": 131,
+      "asp-gate.md": 411,
+      "asp-handoff.md": 296,
+      "asp-impact.md": 89,
+      "asp-level.md": 170,
+      "asp-plan.md": 234,
+      "asp-reality-check.md": 92,
+      "asp-release.md": 157,
+      "asp-review-checklist.md": 234,
+      "asp-review.md": 92,
+      "asp-ship.md": 306,
+      "asp-team-pick.md": 222
+    }
+  },
+  "levels": {
+    "count": 6,
+    "total_lines": 332
+  },
+  "claude_md_lines": 100,
+  "rules": {
+    "pattern": "MUST|禁止|🔴",
+    "total": 125,
+    "per_profile": {
+      "autonomous_dev.md": 3,
+      "coding_style.md": 12,
+      "content_creative.md": 1,
+      "design_dev.md": 6,
+      "frontend_quality.md": 9,
+      "global_core.md": 5,
+      "openapi.md": 1,
+      "pipeline.md": 10,
+      "spike_mode.md": 1,
+      "system_dev.md": 16,
+      "task_orchestrator.md": 4,
+      "vibe_coding.md": 1
+    },
+    "per_skill": {
+      "asp-audit.md": 4,
+      "asp-autopilot.md": 5,
+      "asp-dev-qa-loop.md": 1,
+      "asp-gate.md": 8,
+      "asp-handoff.md": 1,
+      "asp-impact.md": 2,
+      "asp-plan.md": 4,
+      "asp-reality-check.md": 1,
+      "asp-release.md": 2,
+      "asp-review-checklist.md": 3,
+      "asp-review.md": 7,
+      "asp-ship.md": 18
+    }
+  },
+  "context_tax": {
+    "L1_content": {
+      "fields": {
+        "type": "content",
+        "level": "1",
+        "mode": "auto",
+        "workflow": "standard",
+        "hitl": "standard"
+      },
+      "profiles_loaded": [
+        "global_core",
+        "content_creative"
+      ],
+      "missing_profiles": [],
+      "profile_lines": 502,
+      "claude_md_lines": 100,
+      "total": 602
+    },
+    "L3_system_design": {
+      "fields": {
+        "type": "system",
+        "level": "3",
+        "mode": "auto",
+        "workflow": "standard",
+        "hitl": "standard",
+        "design": "enabled",
+        "frontend_quality": "enabled",
+        "guardrail": "enabled",
+        "coding_style": "enabled"
+      },
+      "profiles_loaded": [
+        "global_core",
+        "system_dev",
+        "design_dev",
+        "frontend_quality",
+        "coding_style",
+        "guardrail",
+        "pipeline",
+        "task_orchestrator"
+      ],
+      "missing_profiles": [],
+      "profile_lines": 3908,
+      "claude_md_lines": 100,
+      "total": 4008
+    },
+    "L5_autonomous": {
+      "fields": {
+        "type": "system",
+        "level": "5",
+        "mode": "multi-agent",
+        "workflow": "vibe-coding",
+        "hitl": "minimal",
+        "autonomous": "enabled",
+        "orchestrator": "enabled",
+        "autopilot": "enabled",
+        "rag": "enabled",
+        "guardrail": "enabled",
+        "coding_style": "enabled"
+      },
+      "profiles_loaded": [
+        "global_core",
+        "system_dev",
+        "task_orchestrator",
+        "pipeline",
+        "escalation",
+        "reality_checker",
+        "vibe_coding",
+        "autonomous_dev",
+        "coding_style",
+        "rag_context",
+        "guardrail"
+      ],
+      "missing_profiles": [],
+      "profile_lines": 4136,
+      "claude_md_lines": 100,
+      "total": 4236
+    }
+  }
+}
