@@ -168,6 +168,40 @@ make lint
 
 ---
 
+### Step 9.6 — auto-gate log 後驗（ADR-009 強制機制）
+
+> **目的**：偵測「commit 含新 ADR/SPEC 但無對應 `.asp-gate-log/` 紀錄」— 代表 plan 階段 auto-gate（ADR-009 Step 5.5）失效（AI 跳過、API 失敗、或忘記）。
+
+**檢查命令**：
+
+```bash
+# 注意（SPEC-006 G2 review F-3）：本片段設計為獨立執行（standalone script / AI 執行的
+# bash 區塊），不可被 source —— exit 0 會結束呼叫端 shell。
+adr_specs=$(git diff --cached --name-only | grep -E '^docs/(adr|specs)/(ADR|SPEC)-[0-9]+.*\.md$' || true)
+[[ -z "$adr_specs" ]] && exit 0  # 無 ADR/SPEC 變更，跳過
+
+missing=0
+while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    id=$(basename "$f" | grep -oE '(ADR|SPEC)-[0-9]+')
+    if ! ls .asp-gate-log/*-G[12]-"${id}"*.md >/dev/null 2>&1; then
+        echo "⚠️  Step 9.6 WARN：$f staged 但無 .asp-gate-log/*-${id}*.md"
+        echo "    → 補跑 /asp-gate G1 或 G2，或走 bypass 流程記錄理由"
+        missing=$((missing+1))
+    fi
+done <<< "$adr_specs"
+```
+
+| 條件 | 嚴重度 |
+|------|--------|
+| `missing == 0` | ✅ PASS（commit 繼續） |
+| `missing > 0` 且非 bypass | 🟡 **WARN**（不阻擋 commit；記入 evidence） |
+| 同一 ADR/SPEC 連續 3 次 commit 都 WARN | 🔴 **BLOCK**（下次 `asp-audit` 強制 reality-check） |
+
+**處置**：WARN-GO 走既有 Step 10b bypass 流程（`make asp-bypass-record SKILL=asp-ship STEP=Step9.6 REASON="..."`）。
+
+---
+
 ### Step 10：記錄結果 + Bypass 事件（v3.5 強化）
 
 **10a. 記錄測試結果**

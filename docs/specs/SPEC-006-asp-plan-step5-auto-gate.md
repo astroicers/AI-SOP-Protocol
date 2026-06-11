@@ -45,12 +45,15 @@
 | `^docs/adr/ADR-[0-9]+.*\.md$` | G1 | `docs/adr/ADR-009-foo.md` | `docs/adr/README.md`、`docs/adr/ADR-template.md` |
 | `^docs/specs/SPEC-[0-9]+.*\.md$` | G2 | `docs/specs/SPEC-006-bar.md` | `docs/specs/README.md`、`docs/specs/notes.md` |
 
-**判斷邏輯**（精確）：
+**判斷邏輯**（精確；G2 review 後自抓 F-5 修正——原版用 `--name-only` 會把**刪除**的 ADR/SPEC 也計入觸發，牴觸 E3/B3「刪除不觸發」。改用 `--name-status` 排除 `D`，rename `R` 取新檔名計入 = E1）：
 ```bash
-hits_adr=$(git diff --cached --name-only | grep -cE '^docs/adr/ADR-[0-9]+.*\.md$' || true)
-hits_spec=$(git diff --cached --name-only | grep -cE '^docs/specs/SPEC-[0-9]+.*\.md$' || true)
+staged=$(git diff --cached --name-status)
+hits_adr=$(echo "$staged" | grep -v '^D' | awk '{print $NF}' | grep -cE '^docs/adr/ADR-[0-9]+.*\.md$' || true)
+hits_spec=$(echo "$staged" | grep -v '^D' | awk '{print $NF}' | grep -cE '^docs/specs/SPEC-[0-9]+.*\.md$' || true)
+deleted_gov=$(echo "$staged" | grep '^D' | awk '{print $NF}' | grep -cE '^docs/(adr|specs)/(ADR|SPEC)-[0-9]+.*\.md$' || true)
 [[ $hits_adr -gt 0 ]] && spawn_g1
 [[ $hits_spec -gt 0 ]] && spawn_g2
+[[ $deleted_gov -gt 0 ]] && echo "⚠️ ADR/SPEC 刪除偵測 — 請確認是 supersede 流程而非誤刪"
 ```
 
 ### Gate log 寫入格式
@@ -263,6 +266,9 @@ Feature: asp-plan Step 5 auto-gate 觸發機制
 ### 🤖 automated_checks（必填）
 
 ```yaml
+# 註（G2 review F-4）：下列 test_*.sh / grep 檢查為 G4（實作）驗收標準，非 G2（規格）標準。
+# G2 驗證的是欄位完整性 / 二元可測性 / Gherkin 覆蓋 / 追溯性；
+# 下列 shell 命令於實作完成後（G4）對 artifacts 執行。
 automated_checks:
   - cmd: "tests/test_auto_gate_glob_matcher.sh"
     description: "Glob 表 P1/P3/N1/B1-B3 case 全綠（純函式測試，無 spawn）"
@@ -284,17 +290,17 @@ automated_checks:
     description: "asp-plan.md 確實使用機械 glob trigger（git diff 命令 + glob pattern）"
   - cmd: "grep -q '### Step 9\\.6' .claude/skills/asp/asp-ship.md"
     description: "asp-ship.md 含 Step 9.6 auto-gate log 後驗段落"
-  - cmd: "grep -q 'auto-gate' CLAUDE.md && grep -q 'L3.5\\|結構化軟性.*auto-spawn\\|on-demand subagent' CLAUDE.md"
-    description: "CLAUDE.md 強制力架構表 L4 行已依 ADR-009 open question #1 擇定選項更新"
+  - cmd: "grep -q 'auto-gate' CLAUDE.md && grep -q 'on-demand' CLAUDE.md"
+    description: "CLAUDE.md 強制力架構表已依 ADR-009 選項 (c) 更新：L3 行含 auto-gate（SPEC-006 落地註記）、L4 行維持 on-demand（G2 review F-1 修正：原檢查為選項 (b) 撰寫，對已採用的選項 (c) 為 false-fail）"
 ```
 
 ### 👤 manual_checks
 
-- [ ] `.claude/skills/asp/asp-plan.md` Step 5 文字含 mandatory sub-step + 「Common Rationalizations」段落
-- [ ] `.claude/skills/asp/asp-ship.md` Step 9.6 加 gate-log 後驗
-- [ ] `CLAUDE.md` 強制力架構表 L4 行同步更新（依 ADR-009 開放問題 #1 擇定的選項）
-- [ ] CHANGELOG.md 加 v4.x 條目
-- [ ] `docs/where-to-start.md` 提到 auto-gate 機制
+- [x] `.claude/skills/asp/asp-plan.md` Step 5 文字含 mandatory sub-step（Step 5.5）+ 「Common Rationalizations」段落（R1-R7）（2026-06-11）
+- [x] `.claude/skills/asp/asp-ship.md` Step 9.6 加 gate-log 後驗（2026-06-11）
+- [x] `CLAUDE.md` 強制力架構表同步（ADR-009 開放問題 #1 選項 (c)：L3 含 auto-gate 落地註記、L4 維持 on-demand）（2026-06-11）
+- [x] CHANGELOG.md 加 Unreleased 條目（2026-06-11）
+- [x] `docs/where-to-start.md` 提到 auto-gate 機制（2026-06-11）
 
 ---
 
@@ -327,7 +333,13 @@ traceability:
       role: test
     - path: "tests/fixtures/auto-gate/"
       role: test-fixture
-  last_verified: null
+    - path: ".claude/skills/asp/asp-gate.md"
+      role: implementation  # G2 PENDING 例外規則（A.3）
+    - path: "docs/where-to-start.md"
+      role: documentation
+    - path: ".asp-gate-log/20260611T061000Z-G2-SPEC-006.md"
+      role: audit-trail  # 本 SPEC 自身的 G2 review，機制第一筆記錄
+  last_verified: "2026-06-11"
 ```
 
 ---
@@ -388,7 +400,7 @@ traceability:
 
 ### A.1 asp-plan.md Step 5 補丁（literal prose，verbatim 採用）
 
-在 `.claude/skills/asp/asp-plan.md` 既有 Step 5 結尾**之前**插入下列段落（具體位置：Step 5 「下一步」清單**之前**）：
+在 `.claude/skills/asp/asp-plan.md` 既有 Step 5 的**呈現模板（``` 圍欄）結束之後、「等待用戶明確確認…」句之前**插入下列段落（G2 review F-2 修正：原錨點「下一步清單之前」位於 code fence 內，會產生三種解讀；本錨點唯一。執行語意：呈現摘要 → 跑 auto-gate → 等使用者確認）：
 
 ```markdown
 ---
@@ -402,13 +414,15 @@ traceability:
 於 Step 5 寫完 ADR / SPEC 後，**必須**執行下列命令並依結果動作。**禁止以 AI 啟發式判斷取代**（「這次 plan 算不算 ADR 等級」由 glob 決定，不由 AI 決定）：
 
 \```bash
-staged=$(git diff --cached --name-only)
-hits_adr=$(echo "$staged" | grep -cE '^docs/adr/ADR-[0-9]+.*\.md$' || true)
-hits_spec=$(echo "$staged" | grep -cE '^docs/specs/SPEC-[0-9]+.*\.md$' || true)
+staged=$(git diff --cached --name-status)
+hits_adr=$(echo "$staged" | grep -v '^D' | awk '{print $NF}' | grep -cE '^docs/adr/ADR-[0-9]+.*\.md$' || true)
+hits_spec=$(echo "$staged" | grep -v '^D' | awk '{print $NF}' | grep -cE '^docs/specs/SPEC-[0-9]+.*\.md$' || true)
+deleted_gov=$(echo "$staged" | grep '^D' | awk '{print $NF}' | grep -cE '^docs/(adr|specs)/(ADR|SPEC)-[0-9]+.*\.md$' || true)
 \```
 
 - `hits_adr > 0` → **必須** spawn G1 subagent（每個命中的 ADR 一個 subagent，並行）
 - `hits_spec > 0` → **必須** spawn G2 subagent（同上）
+- `deleted_gov > 0` → echo「⚠️ ADR/SPEC 刪除偵測 — 請確認是 supersede 流程而非誤刪」（提示，非阻擋；E3）
 - 兩者皆 0 → 在 Step 5 結尾陳述「無 ADR/SPEC 變更，跳過 auto-gate」（這句話必填，作為決策痕跡）
 
 ### 5.5.2 Subagent 呼叫（使用 Agent tool）
@@ -455,18 +469,21 @@ hits_spec=$(echo "$staged" | grep -cE '^docs/specs/SPEC-[0-9]+.*\.md$' || true)
 **檢查命令**：
 
 \```bash
+# 注意（G2 review F-3）：本片段設計為獨立執行（standalone script / AI 執行的 bash 區塊），
+# 不可被 source —— exit 0 會結束呼叫端 shell。
 adr_specs=$(git diff --cached --name-only | grep -E '^docs/(adr|specs)/(ADR|SPEC)-[0-9]+.*\.md$' || true)
 [[ -z "$adr_specs" ]] && exit 0  # 無 ADR/SPEC 變更，跳過
 
 missing=0
-for f in $adr_specs; do
+while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
     id=$(basename "$f" | grep -oE '(ADR|SPEC)-[0-9]+')
-    if ! ls .asp-gate-log/*-G[12]-"${id}".md 2>/dev/null >&2; then
-        echo "⚠️  Step 9.6 WARN：$f staged 但無 .asp-gate-log/*-${id}.md"
+    if ! ls .asp-gate-log/*-G[12]-"${id}"*.md >/dev/null 2>&1; then
+        echo "⚠️  Step 9.6 WARN：$f staged 但無 .asp-gate-log/*-${id}*.md"
         echo "    → 補跑 /asp-gate G1 或 G2，或走 bypass 流程記錄理由"
         missing=$((missing+1))
     fi
-done
+done <<< "$adr_specs"
 \```
 
 | 條件 | 嚴重度 |

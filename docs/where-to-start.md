@@ -44,6 +44,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
       填寫：Goal / Inputs / Outputs / Side Effects /
             Edge Cases / Done When / Rollback Plan
 
+   ※ 寫完 ADR/SPEC 後，asp-plan Step 5.5 auto-gate 會自動
+     spawn G1/G2 subagent review（ADR-009/SPEC-006），
+     報告存 .asp-gate-log/；跳過必須走 bypass 流程留痕
+
 3. 寫測試（先讓測試 FAIL）
    └─ make test-filter FILTER=你的功能名
 
