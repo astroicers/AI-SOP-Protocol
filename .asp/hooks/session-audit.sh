@@ -252,15 +252,17 @@ else
 fi
 
 # ═══════════════════════════════════════════
-# 7. Task Inbox 自動注入（inbox-ingest.sh）
+# 7. Task Inbox held 回報（inbox-ingest.sh，SPEC-007）
 # ═══════════════════════════════════════════
+# SPEC-007（ADR-012 INV-2/DP8/T-14）：外部任務不再自動注入 ROADMAP，
+# 僅回報 held；人類授權路徑由 SPEC-009 / asp-op pivot 提供。
 INBOX_FILE="${PROJECT_DIR}/.asp-task-inbox.json"
 INBOX_SCRIPT="${PROJECT_DIR}/.asp/scripts/inbox-ingest.sh"
 if [ -f "$INBOX_FILE" ] && [ -f "$INBOX_SCRIPT" ]; then
     INBOX_PENDING=$(jq '[.[] | select(.status == "pending")] | length' "$INBOX_FILE" 2>/dev/null || echo 0)
     if [ "$INBOX_PENDING" -gt 0 ]; then
         bash "$INBOX_SCRIPT" 2>&1 | grep -v "^$" || true
-        INFOS+=("A15.1: Task Inbox 自動注入 ${INBOX_PENDING} 個任務至 ROADMAP.yaml")
+        WARNINGS+=("A15.1: Task Inbox ${INBOX_PENDING} 個外部任務 held（人類授權：make inbox-triage）")
     fi
 fi
 

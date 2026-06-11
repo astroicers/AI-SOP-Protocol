@@ -1120,6 +1120,9 @@ autopilot-init:
 		echo "✅ Created ROADMAP.yaml from template"; \
 	fi
 
+inbox-triage:
+	@bash .asp/scripts/inbox-triage.sh
+
 autopilot-validate:
 	@echo "🔍 Validating ROADMAP.yaml..."
 	@python3 -c '\

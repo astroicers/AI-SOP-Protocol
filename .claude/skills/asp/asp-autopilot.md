@@ -99,8 +99,9 @@ make autopilot-status
 
 | 條件 | 處理 |
 |------|------|
+| **外部來源任務**（provenance 標記：`source_type` ≠ manual 或 `triggered_by` ∉ human/maintainer）且 ADR 非 `Accepted` | 標記 `blocked`（SPEC-008/ADR-012 INV-2；外部任務**不適用** FIRM 🟡 豁免，不自動建 Draft ADR） |
 | 對應 ADR 為 Draft | 標記 `blocked`，跳過，繼續下一任務 |
-| 對應 ADR 為 FIRM  | 標記 `🟡 yellow`，允許執行，輸出警告 |
+| 對應 ADR 為 FIRM（內部任務） | 標記 `🟡 yellow`，允許執行，輸出警告 |
 | 缺少 SPEC | 自動建立：`make spec-new TITLE="[task title]"` |
 | 依賴任務未完成 | 標記 `blocked`，跳過 |
 

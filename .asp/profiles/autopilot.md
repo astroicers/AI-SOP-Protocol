@@ -245,9 +245,43 @@ FUNCTION autopilot_main():
       UPDATE_ROADMAP(task)
       LOG("📋 Task {task.id}: SPEC 已自動建立 → {spec.id}")
 
+  // ─── SPEC-008（ADR-012 INV-2/DP2）：外部來源 provenance 閘 ───
+  // 外部來源任務須有人類 Accepted ADR 才可執行（INV-2：無外部工作可不經人類放行就跑）。
+  // DP8 過渡期：SPEC-009 triage-accept 未落地前，外部非架構任務一律 blocked。
+  // 人類手寫任務（無外部 provenance 標記）完全不受本閘影響（DP3）。
+
+  FUNCTION is_external_provenance(task):
+    // 外部 ⇔ 帶 inbox 注入 schema 的來源標記；人類手寫任務通常無這些欄位
+    RETURN (task.source_type EXISTS AND task.source_type != "manual")
+        OR (task.triggered_by EXISTS AND task.triggered_by NOT IN ["human", "maintainer"])
+
+  blocked_by_provenance = []
+  FOR task IN roadmap.all_tasks():
+    IF is_external_provenance(task):
+      IF task.adr AND FIND_ADR(task.adr) AND FIND_ADR(task.adr).status == "Accepted":
+        PASS  // 架構級授權：人類 Accepted ADR → 放行（外部任務不適用 FIRM 🟡 豁免）
+      ELIF task.triage_accepted_by:
+        // SPEC-009 非架構授權（DP4）：triage 記號本身不可信，須驗證其「引入 commit」的作者為人類
+        author = EXECUTE("git log --format='%an <%ae>' -1 -S 'id: {task.id}' -- ROADMAP.yaml")
+        IF author MATCHES /\[bot\]|asp-op|autopilot/i:
+          LOG("🔒 Task {task.id}: triage 記號由 bot 引入（{author}）→ blocked（DP4：bot/autopilot 不可自核）")
+          blocked_by_provenance.append(task.id)
+        ELSE:
+          LOG("🔓 Task {task.id}: 人類 triage-accept（{task.triage_accepted_by}）→ 放行；管線深度依既有 severity 分類（DP2）")
+      ELIF NOT task.adr:
+        LOG("🔒 Task {task.id}: 外部來源且無授權 → blocked（INV-2；人類可 make inbox-triage 核准，或建 Accepted ADR）")
+        blocked_by_provenance.append(task.id)
+      ELSE:
+        // ADR 存在但非 Accepted（Draft / FIRM / 缺檔）——外部任務不適用 FIRM 🟡 豁免（INV-2 全閘）
+        LOG("🔒 Task {task.id}: 外部來源且 ADR 非 Accepted → blocked（INV-2）")
+        blocked_by_provenance.append(task.id)
+      // 注意：外部任務不自動建 Draft ADR——外部提案的 Draft ADR 由 asp-op pivot 產出（DP5）
+
   // ─── 驗證 ADR 狀態 + 智能評估架構影響 ───
   blocked_by_adr = []
   FOR task IN roadmap.all_tasks():
+    IF task.id IN blocked_by_provenance:
+      CONTINUE  // 外部任務已被來源檢查 blocked（SPEC-008），不進內部閘——避免為其自動建 Draft ADR
     IF task.adr:
       // 明確指定 ADR 的 task：驗證 ADR 是否存在且已 Accepted
       adr = FIND_ADR(task.adr)
@@ -279,7 +313,7 @@ FUNCTION autopilot_main():
     LOG("⚠️ 依賴循環涉及: {cycle_tasks} → 標記 blocked")
 
   // 標記所有受阻任務（含依賴受阻任務的下游任務）
-  blocked_tasks = blocked_by_adr + cycle_tasks
+  blocked_tasks = blocked_by_provenance + blocked_by_adr + cycle_tasks
   blocked_tasks = expand_dependents(blocked_tasks, roadmap)  // 遞迴展開下游
   FOR task_id IN blocked_tasks:
     task = roadmap.get_task(task_id)
