@@ -68,7 +68,7 @@ AI 回覆會列出已載入的 Profile 名稱，和當前 session 的 BLOCKER / 
 
 | 時機 | AI 做的事 |
 |------|---------|
-| Session 啟動 | 讀 `.asp-session-briefing.json`，報告 BLOCKER；偵測 Task Inbox 自動注入任務 |
+| Session 啟動 | 讀 `.asp-session-briefing.json`，報告 BLOCKER；回報 Task Inbox 待授權任務（held，不自動注入；ADR-012/SPEC-007） |
 | 跨模組變更 | 先建 ADR；`Draft` 狀態下 `git commit` 被動態阻擋 |
 | 寫測試前 | `/asp-gate G1,G2`；寫完跑 G3；實作完跑 G4 |
 | Commit 前 | `/asp-ship` 十步驟（測試、文件、敏感資訊掃描） |
