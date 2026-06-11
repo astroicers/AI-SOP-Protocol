@@ -4,6 +4,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Repo community files**：新增 `LICENSE`（MIT）、`SECURITY.md`（GitHub 私密漏洞回報 + ASP hook/install 腳本範圍提醒）、`CODE_OF_CONDUCT.md`（Contributor Covenant v2.1）。GitHub About 補上 description 與 14 個 topics（`claude-code`、`ai-agents`、`ai-governance` 等）。README 版本標示 v4.2.0→v5.0.0 並加 MIT 授權連結。
+
 ## [5.0.0] - 2026-06-11
 
 > **v5.0.0**（PR #25，ADR-013~018 全數 Accepted）。主題：**規則越少越鐵，執法越多越自動**——

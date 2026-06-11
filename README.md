@@ -2,7 +2,7 @@
 
 把開發規範寫成機器可讀的約束，讓 Claude 自動遵守——不用每次提醒「記得寫測試」「先建 ADR」「不要亂推版」。
 
-**v4.2.0** · [CHANGELOG](CHANGELOG.md) · [架構文件](docs/architecture.md) · [入門指引](docs/where-to-start.md)
+**v5.0.0** · [CHANGELOG](CHANGELOG.md) · [架構文件](docs/architecture.md) · [入門指引](docs/where-to-start.md) · [授權 MIT](LICENSE)
 
 ---
 
