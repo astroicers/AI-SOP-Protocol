@@ -12,7 +12,7 @@
 set -uo pipefail
 
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ASP_ROOT/.asp/scripts/multi-agent/_validate_audit_root.sh"
+SRC="$ASP_ROOT/scripts/_validate_audit_root.sh"
 TEST_DIR=$(mktemp -d /tmp/asp-test-var-XXXXXX)
 PASS=0; FAIL=0; TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }

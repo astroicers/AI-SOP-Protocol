@@ -16,8 +16,8 @@ TEST_DIR=$(mktemp -d /tmp/asp-test-c0-XXXXXX)
 PASS=0; FAIL=0; TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
-DISPATCH="$ASP_ROOT/.asp/scripts/multi-agent/dispatch.sh"
-CONVERGE="$ASP_ROOT/.asp/scripts/multi-agent/converge.sh"
+DISPATCH="$ASP_ROOT/scripts/dispatch.sh"
+CONVERGE="$ASP_ROOT/scripts/converge.sh"
 
 aeq() { TOTAL=$((TOTAL+1)); if [ "$2" = "$3" ]; then echo "  ✅ $1"; PASS=$((PASS+1)); else echo "  ❌ $1 (expected '$3', got '$2')"; FAIL=$((FAIL+1)); fi; }
 acontains() { TOTAL=$((TOTAL+1)); if printf '%s' "$2" | grep -qF "$3"; then echo "  ✅ $1"; PASS=$((PASS+1)); else echo "  ❌ $1 (missing '$3')"; FAIL=$((FAIL+1)); fi; }

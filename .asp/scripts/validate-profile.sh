@@ -139,20 +139,25 @@ if grep -q '^guardrail: *enabled' "$PROFILE_FILE" 2>/dev/null; then
   echo "  🟢 INFO: guardrail 欄位已 deprecated — 範疇與敏感資訊三層回應已內建 global_core，欄位忽略"
 fi
 
-# 規則 5：mode: multi-agent → 提示 orchestrator 建議
-if [ "$MODE" = "multi-agent" ] && [ "$ORCHESTRATOR" != "enabled" ]; then
-  echo "  🟡 WARNING: mode: multi-agent 時建議設 orchestrator: enabled"
+# 規則 5：mode: multi-agent → v5 凍結為 Experimental（ADR-017）
+if [ "$MODE" = "multi-agent" ]; then
+  echo "  🟡 WARNING: mode: multi-agent — multi-agent 已凍結為 Experimental（v5），預設安裝不含此功能"
+  echo "     → 建議改 mode: auto；確需使用請見 repo experimental/multi-agent/README.md"
   WARNINGS=$((WARNINGS + 1))
-elif [ "$MODE" = "multi-agent" ]; then
-  echo "  ✅ mode: multi-agent + orchestrator: enabled"
 fi
 
-# 規則 6：rag: enabled → 檢查 RAG index 是否存在
+# 規則 6：rag: enabled → v5 移為 Showcase 元件（ADR-017）
 if [ "$RAG" = "enabled" ]; then
-  if [ -f ".asp/rag/index.json" ] || [ -d ".asp/rag/" ]; then
-    echo "  ✅ rag: enabled（RAG 目錄存在）"
+  if [ -f "$HOME/.claude/asp/.showcase-installed" ]; then
+    if [ -d ".rag/index" ] || [ -d ".asp/rag/" ]; then
+      echo "  ✅ rag: enabled（Showcase 已安裝，索引存在）"
+    else
+      echo "  🟡 WARNING: rag: enabled 但索引不存在，執行 make rag-index 建立"
+      WARNINGS=$((WARNINGS + 1))
+    fi
   else
-    echo "  🟡 WARNING: rag: enabled 但 .asp/rag/ 不存在，執行 make rag-index 建立索引"
+    echo "  🟡 WARNING: rag: enabled — RAG 為 Showcase 元件（v5），預設未安裝"
+    echo "     → 執行 install.sh --with-showcase 裝回，或改 rag: disabled"
     WARNINGS=$((WARNINGS + 1))
   fi
 fi

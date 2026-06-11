@@ -26,7 +26,7 @@ TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-DISPATCH="$ASP_ROOT/.asp/scripts/multi-agent/dispatch.sh"
+DISPATCH="$ASP_ROOT/scripts/dispatch.sh"
 
 # ── helpers ──
 

@@ -13,9 +13,8 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         adr-new adr-list \
         spec-new spec-list \
         postmortem-new postmortem-list \
-        agent-done agent-locks agent-unlock agent-lock-gc \
+        agent-done \
         session-checkpoint session-log \
-        rag-index rag-search rag-stats rag-rebuild \
         guardrail-log guardrail-reset \
         audit-health audit-quick doc-audit tech-debt-list \
         task-start \
@@ -23,7 +22,6 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         audit-baseline-init \
         asp-unlock-commit asp-refresh asp-enforcement-status \
         runbook-list runbook-view \
-        asp-performance-review asp-performance-review-update \
         ci-install \
         daily-audit \
         doc-new srs-new sds-new uiux-spec-new deploy-spec-new
@@ -47,11 +45,9 @@ endif
 	@echo "📄 Spec:        spec-new TITLE=... | spec-list"
 	@echo "🔥 Postmortem:  postmortem-new TITLE=... | postmortem-list"
 	@echo "🤖 Agent:       agent-done TASK=... STATUS=..."
-	@echo "                (v3.7 lock targets DEPRECATED: agent-unlock / agent-lock-gc / agent-locks → use SPEC-004 worktree)"
-	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log | agent-memory-show | agent-team-recommend TYPE=..."
+	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log"
 	@echo "🤖 Agent Init:  audit-baseline-init"
 	@echo "💾 Session:     session-checkpoint NEXT=... | session-log"
-	@echo "🧠 RAG:         rag-index | rag-search Q=... | rag-stats | rag-rebuild"
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
 	@echo "🔒 Enforce:     asp-unlock-commit | asp-refresh | asp-enforcement-status"
@@ -60,8 +56,7 @@ endif
 	@echo "🚀 Autopilot:   autopilot-init | autopilot-validate | autopilot-status | autopilot-reset"
 	@echo "📝 Documents:   doc-new TYPE=srs|sds|uiux|deploy"
 	@echo "📚 Runbook:     runbook-list | runbook-view SCENARIO=..."
-	@echo "📊 AI Perf:    asp-performance-review | asp-performance-review-update"
-	@echo "🔱 Multi-agent: agent-worktree-list | agent-worktree-gc | agent-worktree-gc-dry-run | agent-perf | agent-rollback"
+	@echo "🧩 Experimental/Showcase targets：目錄存在時自動載入（-include；見 experimental/ 與 showcase/ README）"
 	@echo "🔧 CI:          ci-install (copy GitHub Actions workflow to .github/workflows/)"
 	@echo "📆 Daily:       daily-audit (generate .asp-daily-report.md; see cron-setup.md)"
 	@echo ""
@@ -145,16 +140,17 @@ lint:
 	if [ -f "package.json" ] && grep -q '"lint"' package.json 2>/dev/null; then \
 		echo "── npm ──"; LINT_RAN=1; npm run lint || LINT_FAIL=1; \
 	fi; \
-	if ls .asp/scripts/multi-agent/*.sh tests/*.sh >/dev/null 2>&1; then \
+	if ls tests/*.sh >/dev/null 2>&1; then \
 		LINT_RAN=1; \
 		if command -v shellcheck >/dev/null 2>&1; then \
-			echo "── shellcheck (.asp + tests) ──"; \
+			echo "── shellcheck (.asp v5 scripts + tests) ──"; \
 			shellcheck -S warning -e SC1090,SC1091,SC2086,SC2207 \
-				.asp/scripts/multi-agent/*.sh tests/*.sh \
+				.asp/scripts/asp-metrics.sh .asp/scripts/asp-compile.sh \
+				.asp/scripts/level-resolve.sh .asp/scripts/orchestrator/*.sh tests/*.sh \
 				|| LINT_FAIL=1; \
 		else \
 			echo "── bash -n (shellcheck not installed) ──"; \
-			for f in .asp/scripts/multi-agent/*.sh tests/*.sh; do \
+			for f in .asp/scripts/orchestrator/*.sh tests/*.sh; do \
 				bash -n "$$f" || { echo "syntax error: $$f"; LINT_FAIL=1; }; \
 			done; \
 		fi; \
@@ -356,39 +352,11 @@ agent-done: ## Worker 完成回報 (TASK=xxx STATUS=success|failed [REASON=...])
 	echo "{\"id\":\"$$HID\",\"type\":\"TASK_COMPLETE\",\"task\":\"$(TASK)\",\"status\":\"$(STATUS)\",\"ts\":\"$$TS\"}" >> .agent-events/handoffs/index.jsonl; \
 	echo "✅ $(TASK) $(STATUS) — $$HID"
 
-# v3.7 file-lock targets — DEPRECATED in v4.1 (SPEC-004 worktree isolation
-# replaces them). Kept as stubs that print deprecation warnings + point to
-# the new mechanism. v3.7 user upgrades safely without these silently failing.
-# Will be removed in v5.0.
+# v3.7 file-lock deprecated stubs（agent-unlock / agent-lock-gc / agent-locks）
+# 已於 v5.0 移除（ADR-017，依 v4.1 預告）。
 
-agent-unlock:
-	@echo "⚠️  DEPRECATED: agent-unlock (v3.7 .agent-lock.yaml mechanism)"
-	@echo "    v4.1+ uses git worktree isolation instead — file locks are gone."
-	@echo "    See: docs/specs/SPEC-004-multi-agent-worktree-isolation.md"
-	@if [ -f .agent-lock.yaml ]; then \
-		echo "    Found legacy .agent-lock.yaml — safe to delete:"; \
-		echo "        rm .agent-lock.yaml"; \
-	fi
-
-agent-lock-gc:
-	@echo "⚠️  DEPRECATED: agent-lock-gc (v3.7 .agent-lock.yaml mechanism)"
-	@echo "    v4.1+ uses 'make agent-worktree-gc' (worktree-level GC) instead."
-	@echo "    See: docs/specs/SPEC-004-multi-agent-worktree-isolation.md"
-	@if [ -f .agent-lock.yaml ]; then \
-		echo "    Found legacy .agent-lock.yaml — safe to delete:"; \
-		echo "        rm .agent-lock.yaml"; \
-	fi
-
-agent-locks:
-	@echo "⚠️  DEPRECATED: agent-locks (v3.7 .agent-lock.yaml mechanism)"
-	@echo "    v4.1+ uses 'make agent-worktree-list' instead."
-	@if [ -f .agent-lock.yaml ]; then \
-		echo "    Legacy .agent-lock.yaml content (informational only):"; \
-		sed 's/^/      /' .agent-lock.yaml; \
-	fi
-
-# ─── Agent Handoff（v3.0）───────────────────────────────────────────
-.PHONY: agent-handoff-list agent-handoff-view agent-tracks agent-track-status agent-escalation-log agent-memory-show agent-memory-prune agent-team-recommend
+# ─── Agent Handoff（v3.0；讀取 .agent-events/，無凍結路徑依賴故留 core）───
+.PHONY: agent-handoff-list agent-handoff-view agent-tracks agent-track-status agent-escalation-log
 
 agent-handoff-list: ## 列出所有交接單
 	@echo "═══ Agent Handoffs ═══"
@@ -434,57 +402,6 @@ agent-escalation-log: ## 顯示升級歷史
 			grep -E "^(severity|task_id|reason|timestamp):" "$$f"; \
 		done || echo "  (無升級記錄)"
 
-agent-memory-show: ## DEPRECATED (2026-05-10) — 顯示 Agent 學習記憶 (.asp-agent-memory.yaml 從未實際使用，v4.2 ROADMAP)
-	@echo "═══ Agent Memory ═══"
-	@if [ -f .asp-agent-memory.yaml ]; then \
-		cat .asp-agent-memory.yaml; \
-	else \
-		echo "  (無記憶——首次執行)"; \
-	fi
-
-agent-memory-prune: ## DEPRECATED (2026-05-10) — 修剪過期記憶 (AGE=90 天)
-	@echo "修剪超過 $(or $(AGE),90) 天的記憶..."
-	@if [ -f .asp-agent-memory.yaml ]; then \
-		python3 -c " \
-import sys, yaml, datetime; \
-age = int(sys.argv[1]); \
-d = yaml.safe_load(open('.asp-agent-memory.yaml')) or {}; \
-now = datetime.datetime.now(); \
-cutoff = now - datetime.timedelta(days=age); \
-for key in ['fix_strategies', 'common_failures']: \
-    if key in d: \
-        before = len(d[key]); \
-        d[key] = [x for x in d[key] if datetime.datetime.fromisoformat(x.get('last_used', x.get('last_occurrence', now.isoformat()))[:10]) >= cutoff]; \
-        print(f'  {key}: {before} → {len(d[key])}'); \
-yaml.dump(d, open('.asp-agent-memory.yaml', 'w'), allow_unicode=True)" "$(or $(AGE),90)" 2>/dev/null \
-		|| echo "  (修剪失敗——需要 PyYAML)"; \
-	else \
-		echo "  (無記憶可修剪)"; \
-	fi
-
-agent-team-recommend: ## 推薦團隊組成 (TYPE=NEW_FEATURE COMPLEXITY=simple|complex)
-	@if [ -z "$(TYPE)" ]; then echo "用法: make agent-team-recommend TYPE=NEW_FEATURE COMPLEXITY=simple"; exit 1; fi
-	@SCENARIO="$(TYPE)_$(COMPLEXITY)"; \
-	if [ -f .asp/agents/team_compositions.yaml ]; then \
-		echo "═══ Team Recommendation: $$SCENARIO ═══"; \
-		python3 -c " \
-import yaml; \
-d = yaml.safe_load(open('.asp/agents/team_compositions.yaml')); \
-s = d.get('scenarios',{}).get('$$SCENARIO'); \
-if s: \
-    print(f\"  場景: $$SCENARIO\"); \
-    print(f\"  說明: {s.get('description','')}\"); \
-    print(f\"  角色: {', '.join(s.get('agents',[]))}\"); \
-    print(f\"  管線: {', '.join(s.get('pipeline_phases',[]))}\"); \
-    print(f\"  並行: {'是' if s.get('parallel') else '否'}\"); \
-else: \
-    print(f'場景 $$SCENARIO 不存在。可用場景:'); \
-    [print(f'  - {k}') for k in d.get('scenarios',{}).keys()]" 2>/dev/null \
-		|| echo "  (需要 PyYAML)"; \
-	else \
-		echo "  (team_compositions.yaml 不存在)"; \
-	fi
-
 # ─── Agent Init（v3.3）───────────────────────────────────────────
 audit-baseline-init: ## 初始化審計基線
 	@echo "🏥 建立審計基線..."
@@ -512,33 +429,6 @@ session-checkpoint:
 
 session-log:
 	@tail -30 docs/session-log.md 2>/dev/null || echo "(無 Session 紀錄)"
-
-#---------------------------------------------------------------------------
-# RAG 知識庫
-#---------------------------------------------------------------------------
-
-rag-index:
-	@echo "🔍 Building RAG index (incremental)..."
-	@python3 .asp/scripts/rag/build_index.py \
-		--source docs/ \
-		--source .asp/profiles/ \
-		--output .rag/index \
-		--model all-MiniLM-L6-v2 \
-		--incremental 2>/dev/null || \
-	echo "⚠️  請先執行: pip install chromadb sentence-transformers"
-
-rag-search:
-	@if [ -z "$(Q)" ]; then echo "使用方式：make rag-search Q=\"你的問題\""; exit 1; fi
-	@python3 .asp/scripts/rag/search.py --query "$(Q)" --top-k 3 2>/dev/null || \
-	echo "⚠️  RAG 尚未初始化，請先執行 make rag-index"
-
-rag-stats:
-	@python3 .asp/scripts/rag/stats.py 2>/dev/null || \
-	echo "⚠️  RAG 尚未初始化，請先執行 make rag-index"
-
-rag-rebuild:
-	@rm -rf .rag/index
-	@$(MAKE) rag-index
 
 #---------------------------------------------------------------------------
 # Guardrail
@@ -747,51 +637,10 @@ asp-update: ## Sync ASP core from local repo to ~/.claude/ (profiles/hooks/skill
 	@bash ~/.claude/scripts/asp-sync.sh
 .PHONY: asp-update
 
-asp-performance-review: ## Run monthly AI performance review (trust score + tier)
-	@python3 ~/.claude/asp/ai-performance/monthly-review.py
-.PHONY: asp-performance-review
-
-asp-performance-review-update: ## Run monthly AI performance review and update trust-tier.yaml
-	@python3 ~/.claude/asp/ai-performance/monthly-review.py --update-tier
-.PHONY: asp-performance-review-update
-
 asp-l0-audit: ## Run L0 Spike Lifecycle Audit (Active vs Zombie diagnosis + Promotion Gate checks)
 	@bash .asp/scripts/l0-audit.sh .
 .PHONY: asp-l0-audit
 
-# SPEC-004 multi-agent worktree management ──────────────────────────────
-
-agent-worktree-list: ## List all SPEC-004 worktrees with age + branch + status
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-list.sh
-.PHONY: agent-worktree-list
-
-agent-worktree-gc: ## Garbage-collect stale SPEC-004 worktrees (idle > ASP_WORKTREE_IDLE_HOURS, default 2h)
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-gc.sh
-.PHONY: agent-worktree-gc
-
-agent-worktree-gc-dry-run: ## Show what agent-worktree-gc would remove without removing
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/worktree-gc.sh --dry-run
-.PHONY: agent-worktree-gc-dry-run
-
-agent-perf: ## Run SPEC-004 perf benchmarks (dispatch/converge p95 + S18 stress)
-	@bash tests/perf/test_spec_004_perf.sh
-.PHONY: agent-perf
-
-agent-perf-json: ## Run SPEC-004 perf benchmarks, JSON output for CI integration
-	@bash tests/perf/test_spec_004_perf.sh --json
-.PHONY: agent-perf-json
-
-agent-rollback: ## SPEC-004 rollback — discard in-flight worktrees + branches (base preserved)
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/rollback.sh
-.PHONY: agent-rollback
-
-agent-rollback-dry-run: ## Show what agent-rollback would do
-	@ASP_AUDIT_ROOT="$$(git rev-parse --show-toplevel)" bash .asp/scripts/multi-agent/rollback.sh --dry-run
-.PHONY: agent-rollback-dry-run
-
-spec-004-rollback-test: ## SPEC-004 Done When #9: full rollback regression suite
-	@bash tests/test_spec_004_rollback.sh
-.PHONY: spec-004-rollback-test
 
 security-scan: ## Run Semgrep ASP security rules (D-002 deterministic SAST)
 	@if command -v semgrep &>/dev/null; then \
@@ -1249,14 +1098,9 @@ asp-metrics-compare: ## Compare current metrics vs baseline (BASELINE=.asp-metri
 daily-audit: ## Generate daily health report to .asp-daily-report.md (P3)
 	@CLAUDE_PROJECT_DIR="$$(pwd)" bash .asp/scripts/daily-audit.sh
 
-asp-telemetry-collect:
-	@python3 .asp/scripts/telemetry/collect.py
-	@echo "[ASP] Telemetry event collected"
-
-asp-telemetry-report:
-	@python3 .asp/scripts/telemetry/report.py --days 7
-
-asp-telemetry-prune:
-	@python3 .asp/scripts/telemetry/prune.py --days 90
-
-.PHONY: asp-telemetry-collect asp-telemetry-report asp-telemetry-prune
+#---------------------------------------------------------------------------
+# v5 分區（ADR-017）：Experimental / Showcase targets 隨目錄存在自動載入
+# （安裝到一般專案時無這兩個目錄，targets 自然消失——零 stub 維護）
+#---------------------------------------------------------------------------
+-include experimental/multi-agent/Makefile.inc
+-include showcase/Makefile.inc

@@ -148,7 +148,7 @@ if [ "$USER_LEVEL" = true ]; then
   USER_CLAUDE="${HOME}/.claude"
 
   # skills
-  do_remove "$USER_CLAUDE/skills/asp" "ASP skills（23 個）"
+  do_remove "$USER_CLAUDE/skills/asp" "ASP skills"
 
   # ~/.claude/asp/（profiles/hooks/templates/levels/agents/config）
   do_remove "$USER_CLAUDE/asp" "ASP profiles/hooks/templates"

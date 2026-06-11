@@ -1,3 +1,5 @@
+<!-- Note: 本 runbook 引用的 multi-agent 流程已於 v5 凍結為 Experimental（ADR-017）；腳本路徑見 experimental/multi-agent/ -->
+
 # Runbook：企業級功能開發
 
 > **模式**：ASP L3-L4，mode: multi-agent | **週期**：3-8 週 | **團隊**：NEW_FEATURE_complex + MODIFICATION_L3_L4
@@ -131,11 +133,11 @@ git push（人類明確同意後執行）
 # Orchestrator 為每個軌道建立 task manifest，然後一次 dispatch
 # manifests/TASK-B.yaml / TASK-C.yaml 等
 ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
-    bash .asp/scripts/multi-agent/dispatch.sh --manifests manifests/
+    bash experimental/multi-agent/scripts/dispatch.sh --manifests manifests/
 
 # 每個 Worker 在獨立 worktree 完成工作後，Orchestrator converge
 ASP_AUDIT_ROOT="$(git rev-parse --show-toplevel)" \
-    bash .asp/scripts/multi-agent/converge.sh --task TASK-B --task TASK-C
+    bash experimental/multi-agent/scripts/converge.sh --task TASK-B --task TASK-C
 ```
 
 規則：

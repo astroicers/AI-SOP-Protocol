@@ -20,9 +20,9 @@ TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-DISPATCH="$ASP_ROOT/.asp/scripts/multi-agent/dispatch.sh"
-WRAPPER="$ASP_ROOT/.asp/scripts/multi-agent/audit-write.sh"
-SESSION_AUDIT="$ASP_ROOT/.asp/hooks/session-audit.sh"
+DISPATCH="$ASP_ROOT/scripts/dispatch.sh"
+WRAPPER="$ASP_ROOT/scripts/audit-write.sh"
+SESSION_AUDIT="$ASP_ROOT/../../.asp/hooks/session-audit.sh"   # core hook（凍結測試引用主 repo）
 
 assert_eq() {
   TOTAL=$((TOTAL + 1))

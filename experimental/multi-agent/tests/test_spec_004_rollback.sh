@@ -19,8 +19,8 @@ TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-DISPATCH="$ASP_ROOT/.asp/scripts/multi-agent/dispatch.sh"
-ROLLBACK="$ASP_ROOT/.asp/scripts/multi-agent/rollback.sh"
+DISPATCH="$ASP_ROOT/scripts/dispatch.sh"
+ROLLBACK="$ASP_ROOT/scripts/rollback.sh"
 
 assert_eq() {
   TOTAL=$((TOTAL + 1))
@@ -179,7 +179,7 @@ echo "task1 work" > src/store/x
 git add -A && git commit -q -m "task1 done"
 cd "$ASP_ROOT"
 cd "$TEST_DIR/main-repo"
-ASP_AUDIT_ROOT="$TEST_DIR/main-repo" bash "$ASP_ROOT/.asp/scripts/multi-agent/converge.sh" --task TASK-001 >/dev/null
+ASP_AUDIT_ROOT="$TEST_DIR/main-repo" bash "$ASP_ROOT/scripts/converge.sh" --task TASK-001 >/dev/null
 cd "$ASP_ROOT"
 
 BASE_AFTER_CONVERGE=$(cd "$TEST_DIR/main-repo" && git rev-parse main)

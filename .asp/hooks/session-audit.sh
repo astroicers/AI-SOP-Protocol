@@ -117,9 +117,9 @@ if [ -f "$PROFILE_FILE" ]; then
         WARNINGS+=("A1.3: design: enabled 但 frontend_quality 未啟用")
     fi
 
-    # A1.4: multi-agent → task_orchestrator 依賴
-    if [ "$MODE" = "multi-agent" ] && [ "$ORCHESTRATOR" != "enabled" ]; then
-        WARNINGS+=("A1.4: mode: multi-agent 但 orchestrator 未啟用")
+    # A1.4: multi-agent — v5 凍結為 Experimental（ADR-017；保留檢查容錯舊 profile）
+    if [ "$MODE" = "multi-agent" ]; then
+        WARNINGS+=("A1.4: mode: multi-agent — multi-agent 為 Experimental（v5 預設未安裝）；建議 mode: auto，或依 experimental/multi-agent/README.md 手動啟用")
     fi
 
     # hitl 值（用於 deny 嚴格度）

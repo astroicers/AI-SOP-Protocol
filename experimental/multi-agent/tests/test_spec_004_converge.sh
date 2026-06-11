@@ -23,8 +23,8 @@ TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-DISPATCH="$ASP_ROOT/.asp/scripts/multi-agent/dispatch.sh"
-CONVERGE="$ASP_ROOT/.asp/scripts/multi-agent/converge.sh"
+DISPATCH="$ASP_ROOT/scripts/dispatch.sh"
+CONVERGE="$ASP_ROOT/scripts/converge.sh"
 
 assert_eq() {
   TOTAL=$((TOTAL + 1))

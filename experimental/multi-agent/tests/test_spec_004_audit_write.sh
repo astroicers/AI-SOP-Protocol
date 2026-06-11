@@ -21,8 +21,8 @@ TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-WRAPPER="$ASP_ROOT/.asp/scripts/multi-agent/audit-write.sh"
-VALIDATOR="$ASP_ROOT/.asp/scripts/multi-agent/_validate_audit_root.sh"
+WRAPPER="$ASP_ROOT/scripts/audit-write.sh"
+VALIDATOR="$ASP_ROOT/scripts/_validate_audit_root.sh"
 
 # ── helpers ────────────────────────────────────────────────────────────
 

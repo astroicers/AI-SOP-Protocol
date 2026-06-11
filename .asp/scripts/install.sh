@@ -7,13 +7,24 @@
 #
 # 用法：
 #   bash install.sh                          # 互動式安裝
-#   ASP_TYPE=system ASP_LEVEL=2 bash install.sh  # 非互動式（CI / curl | bash）
+#   ASP_TYPE=system ASP_LEVEL=standard bash install.sh  # 非互動式（CI / curl | bash）
+#   bash install.sh --with-showcase          # 連同 Showcase 元件（telemetry/RAG/ai-performance）
+#   ASP_WITH_SHOWCASE=1 bash install.sh      # 同上（curl | bash 場景用 env）
 #
 # 移除：bash uninstall.sh
 
 set -euo pipefail
 
-PROTOCOL_REPO="https://github.com/astroicers/AI-SOP-Protocol"
+# ─── 旗標（v5 ADR-017）───
+WITH_SHOWCASE="${ASP_WITH_SHOWCASE:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --with-showcase) WITH_SHOWCASE=1 ;;
+  esac
+done
+
+# ASP_REPO_URL 可覆寫（本地測試 / fork / 私有鏡像）
+PROTOCOL_REPO="${ASP_REPO_URL:-https://github.com/astroicers/AI-SOP-Protocol}"
 TMP_DIR=$(mktemp -d /tmp/asp-install-XXXXX)
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
@@ -203,10 +214,11 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
 
-  # ~/.claude/asp/（profiles/hooks/templates/levels/agents/config/scripts）
+  # ~/.claude/asp/（profiles/hooks/templates/levels/config/scripts）
   # v5（ADR-015）：scripts 加入複製清單——orchestrator 確定性腳本與 asp-compile 需部署到 user-level
+  # v5（ADR-017）：agents 移除（multi-agent 凍結至 experimental/，不進預設安裝）
   mkdir -p "$USER_ASP"
-  for dir in profiles hooks templates levels agents config scripts advanced; do
+  for dir in profiles hooks templates levels config scripts advanced; do
     if [ -d "$TMP_DIR/.asp/$dir" ]; then
       rm -rf "${USER_ASP:?}/$dir"
       cp -r "$TMP_DIR/.asp/$dir" "$USER_ASP/$dir"
@@ -214,6 +226,29 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   done
   cp -f "$TMP_DIR/.asp/VERSION" "$USER_ASP/VERSION" 2>/dev/null || true
   chmod +x "$USER_ASP/hooks/"*.sh "$USER_ASP/scripts/"*.sh "$USER_ASP/scripts/orchestrator/"*.sh 2>/dev/null || true
+
+  # ─── v5 升級殘留清理（ADR-017）：舊安裝的 multi-agent / showcase 內容 ───
+  if [ "$IS_USER_UPGRADE" = true ]; then
+    rm -rf "$USER_ASP/agents" "$USER_ASP/scripts/multi-agent" \
+           "$USER_ASP/scripts/telemetry" "$USER_ASP/scripts/rag" \
+           "$USER_ASP/ai-performance" 2>/dev/null || true
+    rm -f  "$USER_ASP/hooks/rag-auto-index.sh" "$USER_ASP/profiles/rag_context.md" \
+           "$USER_ASP/profiles/orchestrator_multi_agent.md" 2>/dev/null || true
+    [ "$WITH_SHOWCASE" = 1 ] || rm -f "$USER_ASP/.showcase-installed" 2>/dev/null || true
+  fi
+
+  # ─── Showcase 裝回（--with-showcase / ASP_WITH_SHOWCASE=1；原始佈局，ADR-017）───
+  if [ "$WITH_SHOWCASE" = 1 ] && [ -d "$TMP_DIR/showcase" ]; then
+    mkdir -p "$USER_ASP/scripts" "$USER_ASP/hooks" "$USER_ASP/profiles"
+    cp -r "$TMP_DIR/showcase/telemetry"   "$USER_ASP/scripts/telemetry"
+    cp -r "$TMP_DIR/showcase/rag/scripts" "$USER_ASP/scripts/rag"
+    cp -f "$TMP_DIR/showcase/rag/hooks/rag-auto-index.sh" "$USER_ASP/hooks/"
+    cp -f "$TMP_DIR/showcase/rag/profiles/rag_context.md" "$USER_ASP/profiles/"
+    cp -r "$TMP_DIR/showcase/ai-performance" "$USER_ASP/ai-performance"
+    chmod +x "$USER_ASP/hooks/rag-auto-index.sh" 2>/dev/null || true
+    touch "$USER_ASP/.showcase-installed"
+    success "Showcase 元件已裝回（telemetry / RAG / ai-performance；marker: .showcase-installed）"
+  fi
 
   # ~/.claude/skills/asp/
   mkdir -p "$USER_SKILLS"

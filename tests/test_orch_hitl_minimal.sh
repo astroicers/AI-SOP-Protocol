@@ -50,9 +50,11 @@ grep -q 'make orch-classify' "$TO" && pass "分類下沉引用 make orch-classif
 
 echo ""
 echo "(b2) Part G 逐字保真"
+# Phase 2 位於 .asp/profiles/；Phase 4 起隨 multi-agent 凍結至 experimental/（ADR-017）
 GMA="$ASP_ROOT/.asp/profiles/orchestrator_multi_agent.md"
+[ -f "$GMA" ] || GMA="$ASP_ROOT/experimental/multi-agent/profiles/orchestrator_multi_agent.md"
 ARCHIVE="$ASP_ROOT/docs/archive/profiles/task_orchestrator-v4.3-1587L.md"
-[ -f "$GMA" ] && pass "orchestrator_multi_agent.md 存在" || fail "抽出檔缺失"
+[ -f "$GMA" ] && pass "orchestrator_multi_agent.md 存在（$(dirname "${GMA#"$ASP_ROOT"/}")）" || fail "抽出檔缺失"
 [ -f "$ARCHIVE" ] && [ "$(wc -l < "$ARCHIVE")" = "1587" ] \
   && pass "原文歸檔 1,587 行" || fail "歸檔缺失或行數錯"
 if [ -f "$GMA" ] && [ -f "$ARCHIVE" ]; then

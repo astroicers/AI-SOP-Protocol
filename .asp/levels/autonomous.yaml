@@ -17,18 +17,17 @@ profiles:
   - task_orchestrator
   - reality_checker
   - autonomous_dev
-  - rag_context
+  # rag_context 已移至 showcase/（v5 ADR-017，--with-showcase 裝回）
 
 ai_profile_hint: |
   type: system
   level: autonomous
-  mode: multi-agent
+  mode: auto           # multi-agent 已凍結為 Experimental（v5 ADR-017）
   workflow: standard   # ADR-014 D8：vibe-coding 與 loose_mode 衝突，autonomous 用 standard
   hitl: minimal
   autonomous: enabled
   orchestrator: enabled
   autopilot: enabled
-  rag: enabled
   coding_style: enabled
   name: your-project
 

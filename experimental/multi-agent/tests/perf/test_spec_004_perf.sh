@@ -36,9 +36,9 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-DISPATCH="$ASP_ROOT/.asp/scripts/multi-agent/dispatch.sh"
-CONVERGE="$ASP_ROOT/.asp/scripts/multi-agent/converge.sh"
-WRAPPER="$ASP_ROOT/.asp/scripts/multi-agent/audit-write.sh"
+DISPATCH="$ASP_ROOT/scripts/dispatch.sh"
+CONVERGE="$ASP_ROOT/scripts/converge.sh"
+WRAPPER="$ASP_ROOT/scripts/audit-write.sh"
 
 TEST_BASE=$(mktemp -d /tmp/asp-perf-XXXXXX)
 trap 'rm -rf "$TEST_BASE"' EXIT

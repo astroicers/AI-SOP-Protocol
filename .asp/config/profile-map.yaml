@@ -28,8 +28,10 @@ rules:
     load: "global_core content_creative"
   # v4.3 起 multi-agent 協調邏輯在 task_orchestrator Part G；
   # escalation 載入條件：mode multi-agent 或 autonomous enabled（見其檔頭）
+  # v5 ADR-017：orchestrator_multi_agent 已凍結至 experimental/（mode=multi-agent
+  # 只載 core 的 task_orchestrator+pipeline；validate-profile 會印 Experimental 警告）
   - when: "mode=multi-agent"
-    load: "task_orchestrator orchestrator_multi_agent pipeline"
+    load: "task_orchestrator pipeline"
   # reality_checker 載入條件：mode multi-agent + 團隊含 reality 角色；
   # 量測上以 multi-agent+autonomous 組合近似（記 ADR-013）
   - when: "mode=multi-agent&autonomous=enabled"
@@ -46,8 +48,8 @@ rules:
     load: "coding_style"
   - when: "openapi=enabled"
     load: "openapi"
-  - when: "rag=enabled"
-    load: "rag_context"
+  # v5 ADR-017：rag_context 已移至 showcase/（rag=enabled 不再載入；
+  # --with-showcase 裝回後該檔在 ~/.claude/asp/profiles/，由使用者自行引用）
   # guardrail / escalation 已併入 global_core（ADR-014，v5 起永遠載入）；
   # guardrail: enabled 欄位 deprecated → validate-profile 印 INFO
   - when: "orchestrator=enabled"

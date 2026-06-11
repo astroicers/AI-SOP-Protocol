@@ -20,7 +20,7 @@ TOTAL=0
 cleanup() { rm -rf "$TEST_DIR"; }
 trap cleanup EXIT
 
-GUARD="$ASP_ROOT/.asp/scripts/multi-agent/scope-guard.sh"
+GUARD="$ASP_ROOT/scripts/scope-guard.sh"
 BYPASS_LOG="$TEST_DIR/main-repo/.asp-bypass-log.ndjson"
 
 # ── helpers ──
