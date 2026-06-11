@@ -14,6 +14,15 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 - **SPEC-009 — 人類 inbox-triage 授權通道（ADR-012 DP2/DP4；DP8 過渡期終止）**：新增 `make inbox-triage`——人類逐件核准/駁回 held 外部任務；核准寫入 ROADMAP（帶 `triage_accepted_by/at` + provenance 標記）並由**人類自行 commit**（該 commit 作者即機械可驗證的授權記號）。autopilot provenance 閘擴充 triage 分支：以 `git log -S` 驗證 entry 引入 commit 作者，撞 bot 樣式（`[bot]`/asp-op/autopilot）→ blocked（DP4 bot 不可自核）；人類 triage → 放行、管線深度仍依既有 severity 分類（DP2）。**外部非架構路徑自此啟用（DP8 過渡期結束）**。測試：`test_inbox_triage.sh`（20 斷言）；SPEC-008 契約 15/15 不回退。
 
+### Fixed
+
+- **A8.3 逾期 tech-debt 假陽性**：session-audit 的 tech-debt 掃描把 `global_core.md` 等框架文件內的「格式範例」標記（範例日期已過期）誤報為 3 筆逾期 HIGH。掃描改排除框架文件路徑（`.asp/profiles/`、`.asp/templates/`、`.claude/skills/`、`docs/runbooks/`）；修復後實際可動作逾期債為 0。回歸測試：`test_tech_debt_scan_exclusions.sh`（7 斷言，含管線重演與「測試檔自身不得成為新假陽性」防護）。
+- **lint 既有債清零**：移除 `test_converge_crypto_gate.sh` / `test_spec_004_scope_guard.sh` 中未使用的輸出擷取變數（SC2034）；`make lint` 全綠（RC=0）。
+
+### Changed
+
+- **CONTEXT.md 補錄 ADR-012 詞彙**：新增 Provenance（來源出處）、Task Inbox（任務收件匣）、Held（待授權暫置）、Triage-accept（人類分診核准）四詞條（含避免使用同義詞），同步詞彙速查表。
+
 ### Added
 
 - **ADR-012 — operator↔autopilot 互動信任模型（Accepted）**：provenance-scoped、授權隨架構影響縮放（外部架構級→Accepted ADR；外部非架構→人類 triage-accept；人類手寫 ROADMAP 任務機制完全不變）。新增 INV-1（autopilot 僅人類啟動）/ INV-2（外部工作須人類放行）兩不變量與 DP1–DP8 決策點；威脅模型新增 **T-14**（external-artifact → autopilot poisoning）併入 `threat-model-v4.0.md`；ADR-001 Relations 補記 C2 profile/skill 漂移。

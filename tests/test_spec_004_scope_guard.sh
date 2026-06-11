@@ -73,7 +73,6 @@ run_guard() {
   GUARD_RC=$?
   set -e
   GUARD_STDERR=$(cat "$stderr_file")
-  GUARD_STDOUT=$(cat "$stdout_file")
   rm -f "$stderr_file" "$stdout_file"
 }
 
