@@ -80,3 +80,6 @@ docs/architecture.html
 
 # Orchestrator 後置審計輪數狀態（v5 ADR-015，本地狀態）
 .asp-orch-state.json
+
+# asp-compile 編譯產物（v5 ADR-016，per-machine）
+.asp-compiled-profile.md

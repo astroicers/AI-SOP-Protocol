@@ -400,7 +400,8 @@ elif [ ! -f "CLAUDE.md" ]; then
   cat > CLAUDE.md << CLAUDEMD
 # ${PROJECT_NAME} — AI 行為設定
 
-> ASP v4.0 | 讀取順序：本檔案 → \`.ai_profile\` → \`~/.claude/CLAUDE.md\`（user-level 鐵則）
+> ASP v5 | 讀取順序：本檔案 → \`.asp-compiled-profile.md\`（asp-compile 編譯產物，
+> 檔頭列來源清單；不存在 → 依 \`.ai_profile\` 載入散文 profile 為 fallback）→ \`~/.claude/CLAUDE.md\`（user-level 鐵則）
 > Profile 邏輯與 ASP skills 詳見 \`~/.claude/asp/profiles/\` 與 \`~/.claude/skills/asp/\`
 
 ## 專案說明
@@ -516,6 +517,7 @@ ASP_GITIGNORE_ENTRIES=(
   ".asp-fact-check.md"
   ".asp-review-calibration.jsonl"
   ".asp-orch-state.json"
+  ".asp-compiled-profile.md"
 )
 # 注意：.asp-metrics-baseline.json 刻意不在此清單（ADR-013：對照證據需 commit）
 if [ -f ".gitignore" ]; then
@@ -527,6 +529,13 @@ if [ -f ".gitignore" ]; then
     fi
   done
   [ "$ADDED" -gt 0 ] && success ".gitignore（補充 $ADDED 條 ASP 執行時檔案）"
+fi
+
+# ─── 首次編譯 profile（v5 ADR-016；best-effort，失敗不擋安裝） ───
+if bash "$USER_CLAUDE/asp/scripts/asp-compile.sh" --project "$(pwd)" --quiet 2>/dev/null; then
+  success ".asp-compiled-profile.md（asp-compile 首次編譯）"
+else
+  warn "asp-compile 首次編譯未完成（將於 SessionStart 自動重試；散文 profile 為 fallback）"
 fi
 
 # ═══════════════════════════════════════════════════════════════════

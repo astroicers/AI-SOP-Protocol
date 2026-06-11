@@ -1226,6 +1226,14 @@ orch-debt-log: ## 記錄 tech-debt（CATEGORY=... DESC="..." [SEVERITY=HIGH|MED|
 # v5 Metrics（ADR-013：基線量測與對照）
 #---------------------------------------------------------------------------
 
+asp-compile: ## Compile .ai_profile → .asp-compiled-profile.md (ADR-016)
+	@bash .asp/scripts/asp-compile.sh --project "$$(pwd)"
+
+asp-compile-check: ## Recompile only if stale (mtime check)
+	@bash .asp/scripts/asp-compile.sh --project "$$(pwd)" --check
+
+.PHONY: asp-compile asp-compile-check
+
 asp-metrics: ## Show repo metrics JSON (lines / rules / context tax)
 	@bash .asp/scripts/asp-metrics.sh --repo-root "$$(pwd)"
 

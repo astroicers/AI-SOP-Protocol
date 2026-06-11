@@ -1,7 +1,8 @@
 project: AI-SOP-Protocol
-type: system/architecture
-level: L3
+type: system
+level: standard
 language: bash/yaml/markdown
+coding_style: enabled
 
 operator:
   enabled: true

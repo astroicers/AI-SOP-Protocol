@@ -7,6 +7,9 @@
 
 ## 啟動程序
 
+0. **（v5，ADR-016）** `.asp-compiled-profile.md` 存在 → **直接讀取之**（asp-compile 編譯產物，
+   檔頭列來源清單與行數；SessionStart hook 已做 mtime 比對自動重編）。不存在或 briefing 顯示
+   `compiled_profile_ok: false` → 走下列散文載入（fallback）
 1. 讀取 `.ai_profile`，依欄位載入對應 profile（見下方映射表）
 2. `design: enabled` → 自動載入 `frontend_quality.md`
 3. `autonomous: enabled` 或 `workflow: vibe-coding + hitl: minimal` → 自動載入 `autonomous_dev.md`（HITL 等級定義已內建 `global_core.md`，ADR-014）；單獨 `workflow: vibe-coding` → 載入 `loose_mode.md`

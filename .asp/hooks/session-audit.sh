@@ -131,6 +131,29 @@ else
 fi
 
 # ═══════════════════════════════════════════
+# 1.5 Compiled Profile（A16，v5 ADR-016）
+#     mtime 比對與重編全部委派 asp-compile --check（單一實作點）；
+#     任何失敗都不擋 session（衝突=WARNING、其他=INFO 回退散文載入）
+# ═══════════════════════════════════════════
+COMPILED_OK=false
+COMPILED_LINES=0
+COMPILE_SCRIPT=""
+for c in "${PROJECT_DIR}/.asp/scripts/asp-compile.sh" "${HOME}/.claude/asp/scripts/asp-compile.sh"; do
+    [ -f "$c" ] && COMPILE_SCRIPT="$c" && break
+done
+if [ -n "$COMPILE_SCRIPT" ] && [ -f "$PROFILE_FILE" ]; then
+    timeout 15 bash "$COMPILE_SCRIPT" --project "$PROJECT_DIR" --check --quiet >/dev/null 2>&1
+    COMPILE_RC=$?
+    case "$COMPILE_RC" in
+        0) COMPILED_OK=true ;;
+        1) WARNINGS+=("A16.1: profile 衝突，編譯中止——.ai_profile 設定互斥（跑 bash ${COMPILE_SCRIPT} 看衝突對）") ;;
+        *) INFOS+=("A16.2: asp-compile 失敗 (rc=${COMPILE_RC})，回退散文 profile 載入") ;;
+    esac
+fi
+[ -f "${PROJECT_DIR}/.asp-compiled-profile.md" ] && [ "$COMPILED_OK" = true ] \
+    && COMPILED_LINES=$(awk 'END{print NR}' "${PROJECT_DIR}/.asp-compiled-profile.md")
+
+# ═══════════════════════════════════════════
 # 2. 檔案結構掃描（A5: 11 rules）
 # ═══════════════════════════════════════════
 MISSING_FILES=()
@@ -306,6 +329,8 @@ fi
   "baseline_stale": $BASELINE_STALE,
   "baseline_exists": $BASELINE_EXISTS,
   "test_result_exists": $TEST_RESULT_EXISTS,
+  "compiled_profile_ok": $COMPILED_OK,
+  "compiled_profile_lines": $COMPILED_LINES,
   "dynamic_deny": $(if [ ${#DYNAMIC_DENY[@]} -gt 0 ]; then printf '%s\n' "${DYNAMIC_DENY[@]}" | jq -R . | jq -s .; else echo '[]'; fi)
 }
 JSONEOF

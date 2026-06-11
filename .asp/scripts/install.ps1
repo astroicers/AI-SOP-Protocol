@@ -483,6 +483,9 @@ if (Test-Path '.gitignore') {
 # 完成
 # ═══════════════════════════════════════════════════════════════════
 Write-Host ''
+# v5（ADR-016）：Windows 原生路徑暫不執行 asp-compile 首次編譯（known deviation）；
+# SessionStart hook 經 Git Bash 執行時會自動編譯，否則以散文 profile 載入為 fallback
+Write-Warn 'asp-compile 首次編譯於 Windows 原生路徑略過 — SessionStart（Git Bash）會自動補編，散文 profile 為 fallback'
 if ($IsProjectUpgrade) {
     Write-Host "🎉 升級完成！（v$NewVersion @ $NewCommit）"
 } else {

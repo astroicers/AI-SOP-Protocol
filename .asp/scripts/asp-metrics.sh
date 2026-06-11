@@ -26,6 +26,7 @@ OUTPUT=""
 COMPARE=""
 SIMULATE=""
 ASSERT_REDUCTION=""
+ASSERT_CONFIGS="L1_content,L3_system_design,L5_autonomous"
 QUIET=0
 
 while [ $# -gt 0 ]; do
@@ -35,6 +36,7 @@ while [ $# -gt 0 ]; do
     --compare) COMPARE="$2"; shift 2 ;;
     --simulate) SIMULATE="$2"; shift 2 ;;
     --assert-reduction) ASSERT_REDUCTION="$2"; shift 2 ;;
+    --assert-configs) ASSERT_CONFIGS="$2"; shift 2 ;;
     --quiet) QUIET=1; shift ;;
     *) echo "ERROR: unknown argument: $1" >&2; exit 1 ;;
   esac
@@ -255,9 +257,10 @@ if [ -n "$COMPARE" ]; then
       row("context_tax.L5_autonomous";    $b.context_tax.L5_autonomous.total;    $cur.context_tax.L5_autonomous.total)
     ] | .[]'
   if [ -n "$ASSERT_REDUCTION" ]; then
-    FAILS=$(echo "$RESULT" | jq -r --slurpfile base <(cat "$COMPARE") --argjson n "$ASSERT_REDUCTION" '
+    FAILS=$(echo "$RESULT" | jq -r --slurpfile base <(cat "$COMPARE") --argjson n "$ASSERT_REDUCTION" \
+      --arg cfgs "$ASSERT_CONFIGS" '
       . as $cur | $base[0] as $b |
-      ["L1_content","L3_system_design","L5_autonomous"] | map(
+      ($cfgs | split(",")) | map(
         . as $k |
         ($b.context_tax[$k].total) as $bt | ($cur.context_tax[$k].total) as $ct |
         if $bt > 0 and ((($bt - $ct) / $bt * 100) < $n) then "\($k): \((($bt - $ct) / $bt * 100 * 10 | round / 10))% < \($n)%" else empty end
