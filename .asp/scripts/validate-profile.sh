@@ -205,7 +205,7 @@ fi
 [ "$OPENAPI" = "enabled" ]          && echo "    • openapi.md"
 [ "$ORCHESTRATOR" = "enabled" ]     && echo "    • task_orchestrator.md"
 [ "$AUTONOMOUS" = "enabled" ]       && echo "    • autonomous_dev.md" && echo "    • task_orchestrator.md（auto）"
-[ "$AUTOPILOT" = "enabled" ]        && echo "    • autopilot.md" && echo "    • autonomous_dev.md（auto）" && echo "    • task_orchestrator.md（auto）"
+[ "$AUTOPILOT" = "enabled" ]        && echo "    • asp-autopilot skill Part 2（v4.4 起取代 autopilot.md profile）" && echo "    • autonomous_dev.md（auto）" && echo "    • task_orchestrator.md（auto）"
 
 echo ""
 echo "================================="

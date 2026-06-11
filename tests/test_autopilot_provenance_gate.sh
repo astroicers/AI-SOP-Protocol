@@ -7,7 +7,7 @@
 set -uo pipefail
 
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROFILE="$ASP_ROOT/.asp/profiles/autopilot.md"
+PROFILE="$ASP_ROOT/.claude/skills/asp/asp-autopilot.md"
 SKILL="$ASP_ROOT/.claude/skills/asp/asp-autopilot.md"
 PASS=0; FAIL=0; TOTAL=0
 pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }

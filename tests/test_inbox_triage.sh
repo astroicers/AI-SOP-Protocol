@@ -7,7 +7,7 @@ set -uo pipefail
 
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$ASP_ROOT/.asp/scripts/inbox-triage.sh"
-PROFILE="$ASP_ROOT/.asp/profiles/autopilot.md"
+PROFILE="$ASP_ROOT/.claude/skills/asp/asp-autopilot.md"
 INGEST="$ASP_ROOT/.asp/scripts/inbox-ingest.sh"
 AUDIT_HOOK="$ASP_ROOT/.asp/hooks/session-audit.sh"
 TEST_DIR=$(mktemp -d /tmp/asp-test-triage-XXXXXX)
