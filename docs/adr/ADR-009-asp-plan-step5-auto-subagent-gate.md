@@ -122,6 +122,7 @@ ADR Draft commit 是常態（CLAUDE.md 明示允許），P3 每次都阻擋 → 
   > - `N=1`（2026-06-08，ADR-008 session）— 計入。
   > - （2026-06-08，tech-debt remediation session：TD-004/002/005/001 修復）本 session 為 bug 修復，**未走 asp-plan Step 5**，且 auto-spawn gate 機制**尚未實作** → 無 catch/noise/漏報 資料點可產生，**N 維持 1**。
   > - ⛓️ **關鍵依賴（更正分項追蹤）**：Trial 進度（TD-006）**硬依賴** SPEC-006 auto-gate 落地（TD-007）。auto-gate 實作前 N 無法 > 1（無機制可觸發 catch/noise）。下一個有效資料點 = SPEC-006 實作後第一個經 asp-plan Step 5 的 distinct plan。
+  > - `N=2`（2026-06-11，SPEC-010 plan / C2 整併）— **auto-gate 落地後首個有效資料點**：staged SPEC-010 → 機械觸發（hits_spec=1）→ G2 subagent 自動 spawn → log `.asp-gate-log/20260611T070000Z-G2-SPEC-010.md`。**catch=3**（must/should-fix：F1 Done When 不可測、F2 撞 no-modify-Accepted-ADR 規則、F3 捨棄聲明過寬）、**noise=2**（F4/F5 optional 級）、漏報=0、AI 確實自動觸發=是、log 寫入成功=是。同 plan 之 G1×3（ADR-001/009/012 Relations 修訂）：catch+1（W-1 追蹤清單未勾）、noise+2（reviewer 本地 stale 誤判 asp-op ADR-002 不存在、Part 2 標題 false negative——均經主流程實證覆核排除），log 寫入成功=是。
 - [ ] **Trial 結果評估**（≥ 3 distinct plans 後）：
   - 跳過率 0% + 訊噪比 ≥ 1.0 + log 完整率 100% → 接受 P2 為穩定狀態，標記本 ADR `Accepted` 並 close trial
   - 跳過率 > 0% → 開 ADR-010 評估升級到 P3 或 D 混合

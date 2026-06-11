@@ -4,6 +4,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **SPEC-010 — autopilot profile 整併入 asp-autopilot skill（ADR-006 Item 7，C2 漂移結案）**：刪除 `.asp/profiles/autopilot.md`（616 行），完整執行規格原文遷入 `asp-autopilot` skill **Part 2（唯一 canonical source）**——含 SPEC-008/009 provenance 閘原文（契約測試 retarget 後 15/15 + 20/20 保真）。僅捨棄與 skill 既有段落真重複的兩節（啟用前提/Context 管理，去向見 SPEC-010 migration ledger）。活引用收斂（CLAUDE.md 啟動程序、validate-profile.sh）；歷史文件路徑字樣依 E2 不動。**誠實修正**：ADR-006 原估 -566 行為 SPEC-008/009 之前的數字，實際淨變化 ≈ +213/-616（閘與執行規格必須活著搬遷）。安裝副本將於下次 `make asp-update`（rsync --delete）自動清除舊 profile。本 plan 經 auto-gate 完整走流程：G2×1 + G1×3，gate log 5 筆，**ADR-009 trial N=2**（catch 4 / noise 4，含 2 個 reviewer 環境性假陽性的覆核記錄）。新測試：`test_autopilot_consolidation.sh`（17 斷言）。
+
 ### Added
 
 - **SPEC-006 — asp-plan Step 5.5 auto-gate 落地（ADR-009 P2；解 TD-007、解鎖 TD-006 trial）**：寫完 ADR/SPEC 後由**機械 glob**（`git diff --cached --name-status`，排除刪除）自動 spawn G1/G2 subagent review——AI 無判斷空間，跳過必須走 bypass 留痕（R1-R7 反藉口表）。報告存 `.asp-gate-log/{ts}-G{n}-{id}.md`（進 git 作審計軌跡；第一筆 = SPEC-006 自身的 G2 review）。`asp-ship` 新增 **Step 9.6** gate-log 後驗（commit 含 ADR/SPEC 但缺 log → WARN，3 連續 → BLOCK）；`asp-gate` G2 增 PENDING 例外裁判表；CLAUDE.md 強制力表 L3 同步（選項 (c)）。實作前 G2 review 抓 4 findings（含 line 287 選項 (b) false-fail 陷阱）+ 自抓 F-5（`--name-only` 會把刪除計入觸發、牴觸 E3），全部先修後實作。測試：7 個新測試檔 44 斷言（TDD 先紅後綠，含從 skill 文件**擷取實際 bash 區塊執行**的契約測試）。

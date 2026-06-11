@@ -11,10 +11,10 @@
 2. `design: enabled` → 自動載入 `frontend_quality.md`
 3. `autonomous: enabled` 或 `workflow: vibe-coding + hitl: minimal` → 自動載入 `autonomous_dev.md` + `vibe_coding.md`
 4. `orchestrator: enabled` 或 `autonomous: enabled` → 自動載入 `task_orchestrator.md`；首次介入執行 `project_health_audit()`
-5. `autopilot: enabled` → 載入 `autopilot.md`（含 step 3/4）；檢查 `.asp-autopilot-state.json` 自動續接
+5. `autopilot: enabled` → 載入 `asp-autopilot` skill 之 Part 2 完整執行規格（v4.4 起為唯一 canonical source，ADR-006 Item 7；含 step 3/4）；檢查 `.asp-autopilot-state.json` 自動續接
 6. 無 `.ai_profile`：只套用本檔案鐵則，詢問使用者專案類型
 
-**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+pipeline`（v4.3 起 multi-agent 協調邏輯已合入 task_orchestrator Part G） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → +`autopilot+autonomous_dev+task_orchestrator` | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
+**Profile 核心映射：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+pipeline`（v4.3 起 multi-agent 協調邏輯已合入 task_orchestrator Part G） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → `asp-autopilot` skill Part 2 +`autonomous_dev+task_orchestrator`（v4.4：autopilot profile 已整併入 skill） | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
 
 ---
 
