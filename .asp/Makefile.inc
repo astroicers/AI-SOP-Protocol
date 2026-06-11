@@ -1075,6 +1075,11 @@ orch-debt-log: ## 記錄 tech-debt（CATEGORY=... DESC="..." [SEVERITY=HIGH|MED|
 # v5 Metrics（ADR-013：基線量測與對照）
 #---------------------------------------------------------------------------
 
+rule-stats: ## 規則命中率統計（90 天窗；DAYS=N 覆寫）— 零命中列待刪候選 (ADR-018)
+	@bash .asp/scripts/rule-stats.sh --days "$${DAYS:-90}"
+
+.PHONY: rule-stats
+
 asp-compile: ## Compile .ai_profile → .asp-compiled-profile.md (ADR-016)
 	@bash .asp/scripts/asp-compile.sh --project "$$(pwd)"
 

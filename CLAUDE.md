@@ -43,6 +43,10 @@
 | **ADR 未定案禁止實作** | `Draft` ADR 禁止生產代碼；`FIRM` ADR 允許 commit（需 Verification Evidence，audit 輸出 🟡）；`session-audit.sh` 動態注入 deny |
 | **外部事實驗證防護** | 涉及第三方 API/版本/法規 → 必須查證並記錄至 `.asp-fact-check.md`（邏輯由 `global_core.md` Fact Verification Gate 執行） |
 
+> **規則存留治理（v5 ADR-018）**：`make rule-stats` 顯示 90 天零命中的規則，於下個 minor
+> 版本評估移除（移除動作本身仍走 ADR）。**鐵則（上表 4 條 + Iron Rule A/B/C，registry
+> `exempt: true`）豁免此條**——鐵則語意不變是 v5 紅線。命中記錄：`~/.claude/asp/metrics/rule-hits.jsonl`。
+
 ---
 
 ## 強制力架構

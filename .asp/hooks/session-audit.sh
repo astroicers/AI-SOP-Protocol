@@ -35,6 +35,21 @@ WARNINGS=()
 INFOS=()
 DYNAMIC_DENY=()
 
+# ─── 規則命中遙測（v5 ADR-018 方案 A）───
+# 每次規則 fire 追加一行 JSONL 至 ~/.claude/asp/metrics/rule-hits.jsonl。
+# 沿 audit-write.sh O_APPEND pattern（<4096B 單行原子）；jq 組裝防注入。
+# 所有失敗吞掉、恆 return 0 —— 遙測永不影響主流程（本 hook 恆 exit 0）。
+ASP_METRICS_FILE="${ASP_METRICS_FILE:-$HOME/.claude/asp/metrics/rule-hits.jsonl}"
+asp_metric() { # $1=rule_id  $2=action(blocker|warn|info|deny-inject)
+    local line
+    line=$(jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg p "$(basename "$PROJECT_DIR")" --arg r "$1" --arg a "$2" \
+        '{ts:$ts,project:$p,rule_id:$r,action:$a}' 2>/dev/null) || return 0
+    [ "${#line}" -lt 4096 ] || return 0
+    { mkdir -p "${ASP_METRICS_FILE%/*}" && printf '%s\n' "$line" >>"$ASP_METRICS_FILE"; } 2>/dev/null || true
+    return 0
+}
+
 # ═══════════════════════════════════════════
 # Iron Rule A: Hook Integrity Verification
 # ═══════════════════════════════════════════
@@ -47,6 +62,7 @@ if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
                 STAGED=$(git -C "${PROJECT_DIR}" diff --cached --name-only 2>/dev/null | grep -c "${CRITICAL_FILE}") || STAGED=0
                 if [ "${STAGED}" -eq 0 ]; then
                     BLOCKERS+=("Iron Rule A: ${CRITICAL_FILE} modified outside git (hash mismatch). Run: git diff ${CRITICAL_FILE}")
+                    asp_metric "IRON-A" "blocker"
                 fi
             fi
         fi
@@ -61,6 +77,7 @@ JSON_LOG="${PROJECT_DIR}/.asp-bypass-log.json"
 HWM_FILE="${PROJECT_DIR}/.asp-bypass-log.hwm"
 if [ -f "${JSON_LOG}" ] && [ ! -f "${NDJSON_LOG}" ]; then
     WARNINGS+=("Iron Rule B: .asp-bypass-log.json exists but not migrated to .ndjson format. Run: make asp-bypass-migrate")
+    asp_metric "AUDIT-IRONB-MIGRATE" "warn"
 fi
 # TD-002: the bypass log is GITIGNORED (local-only — see .gitignore), so a
 # git/HEAD baseline is ALWAYS empty and can never see a truncation. Instead track
@@ -84,6 +101,7 @@ if [ -f "${NDJSON_LOG}" ]; then
     fi
     if [ "${LINE_COUNT}" -lt "${HWM_COUNT}" ]; then
         BLOCKERS+=("Iron Rule B: .asp-bypass-log.ndjson shrank from ${HWM_COUNT} to ${LINE_COUNT} lines (append-only violated — audit entries removed). Restore the log, or reset the high-water-mark if intentional: rm ${HWM_FILE##*/}")
+        asp_metric "IRON-B" "blocker"
     elif [ "${LINE_COUNT}" -gt "${HWM_COUNT}" ]; then
         echo "${LINE_COUNT}" > "${HWM_FILE}" 2>/dev/null || true
     fi
@@ -110,16 +128,19 @@ if [ -f "$PROFILE_FILE" ]; then
     # A1.5: type 必填
     if [ -z "$TYPE" ]; then
         BLOCKERS+=("A1.5: .ai_profile 缺少必填欄位 type")
+        asp_metric "AUDIT-A1.5" "blocker"
     fi
 
     # A1.1: design → frontend_quality 依賴
     if [ "$DESIGN" = "enabled" ] && [ "$FRONTEND_QUALITY" != "enabled" ]; then
         WARNINGS+=("A1.3: design: enabled 但 frontend_quality 未啟用")
+        asp_metric "AUDIT-A1.3" "warn"
     fi
 
     # A1.4: multi-agent — v5 凍結為 Experimental（ADR-017；保留檢查容錯舊 profile）
     if [ "$MODE" = "multi-agent" ]; then
         WARNINGS+=("A1.4: mode: multi-agent — multi-agent 為 Experimental（v5 預設未安裝）；建議 mode: auto，或依 experimental/multi-agent/README.md 手動啟用")
+        asp_metric "AUDIT-A1.4" "warn"
     fi
 
     # hitl 值（用於 deny 嚴格度）
@@ -146,8 +167,8 @@ if [ -n "$COMPILE_SCRIPT" ] && [ -f "$PROFILE_FILE" ]; then
     COMPILE_RC=$?
     case "$COMPILE_RC" in
         0) COMPILED_OK=true ;;
-        1) WARNINGS+=("A16.1: profile 衝突，編譯中止——.ai_profile 設定互斥（跑 bash ${COMPILE_SCRIPT} 看衝突對）") ;;
-        *) INFOS+=("A16.2: asp-compile 失敗 (rc=${COMPILE_RC})，回退散文 profile 載入") ;;
+        1) WARNINGS+=("A16.1: profile 衝突，編譯中止——.ai_profile 設定互斥（跑 bash ${COMPILE_SCRIPT} 看衝突對）"); asp_metric "AUDIT-A16.1" "warn" ;;
+        *) INFOS+=("A16.2: asp-compile 失敗 (rc=${COMPILE_RC})，回退散文 profile 載入"); asp_metric "AUDIT-A16.2" "info" ;;
     esac
 fi
 [ -f "${PROJECT_DIR}/.asp-compiled-profile.md" ] && [ "$COMPILED_OK" = true ] \
@@ -168,18 +189,22 @@ fi
 # Lock file 檢查（A5.3）
 if [ -f "$PROJECT_DIR/package.json" ] && [ ! -f "$PROJECT_DIR/package-lock.json" ] && [ ! -f "$PROJECT_DIR/yarn.lock" ] && [ ! -f "$PROJECT_DIR/pnpm-lock.yaml" ]; then
     WARNINGS+=("A5.3: package.json 存在但無 lock file")
+    asp_metric "AUDIT-A5.3" "warn"
 fi
 if [ -f "$PROJECT_DIR/pyproject.toml" ] && [ ! -f "$PROJECT_DIR/poetry.lock" ] && [ ! -f "$PROJECT_DIR/uv.lock" ]; then
     WARNINGS+=("A5.3: pyproject.toml 存在但無 lock file")
+    asp_metric "AUDIT-A5.3" "warn"
 fi
 
 # .env.example 檢查（A5.4）
 if [ -f "$PROJECT_DIR/.env" ] && [ ! -f "$PROJECT_DIR/.env.example" ]; then
     WARNINGS+=("A5.4: .env 存在但無 .env.example 範本")
+    asp_metric "AUDIT-A5.4" "warn"
 fi
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     WARNINGS+=("A5: 缺失檔案: ${MISSING_FILES[*]}")
+    asp_metric "AUDIT-A5.9" "warn"
 fi
 
 # ═══════════════════════════════════════════
@@ -214,11 +239,13 @@ fi
 
 if [ ${#DRAFT_ADRS[@]} -gt 0 ]; then
     BLOCKERS+=("A3.1 鐵則: ADR Draft 存在 [${DRAFT_ADRS[*]}] — git commit 已被動態阻擋")
+    asp_metric "AUDIT-A3.1" "blocker"
     DYNAMIC_DENY+=("Bash(git commit *)" "Bash(git commit)")
 fi
 
 if [ ${#FIRM_ADRS[@]} -gt 0 ]; then
     WARNINGS+=("A3.2 FIRM ADR: [${FIRM_ADRS[*]}] — 允許 commit，audit 輸出 🟡 YELLOW FLAG（需 Verification Evidence）")
+    asp_metric "AUDIT-A3.2" "warn"
 fi
 
 # ═══════════════════════════════════════════
@@ -234,12 +261,15 @@ while IFS= read -r line; do
         OVERDUE_COUNT=$((OVERDUE_COUNT + 1))
     fi
 # 排除框架文件路徑（profiles/templates/skills/runbooks 內的標記為「格式範例」非真實債務；
-# 其範例日期過期會造成 A8.3 假陽性——2026-06-11 曾誤報 global_core.md 範例為 3 筆逾期 HIGH）
+# 其範例日期過期會造成 A8.3 假陽性——2026-06-11 曾誤報 global_core.md 範例為 3 筆逾期 HIGH）。
+# v5 追加排除：.asp-compiled-profile.md（asp-compile 產物會複製框架範例，ADR-016/018 dogfood
+# 發現）、docs/archive/（歸檔=歷史快照非活債務）、experimental//showcase/（凍結/展示分區）
 done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$PROJECT_DIR" --include="*.md" --include="*.sh" --include="*.yaml" --include="*.json" --exclude-dir=".git" 2>/dev/null \
-    | grep -vE '(\.asp/profiles/|\.asp/templates/|\.claude/skills/|docs/runbooks/)' || true)
+    | grep -vE '(\.asp/profiles/|\.asp/templates/|\.claude/skills/|docs/runbooks/|\.asp-compiled-profile\.md|docs/archive/|experimental/|showcase/)' || true)
 
 if [ "$OVERDUE_COUNT" -gt 0 ]; then
     WARNINGS+=("A8.3: $OVERDUE_COUNT 筆 HIGH tech-debt 已逾期")
+    asp_metric "AUDIT-A8.3" "warn"
 fi
 
 # ═══════════════════════════════════════════
@@ -251,6 +281,7 @@ if [ -f "$PROJECT_DIR/package.json" ]; then
 fi
 if [ "$LOOSE_DEP_COUNT" -gt 0 ]; then
     WARNINGS+=("A9.2: package.json 有 $LOOSE_DEP_COUNT 筆鬆散版本（* 或 latest）")
+    asp_metric "AUDIT-A9.2" "warn"
 fi
 
 # ═══════════════════════════════════════════
@@ -270,11 +301,13 @@ if [ -f "$PROJECT_DIR/.asp-audit-baseline.json" ]; then
             if [ "$days_old" -gt 7 ]; then
                 BASELINE_STALE=true
                 INFOS+=("A14.2: 健康審計 baseline 已 ${days_old} 天未更新（建議執行 make audit-health）")
+                asp_metric "AUDIT-A14.2" "info"
             fi
         fi
     fi
 else
     INFOS+=("A14.1: .asp-audit-baseline.json 不存在（建議執行 make audit-health）")
+    asp_metric "AUDIT-A14.1" "info"
 fi
 
 # ═══════════════════════════════════════════
@@ -289,6 +322,7 @@ if [ -f "$INBOX_FILE" ] && [ -f "$INBOX_SCRIPT" ]; then
     if [ "$INBOX_PENDING" -gt 0 ]; then
         bash "$INBOX_SCRIPT" 2>&1 | grep -v "^$" || true
         WARNINGS+=("A15.1: Task Inbox ${INBOX_PENDING} 個外部任務 held（人類授權：make inbox-triage）")
+        asp_metric "AUDIT-A15.1" "warn"
     fi
 fi
 
@@ -301,6 +335,7 @@ if [ -f "$PROJECT_DIR/.asp-test-result.json" ]; then
     test_passed=$(jq -r '.passed // false' "$PROJECT_DIR/.asp-test-result.json" 2>/dev/null)
     if [ "$test_passed" != "true" ]; then
         INFOS+=("A4.7: 上次測試未通過，commit 前需重新執行 make test")
+        asp_metric "AUDIT-A4.7" "info"
     fi
 fi
 
@@ -383,6 +418,8 @@ if command -v jq &>/dev/null \
         fi
         # 記錄本次 ASP 實際擁有的注入集合（可能為空 → 下次不移除任何條目）
         echo "$RECON" | jq -c '.added' > "$MANAGED_DENY_STATE" 2>/dev/null || true
+        # 遙測：動態 deny 實際注入成功（ADR-018；只在有 deny 條目時記）
+        [ ${#DYNAMIC_DENY[@]} -gt 0 ] && asp_metric "DENY-DYNAMIC" "deny-inject"
     else
         rm -f "${LOCAL_SETTINGS_FILE}.tmp" 2>/dev/null || true
     fi
