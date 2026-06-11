@@ -1204,6 +1204,25 @@ profile-validate:
 	@bash .asp/scripts/validate-profile.sh
 
 #---------------------------------------------------------------------------
+# v5 Orchestrator 確定性腳本（ADR-015/SPEC-011）
+#---------------------------------------------------------------------------
+
+orch-classify: ## 任務分類（TASK="..." [HITL=minimal|standard|strict] [DOMAIN=1]）
+	@bash .asp/scripts/orchestrator/classify-task.sh $(if $(filter 1,$(DOMAIN)),--domain,) --hitl "$${HITL:-standard}" "$$TASK"
+
+orch-audit-check: ## 審計前置判斷（exit 2 = 需要審計）
+	@bash .asp/scripts/orchestrator/audit-check.sh --project "$$(pwd)"
+
+orch-round: ## 後置審計輪數（ACTION=get|increment|reset，exit 4 = 達上限）
+	@bash .asp/scripts/orchestrator/post-audit-round.sh --"$${ACTION:-get}" --project "$$(pwd)"
+
+orch-debt-log: ## 記錄 tech-debt（CATEGORY=... DESC="..." [SEVERITY=HIGH|MED|LOW] [DUE=YYYY-MM-DD]）
+	@bash .asp/scripts/orchestrator/tech-debt-log.sh --category "$$CATEGORY" --desc "$$DESC" \
+		$(if $(SEVERITY),--severity "$(SEVERITY)",) $(if $(DUE),--due "$(DUE)",)
+
+.PHONY: orch-classify orch-audit-check orch-round orch-debt-log
+
+#---------------------------------------------------------------------------
 # v5 Metrics（ADR-013：基線量測與對照）
 #---------------------------------------------------------------------------
 

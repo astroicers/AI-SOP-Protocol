@@ -14,7 +14,7 @@
 5. `autopilot: enabled` → 載入 `asp-autopilot` skill 之 Part 2 完整執行規格（v4.4 起為唯一 canonical source，ADR-006 Item 7；含 step 3/4）；檢查 `.asp-autopilot-state.json` 自動續接
 6. 無 `.ai_profile`：只套用本檔案鐵則，詢問使用者專案類型
 
-**Profile 核心映射（機械版 = `~/.claude/asp/config/profile-map.yaml`，single source of truth，ADR-013）：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+pipeline`（v4.3 起 multi-agent 協調邏輯已合入 task_orchestrator Part G） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → `asp-autopilot` skill Part 2 +`autonomous_dev+task_orchestrator`（v4.4：autopilot profile 已整併入 skill） | guardrail / escalation 已內建 `global_core`（v5，ADR-014） | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
+**Profile 核心映射（機械版 = `~/.claude/asp/config/profile-map.yaml`，single source of truth，ADR-013）：** `type: system/architecture` → `global_core+system_dev` | `type: content` → `global_core+content_creative` | `mode: multi-agent` → +`task_orchestrator+orchestrator_multi_agent+pipeline`（v5 Phase 2：Part G 抽出為獨立檔，ADR-015） | `autonomous/orchestrator` → +`autonomous_dev+task_orchestrator` | `autopilot` → `asp-autopilot` skill Part 2 +`autonomous_dev+task_orchestrator`（v4.4：autopilot profile 已整併入 skill） | guardrail / escalation 已內建 `global_core`（v5，ADR-014） | 完整 schema：`~/.claude/asp/templates/example-profile-full.yaml`
 
 ---
 

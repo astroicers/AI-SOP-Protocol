@@ -203,16 +203,17 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
 
-  # ~/.claude/asp/（profiles/hooks/templates/levels/agents/config）
+  # ~/.claude/asp/（profiles/hooks/templates/levels/agents/config/scripts）
+  # v5（ADR-015）：scripts 加入複製清單——orchestrator 確定性腳本與 asp-compile 需部署到 user-level
   mkdir -p "$USER_ASP"
-  for dir in profiles hooks templates levels agents config advanced; do
+  for dir in profiles hooks templates levels agents config scripts advanced; do
     if [ -d "$TMP_DIR/.asp/$dir" ]; then
       rm -rf "${USER_ASP:?}/$dir"
       cp -r "$TMP_DIR/.asp/$dir" "$USER_ASP/$dir"
     fi
   done
   cp -f "$TMP_DIR/.asp/VERSION" "$USER_ASP/VERSION" 2>/dev/null || true
-  chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
+  chmod +x "$USER_ASP/hooks/"*.sh "$USER_ASP/scripts/"*.sh "$USER_ASP/scripts/orchestrator/"*.sh 2>/dev/null || true
 
   # ~/.claude/skills/asp/
   mkdir -p "$USER_SKILLS"
@@ -514,7 +515,9 @@ ASP_GITIGNORE_ENTRIES=(
   ".asp-telemetry.jsonl"
   ".asp-fact-check.md"
   ".asp-review-calibration.jsonl"
+  ".asp-orch-state.json"
 )
+# 注意：.asp-metrics-baseline.json 刻意不在此清單（ADR-013：對照證據需 commit）
 if [ -f ".gitignore" ]; then
   ADDED=0
   for entry in "${ASP_GITIGNORE_ENTRIES[@]}"; do

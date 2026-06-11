@@ -29,7 +29,7 @@ rules:
   # v4.3 起 multi-agent 協調邏輯在 task_orchestrator Part G；
   # escalation 載入條件：mode multi-agent 或 autonomous enabled（見其檔頭）
   - when: "mode=multi-agent"
-    load: "task_orchestrator pipeline"
+    load: "task_orchestrator orchestrator_multi_agent pipeline"
   # reality_checker 載入條件：mode multi-agent + 團隊含 reality 角色；
   # 量測上以 multi-agent+autonomous 組合近似（記 ADR-013）
   - when: "mode=multi-agent&autonomous=enabled"
