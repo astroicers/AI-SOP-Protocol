@@ -210,7 +210,10 @@ while IFS= read -r line; do
     if [ -n "$due_date" ] && [[ "$due_date" < "$TODAY" ]]; then
         OVERDUE_COUNT=$((OVERDUE_COUNT + 1))
     fi
-done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$PROJECT_DIR" --include="*.md" --include="*.sh" --include="*.yaml" --include="*.json" --exclude-dir=".git" 2>/dev/null || true)
+# 排除框架文件路徑（profiles/templates/skills/runbooks 內的標記為「格式範例」非真實債務；
+# 其範例日期過期會造成 A8.3 假陽性——2026-06-11 曾誤報 global_core.md 範例為 3 筆逾期 HIGH）
+done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$PROJECT_DIR" --include="*.md" --include="*.sh" --include="*.yaml" --include="*.json" --exclude-dir=".git" 2>/dev/null \
+    | grep -vE '(\.asp/profiles/|\.asp/templates/|\.claude/skills/|docs/runbooks/)' || true)
 
 if [ "$OVERDUE_COUNT" -gt 0 ]; then
     WARNINGS+=("A8.3: $OVERDUE_COUNT 筆 HIGH tech-debt 已逾期")
