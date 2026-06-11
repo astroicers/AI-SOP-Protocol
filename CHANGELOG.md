@@ -4,19 +4,21 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-06-11
+
 ### Changed
 
 - **SPEC-010 — autopilot profile 整併入 asp-autopilot skill（ADR-006 Item 7，C2 漂移結案）**：刪除 `.asp/profiles/autopilot.md`（616 行），完整執行規格原文遷入 `asp-autopilot` skill **Part 2（唯一 canonical source）**——含 SPEC-008/009 provenance 閘原文（契約測試 retarget 後 15/15 + 20/20 保真）。僅捨棄與 skill 既有段落真重複的兩節（啟用前提/Context 管理，去向見 SPEC-010 migration ledger）。活引用收斂（CLAUDE.md 啟動程序、validate-profile.sh）；歷史文件路徑字樣依 E2 不動。**誠實修正**：ADR-006 原估 -566 行為 SPEC-008/009 之前的數字，實際淨變化 ≈ +213/-616（閘與執行規格必須活著搬遷）。安裝副本將於下次 `make asp-update`（rsync --delete）自動清除舊 profile。本 plan 經 auto-gate 完整走流程：G2×1 + G1×3，gate log 5 筆，**ADR-009 trial N=2**（catch 4 / noise 4，含 2 個 reviewer 環境性假陽性的覆核記錄）。新測試：`test_autopilot_consolidation.sh`（17 斷言）。
+- **CONTEXT.md 補錄 ADR-012 詞彙**：新增 Provenance（來源出處）、Task Inbox（任務收件匣）、Held（待授權暫置）、Triage-accept（人類分診核准）四詞條（含避免使用同義詞），同步詞彙速查表。
 
 ### Added
 
 - **SPEC-006 — asp-plan Step 5.5 auto-gate 落地（ADR-009 P2；解 TD-007、解鎖 TD-006 trial）**：寫完 ADR/SPEC 後由**機械 glob**（`git diff --cached --name-status`，排除刪除）自動 spawn G1/G2 subagent review——AI 無判斷空間，跳過必須走 bypass 留痕（R1-R7 反藉口表）。報告存 `.asp-gate-log/{ts}-G{n}-{id}.md`（進 git 作審計軌跡；第一筆 = SPEC-006 自身的 G2 review）。`asp-ship` 新增 **Step 9.6** gate-log 後驗（commit 含 ADR/SPEC 但缺 log → WARN，3 連續 → BLOCK）；`asp-gate` G2 增 PENDING 例外裁判表；CLAUDE.md 強制力表 L3 同步（選項 (c)）。實作前 G2 review 抓 4 findings（含 line 287 選項 (b) false-fail 陷阱）+ 自抓 F-5（`--name-only` 會把刪除計入觸發、牴觸 E3），全部先修後實作。測試：7 個新測試檔 44 斷言（TDD 先紅後綠，含從 skill 文件**擷取實際 bash 區塊執行**的契約測試）。
+- **ADR-012 — operator↔autopilot 互動信任模型（Accepted）**：provenance-scoped、授權隨架構影響縮放（外部架構級→Accepted ADR；外部非架構→人類 triage-accept；人類手寫 ROADMAP 任務機制完全不變）。新增 INV-1（autopilot 僅人類啟動）/ INV-2（外部工作須人類放行）兩不變量與 DP1–DP8 決策點；威脅模型新增 **T-14**（external-artifact → autopilot poisoning）併入 `threat-model-v4.0.md`；ADR-001 Relations 補記 C2 profile/skill 漂移。
 
 ### Security
 
 - **SPEC-007 — 封 inbox-ingest 無授權旁路（ADR-012 INV-2/DP8，關閉 T-14）**：`inbox-ingest.sh` 自此為 held-mode——SessionStart 只回報 pending 外部任務（held、保持 `pending`），**不再自動注入 ROADMAP.yaml、不再標 `ingested`**（取代 v4.3.0 P1 的自動注入行為）。直推 `.asp-task-inbox.json` 到 main 不再能繞過信任模型進入 autopilot 執行佇列；外部任務的人類授權路徑由 SPEC-009（triage-accept）/ asp-op pivot 提供。`session-audit.sh` A15.1 由 INFO 升為 WARNING 並改 held 語意。順帶消除 inbox-ingest 對 ROADMAP 的無鎖寫入競態。測試：`test_inbox_ingest_no_bypass.sh`（14 斷言，含 T-14 攻擊模擬）；`test_task_inbox.sh` 由舊注入契約改寫為 held 契約（8 斷言）。
-
-### Security (continued)
 
 - **SPEC-008 — autopilot 外部來源 provenance 閘（ADR-012 INV-2/DP2）**：`autopilot.md` Phase 2 於既有 ADR 閘前新增 provenance 檢查——帶外部來源標記（`source_type` ≠ manual 或 `triggered_by` ∉ human/maintainer）的 ROADMAP 任務，須有人類 **Accepted** ADR 才可執行（外部任務不適用 FIRM 🟡 豁免、不自動建 Draft ADR）；DP8 過渡期外部非架構任務一律 blocked（待 SPEC-009 triage-accept）。人類手寫任務的既有機制逐字不變（DP3）。這是 SPEC-007（producer 側）之後的 consumer 側第二層防線。`asp-autopilot` skill 前置檢查表同步。測試：`test_autopilot_provenance_gate.sh`（15 斷言文字契約，TDD 先紅後綠）。
 
@@ -27,13 +29,6 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 - **A8.3 逾期 tech-debt 假陽性**：session-audit 的 tech-debt 掃描把 `global_core.md` 等框架文件內的「格式範例」標記（範例日期已過期）誤報為 3 筆逾期 HIGH。掃描改排除框架文件路徑（`.asp/profiles/`、`.asp/templates/`、`.claude/skills/`、`docs/runbooks/`）；修復後實際可動作逾期債為 0。回歸測試：`test_tech_debt_scan_exclusions.sh`（7 斷言，含管線重演與「測試檔自身不得成為新假陽性」防護）。
 - **lint 既有債清零**：移除 `test_converge_crypto_gate.sh` / `test_spec_004_scope_guard.sh` 中未使用的輸出擷取變數（SC2034）；`make lint` 全綠（RC=0）。
 
-### Changed
-
-- **CONTEXT.md 補錄 ADR-012 詞彙**：新增 Provenance（來源出處）、Task Inbox（任務收件匣）、Held（待授權暫置）、Triage-accept（人類分診核准）四詞條（含避免使用同義詞），同步詞彙速查表。
-
-### Added
-
-- **ADR-012 — operator↔autopilot 互動信任模型（Accepted）**：provenance-scoped、授權隨架構影響縮放（外部架構級→Accepted ADR；外部非架構→人類 triage-accept；人類手寫 ROADMAP 任務機制完全不變）。新增 INV-1（autopilot 僅人類啟動）/ INV-2（外部工作須人類放行）兩不變量與 DP1–DP8 決策點；威脅模型新增 **T-14**（external-artifact → autopilot poisoning）併入 `threat-model-v4.0.md`；ADR-001 Relations 補記 C2 profile/skill 漂移。
 
 ## [4.3.0] - 2026-05-28
 
