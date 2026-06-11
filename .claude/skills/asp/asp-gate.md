@@ -57,6 +57,27 @@ description: |
 
 **通過條件：** SPEC 完整且 Done When 可測試
 
+#### G2 PENDING 例外規則（reviewer 必讀；SPEC-006 為權威來源）
+
+當 SPEC 內出現 `PENDING` 註解時，**不可**立即判定為 Done When 不完整。先做下列三項判斷：
+
+1. **PENDING 是否有 Stage 標籤**：例如 `PENDING (Stage 2)` 或註解「Stage 1 active check 1 條，6 條 PENDING 將於 Stage 2 補上」。若有，**視為合法 staged-rollout 標記，不 WARN**。
+2. **PENDING 是否出現在 automated_checks 的 cmd 欄位內**：若 PENDING 是實際 shell command（如 `cmd: "PENDING tests/foo.sh"`），則 **WARN**（這是真實的缺漏，不是聲明性 placeholder）。
+3. **PENDING 是否伴隨明確的 trigger 條件**：例如「等 Stage 2 PR 補上」「ADR-NNN Accept 後啟用」。若有，**視為合法**；若無 trigger、純粹「之後再說」→ **WARN**。
+
+裁判表：
+
+| PENDING 出現位置 | 帶 Stage 標籤 | 帶 trigger 條件 | 判定 |
+|------------------|--------------|----------------|------|
+| automated_checks cmd 欄內（shell 命令位置） | 任何 | 任何 | **WARN**（真實缺漏） |
+| automated_checks description 欄內 | 是 | 任何 | PASS（合法 staged） |
+| automated_checks description 欄內 | 否 | 是 | PASS（合法 deferred） |
+| automated_checks description 欄內 | 否 | 否 | **WARN**（純粹拖延） |
+| manual_checks checkbox 內 | 任何 | 任何 | PASS（checkbox 本來就是人類驗證） |
+| SPEC 正文其他段落（如 Edge Cases） | 任何 | 任何 | PASS（非 Done When 範圍） |
+
+**簡記**：「Stage 標籤 + trigger 條件 至少一項，且不在 shell command 位置」→ PASS。
+
 ---
 
 ### G3: Test Readiness Gate（FOUNDATION → BUILD）

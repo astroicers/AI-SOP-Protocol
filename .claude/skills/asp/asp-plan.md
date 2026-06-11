@@ -140,6 +140,58 @@ SPEC：docs/specs/SPEC-NNN-[title].md
 3. 告訴我開始實作
 ```
 
+---
+
+## Step 5.5 — auto-gate（ADR-009 強制機制）
+
+> **本步驟不可跳過**。跳過必須走既有 `⚠️ ASP BYPASS` 流程寫 `.asp-bypass-log.ndjson`。
+
+### 5.5.1 機械觸發判斷
+
+於 Step 5 寫完 ADR / SPEC 後，**必須**執行下列命令並依結果動作。**禁止以 AI 啟發式判斷取代**（「這次 plan 算不算 ADR 等級」由 glob 決定，不由 AI 決定）：
+
+```bash
+staged=$(git diff --cached --name-status)
+hits_adr=$(echo "$staged" | grep -v '^D' | awk '{print $NF}' | grep -cE '^docs/adr/ADR-[0-9]+.*\.md$' || true)
+hits_spec=$(echo "$staged" | grep -v '^D' | awk '{print $NF}' | grep -cE '^docs/specs/SPEC-[0-9]+.*\.md$' || true)
+deleted_gov=$(echo "$staged" | grep '^D' | awk '{print $NF}' | grep -cE '^docs/(adr|specs)/(ADR|SPEC)-[0-9]+.*\.md$' || true)
+```
+
+- `hits_adr > 0` → **必須** spawn G1 subagent（每個命中的 ADR 一個 subagent，並行）
+- `hits_spec > 0` → **必須** spawn G2 subagent（同上）
+- `deleted_gov > 0` → echo「⚠️ ADR/SPEC 刪除偵測 — 請確認是 supersede 流程而非誤刪」（提示，非阻擋）
+- 兩者皆 0 → 在 Step 5 結尾陳述「無 ADR/SPEC 變更，跳過 auto-gate」（這句話必填，作為決策痕跡）
+
+### 5.5.2 Subagent 呼叫（使用 Agent tool）
+
+- `subagent_type`: `general-purpose`（trial 期；ADR-009 trial 完可路由到 reality-checker / test-engineer）
+- `model`: `sonnet`
+- Prompt body：直接引用 `.claude/skills/asp/asp-gate.md` 內 G1 / G2 prompt 模板，填入 target 路徑
+- spawn 失敗（API error / timeout）→ 主對話 echo「⚠️ auto-gate spawn 失敗：<error>」+ 寫 bypass log（reason=spawn-failure），**不**阻擋 plan 完成（E9）
+
+### 5.5.3 結果處理
+
+- 報告寫入 `.asp-gate-log/{ISO_TIMESTAMP_UTC}-G{n}-{TARGET_ID}.md`（檔名+frontmatter schema 見 SPEC-006「Gate log 寫入格式」；目錄不存在先 `mkdir -p .asp-gate-log`）
+- 主對話**必須** echo「asp-gate auto-review 結果」摘要表（格式見 SPEC-006）
+- BLOCKER（FAIL）→ 暫停 plan 流程，等使用者裁決
+- WARN → 列入摘要，不阻擋繼續
+
+### 5.5.4 Common Rationalizations（禁止藉口）
+
+> 執行本 step 時，AI **必須**先檢視此表。下列任何藉口都不可作為跳過理由。
+
+| # | 藉口 | 反駁 |
+|---|------|------|
+| R1 | 「這個 ADR 太小，不值得 spawn subagent」 | 「太小」是主觀判斷，正是 ADR-009 P2 要關閉的 rationalization 面 |
+| R2 | 「我（AI）腦中已驗證一致性，沒問題」 | 獨立 context 才是 review 的本質，自我驗證已被 N=1 證實會漏 |
+| R3 | 「使用者趕時間，跳過 gate 比較快」 | Plan 階段 catch 比 ship 後 catch 便宜 10x |
+| R4 | 「這只是 Draft ADR，內容會再改」 | Draft 本身就是 review 的對象 |
+| R5 | 「Context budget 緊張，沒 quota spawn subagent」 | Subagent 在獨立 context，不佔主對話 budget |
+| R6 | 「我已經跑過 G1 了，這次只是修錯字」 | typo 仍命中 glob，仍觸發；trial 期觀察噪音率再決定 |
+| R7 | 「subagent 之前抓的 WARN 都是噪音，這次八成也是」 | 訊噪比由 metric 機械統計，不可由 AI 預判 |
+
+任何跳過都必須執行 `make asp-bypass-record SKILL=asp-plan STEP=Step5.5 REASON="..."`，寫入 `.asp-bypass-log.ndjson`。
+
 **等待用戶明確確認後，才建議進入實作階段。**
 
 ---

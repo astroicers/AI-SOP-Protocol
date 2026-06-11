@@ -4,6 +4,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **SPEC-006 — asp-plan Step 5.5 auto-gate 落地（ADR-009 P2；解 TD-007、解鎖 TD-006 trial）**：寫完 ADR/SPEC 後由**機械 glob**（`git diff --cached --name-status`，排除刪除）自動 spawn G1/G2 subagent review——AI 無判斷空間，跳過必須走 bypass 留痕（R1-R7 反藉口表）。報告存 `.asp-gate-log/{ts}-G{n}-{id}.md`（進 git 作審計軌跡；第一筆 = SPEC-006 自身的 G2 review）。`asp-ship` 新增 **Step 9.6** gate-log 後驗（commit 含 ADR/SPEC 但缺 log → WARN，3 連續 → BLOCK）；`asp-gate` G2 增 PENDING 例外裁判表；CLAUDE.md 強制力表 L3 同步（選項 (c)）。實作前 G2 review 抓 4 findings（含 line 287 選項 (b) false-fail 陷阱）+ 自抓 F-5（`--name-only` 會把刪除計入觸發、牴觸 E3），全部先修後實作。測試：7 個新測試檔 44 斷言（TDD 先紅後綠，含從 skill 文件**擷取實際 bash 區塊執行**的契約測試）。
+
 ### Security
 
 - **SPEC-007 — 封 inbox-ingest 無授權旁路（ADR-012 INV-2/DP8，關閉 T-14）**：`inbox-ingest.sh` 自此為 held-mode——SessionStart 只回報 pending 外部任務（held、保持 `pending`），**不再自動注入 ROADMAP.yaml、不再標 `ingested`**（取代 v4.3.0 P1 的自動注入行為）。直推 `.asp-task-inbox.json` 到 main 不再能繞過信任模型進入 autopilot 執行佇列；外部任務的人類授權路徑由 SPEC-009（triage-accept）/ asp-op pivot 提供。`session-audit.sh` A15.1 由 INFO 升為 WARNING 並改 held 語意。順帶消除 inbox-ingest 對 ROADMAP 的無鎖寫入競態。測試：`test_inbox_ingest_no_bypass.sh`（14 斷言，含 T-14 攻擊模擬）；`test_task_inbox.sh` 由舊注入契約改寫為 held 契約（8 斷言）。
