@@ -162,7 +162,7 @@ make test    # 全量測試（非 test-filter）
 ```
 
 若整合測試 FAIL：
-- 觸發 asp-escalate P2，reason: "整合驗證失敗"
+- 觸發 /asp-handoff ESCALATION P2，reason: "整合驗證失敗"
 - 列出失敗的測試及相關模組
 
 若整合測試 PASS：

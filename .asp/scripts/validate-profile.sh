@@ -68,22 +68,31 @@ else
   echo "  ✅ type: $TYPE"
 fi
 
-# 規則 1a：level 值範圍（v3.5）
+# 規則 1a：level 值範圍（v5：loose | standard | autonomous；遺留數字 0-5 自動映射，ADR-014）
+RESOLVED_LEVEL=""
 if [ -n "$LEVEL" ]; then
-  if ! echo "$LEVEL" | grep -qE '^[1-5]$'; then
-    echo "  🔴 ERROR: level 值無效：「$LEVEL」（允許值：1 | 2 | 3 | 4 | 5）"
+  LEVEL_RESOLVE="$(dirname "$0")/level-resolve.sh"
+  # deprecation 提示由本腳本以 WARNING 形式輸出，故丟棄 level-resolve 自帶的 stderr 提示
+  RESOLVED_LEVEL=$(bash "$LEVEL_RESOLVE" "$LEVEL" 2>/dev/null) || RESOLVED_LEVEL=""
+  if [ -z "$RESOLVED_LEVEL" ]; then
+    echo "  🔴 ERROR: level 值無效：「$LEVEL」（允許值：loose | standard | autonomous｜遺留數字 0-5）"
     ERRORS=$((ERRORS + 1))
   else
-    LEVEL_FILE=".asp/levels/level-$LEVEL.yaml"
+    if [ "$RESOLVED_LEVEL" != "$LEVEL" ]; then
+      echo "  🟡 WARNING: level: $LEVEL 為 v4 數字等級，已自動視為 level: $RESOLVED_LEVEL"
+      echo "     → 請更新 $PROFILE_FILE 為 level: $RESOLVED_LEVEL；數字等級將於 v6 移除"
+      WARNINGS=$((WARNINGS + 1))
+    fi
+    LEVEL_FILE=".asp/levels/$RESOLVED_LEVEL.yaml"
     if [ -f "$LEVEL_FILE" ]; then
       LEVEL_NAME=$(grep -E '^name:' "$LEVEL_FILE" | head -1 | sed 's/name: *//')
-      echo "  ✅ level: L$LEVEL ($LEVEL_NAME)"
+      echo "  ✅ level: $RESOLVED_LEVEL ($LEVEL_NAME)"
     else
-      echo "  ✅ level: L$LEVEL"
+      echo "  ✅ level: $RESOLVED_LEVEL"
     fi
   fi
 else
-  echo "  🟢 INFO: level 未設定（建議補上 level: 1 以明確成熟度）"
+  echo "  🟢 INFO: level 未設定（建議補上 level: loose 以明確成熟度）"
 fi
 
 # 規則 2：design: enabled → frontend_quality 必須也是 enabled
@@ -115,14 +124,19 @@ if [ "$AUTOPILOT" = "enabled" ]; then
   fi
 fi
 
-# 規則 4：autonomous: enabled → vibe_coding + system_dev 依賴（提示只，無法驗證 profile 檔本身）
+# 規則 4：autonomous: enabled（HITL 等級定義已內建 global_core，ADR-014 D2）
 if [ "$AUTONOMOUS" = "enabled" ]; then
   echo "  ✅ autonomous: enabled"
   if [ "$WORKFLOW" = "vibe-coding" ]; then
-    echo "  ✅ workflow: vibe-coding（與 autonomous 搭配良好）"
-  else
-    echo "  🟢 INFO: autonomous 模式建議同時設 workflow: vibe-coding"
+    echo "  🟡 WARNING: workflow: vibe-coding 與 autonomous 衝突（loose_mode × autonomous_dev）"
+    echo "     → 將忽略 loose_mode（保留較嚴格者，ADR-014 D8）；建議改 workflow: standard"
+    WARNINGS=$((WARNINGS + 1))
   fi
+fi
+
+# 規則 4a：guardrail 欄位 deprecated（v5 三層回應已內建 global_core，ADR-014 D6）
+if grep -q '^guardrail: *enabled' "$PROFILE_FILE" 2>/dev/null; then
+  echo "  🟢 INFO: guardrail 欄位已 deprecated — 範疇與敏感資訊三層回應已內建 global_core，欄位忽略"
 fi
 
 # 規則 5：mode: multi-agent → 提示 orchestrator 建議
@@ -186,19 +200,17 @@ case "$TYPE" in
     ;;
 esac
 
-echo "  條件載入："
+echo "  條件載入（依 .asp/config/profile-map.yaml，single source of truth — ADR-013）："
 if [ "$MODE" = "multi-agent" ]; then
     echo "    • task_orchestrator.md（含 multi-agent 協調邏輯，v4.3+）"
     echo "    • pipeline.md（auto）"
-    echo "    • escalation.md（auto）"
 fi
 if [ "$MODE" = "multi-agent" ] && [ "$AUTONOMOUS" = "enabled" ]; then
     echo "    • reality_checker.md（auto）"
-    # dev_qa_loop.md archived 2026-05-10 → /asp-dev-qa-loop skill (self-contained)
-    # agent_memory.md archived 2026-05-10 (never used; v4.2 ROADMAP item)
 fi
 [ "$MODE" = "committee" ]           && echo "    • ⚠️  committee.md (DEPRECATED 2026-05-10 — archived to docs/archive/profiles/; please use single/auto/multi-agent)"
-[ "$WORKFLOW" = "vibe-coding" ]     && echo "    • vibe_coding.md"
+[ "$WORKFLOW" = "vibe-coding" ]     && echo "    • loose_mode.md（v5 併自 vibe coding + spike mode）"
+[ "$RESOLVED_LEVEL" = "loose" ]     && echo "    • loose_mode.md（loose 等級 auto）"
 [ "$RAG" = "enabled" ]              && echo "    • rag_context.md"
 [ "$DESIGN" = "enabled" ]           && echo "    • design_dev.md" && echo "    • frontend_quality.md（auto）"
 [ "$CODING_STYLE" = "enabled" ]     && echo "    • coding_style.md"

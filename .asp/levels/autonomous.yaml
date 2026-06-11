@@ -1,0 +1,67 @@
+level: autonomous
+name: Autonomous
+aliases: [4, 5]   # v4 legacy 數字等級（由 level-resolve.sh 映射；v6 移除）
+tagline: ROADMAP 驅動自主執行 — 治理成為 AI 的內建約束
+description: |
+  autonomous 是 v5 的最高等級（吸收 v4 的 L4 Collaborative + L5 Autonomous，ADR-014）。
+  AI 根據 ROADMAP 自主執行任務、跨 session 續接、orchestrator 統一入口 + 獨立
+  reality-checker 驗證。適合已有完整 ADR 歷史、測試文化成熟、團隊信任 AI 在明確
+  邊界內自主決策的專案。人類只需設定 ROADMAP 與驗收。
+  multi-agent worktree 並行為 Experimental 元件（v5 凍結，見 ADR-006/Phase 4）。
+
+profiles:
+  - global_core
+  - system_dev
+  - coding_style
+  - pipeline
+  - task_orchestrator
+  - reality_checker
+  - autonomous_dev
+  - rag_context
+
+ai_profile_hint: |
+  type: system
+  level: autonomous
+  mode: multi-agent
+  workflow: standard   # ADR-014 D8：vibe-coding 與 loose_mode 衝突，autonomous 用 standard
+  hitl: minimal
+  autonomous: enabled
+  orchestrator: enabled
+  autopilot: enabled
+  rag: enabled
+  coding_style: enabled
+  name: your-project
+
+prerequisites:
+  - level: standard
+    reason: "必須先完成 standard 的 graduation_checklist"
+
+graduation_checklist:
+  - id: roadmap-exists
+    description: "ROADMAP.yaml 存在且格式符合 autopilot 要求"
+    check: "test -f ROADMAP.yaml || test -f docs/ROADMAP.md"
+  - id: autopilot-state
+    description: "曾成功跑過 autopilot-init（.asp-autopilot-state.json 存在）"
+    check: "test -f .asp-autopilot-state.json"
+  - id: reality-check-invoked
+    description: "reality-checker subagent 曾被召喚（asp-bypass-log 或 session log 有記錄）"
+    check: "true"  # soft check
+  - id: zero-p1-escalation
+    description: "過去 30 天無未解決的 P0/P1 escalation"
+    check: "true"  # soft check
+
+warnings:
+  - "autonomous 需要人類信任邊界明確：hitl minimal 的暫停條件見 global_core「HITL 等級與暫停決策」。"
+  - "外部來源任務受 ADR-012 信任模型管制（provenance 閘 + 人類 triage-accept）。"
+
+use_cases:
+  - "ROADMAP 驅動的持續開發（人類設定方向、AI 連續執行）"
+  - "中大型/跨模組專案的結構化分工"
+
+benefits_of_upgrading: |
+  你已在 ASP 最高等級。接下來可以：
+  - 啟用 Experimental multi-agent worktree 並行（見 experimental/multi-agent/，v5 凍結中）
+  - 自訂 profile 以符合團隊特殊需求
+  - 貢獻 profile 或 skill 回上游
+
+next_level: null

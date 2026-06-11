@@ -647,18 +647,16 @@ asp-bypass-review: ## 檢視 bypass 記錄（AI 繞過 skill 的歷史）
 	echo ""; \
 	echo "💡 若某 skill bypass 次數過高，考慮：(1) 補強 skill 文件 (2) 在 CLAUDE.md 加入對應鐵則"
 
-asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度
-	@LEVEL=$$(grep -E '^level:' .ai_profile 2>/dev/null | awk '{print $$2}'); \
+asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度（v5：loose/standard/autonomous）
+	@LEVEL=$$(bash .asp/scripts/level-resolve.sh 2>/dev/null); \
 	if [ -z "$$LEVEL" ]; then \
-		echo "⚠️  .ai_profile 無 level 欄位 — 使用 Level 推斷規則"; \
-		if grep -q 'autopilot: enabled\|autonomous: enabled' .ai_profile 2>/dev/null; then LEVEL=5; \
-		elif grep -q 'mode: multi-agent' .ai_profile 2>/dev/null; then LEVEL=4; \
-		elif grep -q 'openapi: enabled' .ai_profile 2>/dev/null; then LEVEL=3; \
-		elif grep -q 'guardrail: enabled\|coding_style: enabled' .ai_profile 2>/dev/null; then LEVEL=2; \
-		else LEVEL=1; fi; \
-		echo "   推斷等級：L$$LEVEL（建議在 .ai_profile 中補上 \`level: $$LEVEL\`）"; \
+		echo "⚠️  .ai_profile 無 level 欄位 — 使用 Level 推斷規則（三級制）"; \
+		if grep -q 'autopilot: enabled\|autonomous: enabled\|mode: multi-agent' .ai_profile 2>/dev/null; then LEVEL=autonomous; \
+		elif grep -q 'openapi: enabled\|coding_style: enabled' .ai_profile 2>/dev/null; then LEVEL=standard; \
+		else LEVEL=loose; fi; \
+		echo "   推斷等級：$$LEVEL（建議在 .ai_profile 中補上 \`level: $$LEVEL\`）"; \
 	fi; \
-	LEVEL_FILE=".asp/levels/level-$$LEVEL.yaml"; \
+	LEVEL_FILE=".asp/levels/$$LEVEL.yaml"; \
 	if [ ! -f "$$LEVEL_FILE" ]; then echo "❌ $$LEVEL_FILE 不存在"; exit 1; fi; \
 	echo ""; \
 	echo "🎯 ASP Level Check"; \
@@ -666,21 +664,21 @@ asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度
 	echo ""; \
 	NAME=$$(grep -E '^name:' "$$LEVEL_FILE" | head -1 | sed 's/name: *//'); \
 	TAGLINE=$$(grep -E '^tagline:' "$$LEVEL_FILE" | sed 's/tagline: *//'); \
-	echo "Current: L$$LEVEL ($$NAME)"; \
+	echo "Current: $$LEVEL ($$NAME)"; \
 	echo "         $$TAGLINE"; \
 	echo ""; \
-	echo "已啟用 profile (從 .asp/levels/level-$$LEVEL.yaml)："; \
+	echo "已啟用 profile (從 $$LEVEL_FILE)："; \
 	awk '/^profiles:/{flag=1; next} /^[a-z]/{flag=0} flag && /^  -/{print "  "$$0}' "$$LEVEL_FILE"; \
 	echo ""; \
 	NEXT_LEVEL=$$(grep -E '^next_level:' "$$LEVEL_FILE" | awk '{print $$2}'); \
 	if [ "$$NEXT_LEVEL" = "null" ] || [ -z "$$NEXT_LEVEL" ]; then \
-		echo "✅ 已在最高等級 (L5)"; \
+		echo "✅ 已在最高等級 (autonomous)"; \
 	else \
-		NEXT_FILE=".asp/levels/level-$$NEXT_LEVEL.yaml"; \
+		NEXT_FILE=".asp/levels/$$NEXT_LEVEL.yaml"; \
 		NEXT_NAME=$$(grep -E '^name:' "$$NEXT_FILE" | head -1 | sed 's/name: *//'); \
-		echo "Next Level: L$$NEXT_LEVEL ($$NEXT_NAME)"; \
+		echo "Next Level: $$NEXT_LEVEL ($$NEXT_NAME)"; \
 		echo ""; \
-		echo "📋 L$$LEVEL Graduation Checklist（shell 可驗證的項目）："; \
+		echo "📋 $$LEVEL Graduation Checklist（shell 可驗證的項目）："; \
 		awk '/^graduation_checklist:/{flag=1; next} /^[a-z]/{flag=0} flag' "$$LEVEL_FILE" | \
 			awk '/- id:/{id=$$3} /description:/{desc=$$0; sub(/[^"]*"/,"",desc); sub(/".*/,"",desc); print "  ["id"] "desc}'; \
 		echo ""; \
@@ -689,18 +687,18 @@ asp-level-check: ## 檢查當前 ASP 成熟度等級與 graduation 進度
 	echo ""
 
 asp-level-upgrade: ## 升級到下一個 ASP 等級（需先通過 asp-level-check）
-	@CURRENT=$$(grep -E '^level:' .ai_profile 2>/dev/null | awk '{print $$2}'); \
+	@CURRENT=$$(bash .asp/scripts/level-resolve.sh 2>/dev/null); \
 	if [ -z "$$CURRENT" ]; then echo "❌ .ai_profile 無 level 欄位，先執行 make asp-level-check"; exit 1; fi; \
-	LEVEL_FILE=".asp/levels/level-$$CURRENT.yaml"; \
+	LEVEL_FILE=".asp/levels/$$CURRENT.yaml"; \
 	NEXT=$$(grep -E '^next_level:' "$$LEVEL_FILE" | awk '{print $$2}'); \
-	if [ "$$NEXT" = "null" ] || [ -z "$$NEXT" ]; then echo "✅ 已在最高等級 (L$$CURRENT)"; exit 0; fi; \
-	NEXT_FILE=".asp/levels/level-$$NEXT.yaml"; \
+	if [ "$$NEXT" = "null" ] || [ -z "$$NEXT" ]; then echo "✅ 已在最高等級 ($$CURRENT)"; exit 0; fi; \
+	NEXT_FILE=".asp/levels/$$NEXT.yaml"; \
 	if [ ! -f "$$NEXT_FILE" ]; then echo "❌ $$NEXT_FILE 不存在"; exit 1; fi; \
 	NEXT_NAME=$$(grep -E '^name:' "$$NEXT_FILE" | head -1 | sed 's/name: *//'); \
-	echo "🚀 升級 L$$CURRENT → L$$NEXT ($$NEXT_NAME)"; \
+	echo "🚀 升級 $$CURRENT → $$NEXT ($$NEXT_NAME)"; \
 	echo ""; \
-	cp .ai_profile ".ai_profile.backup-L$$CURRENT"; \
-	echo "✅ 已備份 .ai_profile → .ai_profile.backup-L$$CURRENT"; \
+	cp .ai_profile ".ai_profile.backup-$$CURRENT"; \
+	echo "✅ 已備份 .ai_profile → .ai_profile.backup-$$CURRENT"; \
 	echo ""; \
 	echo "📋 請用 skill /asp-level 完成以下步驟："; \
 	echo "   1. 根據 $$NEXT_FILE 的 ai_profile_hint 更新 .ai_profile"; \
@@ -709,18 +707,19 @@ asp-level-upgrade: ## 升級到下一個 ASP 等級（需先通過 asp-level-che
 
 asp-level-list: ## 列出所有 ASP 等級
 	@echo ""; \
-	echo "🎯 ASP Maturity Levels"; \
-	echo "======================"; \
-	for f in .asp/levels/level-*.yaml; do \
+	echo "🎯 ASP Maturity Levels (v5)"; \
+	echo "==========================="; \
+	for n in loose standard autonomous; do \
+		f=".asp/levels/$$n.yaml"; \
 		if [ -f "$$f" ]; then \
-			LV=$$(grep -E '^level:' "$$f" | awk '{print $$2}'); \
 			NM=$$(grep -E '^name:' "$$f" | head -1 | sed 's/name: *//'); \
 			TG=$$(grep -E '^tagline:' "$$f" | sed 's/tagline: *//'); \
-			echo "  L$$LV  $$NM — $$TG"; \
+			AL=$$(grep -E '^aliases:' "$$f" | sed 's/aliases: *//;s/#.*//'); \
+			echo "  $$n ($$NM, legacy $$AL) — $$TG"; \
 		fi; \
 	done; \
 	echo ""; \
-	echo "詳細資訊：cat .asp/levels/level-N.yaml"; \
+	echo "詳細資訊：cat .asp/levels/{loose,standard,autonomous}.yaml"; \
 	echo "等級檢查：make asp-level-check"
 
 asp-bypass-record: ## 寫入 bypass 記錄（內部使用，或手動記錄：SKILL=asp-ship STEP=5 REASON="..."）

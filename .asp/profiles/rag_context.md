@@ -1,7 +1,7 @@
 # Local RAG Context Profile
 
 <!-- requires: global_core -->
-<!-- optional: guardrail -->
+<!-- optional: (none) -->
 
 適用：已建立本地向量知識庫的專案。
 載入條件：`rag: enabled`
@@ -17,9 +17,9 @@
 ```
 FUNCTION answer_project_question(question, project_scope, knowledge_base):
 
-  // 範疇判斷 — 非專案問題委派 guardrail 處理
+  // 範疇判斷 — 非專案問題走 global_core「範疇與敏感資訊三層回應」
   IF NOT question.is_within(project_scope):
-    RETURN CALL guardrail.handle_question(question)
+    RETURN CALL global_core.handle_question(question)
 
   // 查詢知識庫 — 回答前必須先查
   results = EXECUTE("make rag-search Q='{question.keywords}'")

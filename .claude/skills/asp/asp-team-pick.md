@@ -101,7 +101,7 @@ description: |
 
 **Pipeline 階段**：BUILD → HARDEN → DELIVER
 **並行**：否
-**自動升級**：P0（自動觸發 asp-escalate）
+**自動升級**：P0（自動觸發 /asp-handoff ESCALATION）
 
 ---
 

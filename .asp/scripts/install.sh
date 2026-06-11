@@ -142,25 +142,26 @@ detect_type() {
   echo "content"
 }
 
-# ─── Preset ───────────────────────────────────────────────────────
+# ─── Preset（v5 三級制；遺留數字 0-5 自動映射，ADR-014）───────────
 apply_preset() {
-  case "$1" in
-    1) ASP_LEVEL=1; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=n; ENABLE_CODING_STYLE=n ;;
-    2) ASP_LEVEL=2; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    3) ASP_LEVEL=3; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    4) ASP_LEVEL=4; HITL_LEVEL=standard; WORKFLOW=standard; MODE=multi-agent
-       ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=n
-       ENABLE_RAG=n; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    5) ASP_LEVEL=5; HITL_LEVEL=minimal; WORKFLOW=vibe-coding; MODE=multi-agent
-       ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y
-       ENABLE_RAG=y; ENABLE_GUARDRAIL=y; ENABLE_CODING_STYLE=y ;;
-    *) apply_preset 1 ;;
+  local lv="$1"
+  case "$lv" in
+    0|1) lv=loose ;;
+    2|3) lv=standard ;;
+    4|5) lv=autonomous ;;
+  esac
+  case "$lv" in
+    loose)      ASP_LEVEL=loose; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+                ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+                ENABLE_RAG=n; ENABLE_CODING_STYLE=n ;;
+    standard)   ASP_LEVEL=standard; HITL_LEVEL=standard; WORKFLOW=standard; MODE=auto
+                ENABLE_AUTONOMOUS=n; ENABLE_ORCHESTRATOR=n; ENABLE_AUTOPILOT=n
+                ENABLE_RAG=n; ENABLE_CODING_STYLE=y ;;
+    autonomous) ASP_LEVEL=autonomous; HITL_LEVEL=minimal; WORKFLOW=standard; MODE=multi-agent
+                # workflow=standard（非 vibe-coding）：ADR-014 D8，loose_mode 與 autonomous 衝突
+                ENABLE_AUTONOMOUS=y; ENABLE_ORCHESTRATOR=y; ENABLE_AUTOPILOT=y
+                ENABLE_RAG=y; ENABLE_CODING_STYLE=y ;;
+    *) apply_preset loose ;;
   esac
 }
 
@@ -237,18 +238,16 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
 | ADR 未定案禁止實作 | Draft ADR 狀態下禁止寫生產代碼 |
 | 外部事實驗證防護 | 涉及第三方 API/版本/法規 → 必須執行 asp-fact-verify，記錄至 .asp-fact-check.md |
 
-## 成熟度等級（L0-L5）
+## 成熟度等級（v5 三級制）
 
-| Level | 名稱 | 適用場景 |
-|-------|------|---------|
-| L0 | Spike | 技術假設驗證、PoC（≤5 working days） |
-| L1 | Starter | 個人/小型專案（最小治理） |
-| L2 | Disciplined | 自動化品質護欄 |
-| L3 | Test-First | 測試文化成熟 + pipeline gates G1-G6 |
-| L4 | Collaborative | 中大型/跨模組 + multi-agent |
-| L5 | Autonomous | ROADMAP 驅動 + RAG |
+| Level | 適用場景 | 吸收的 v4 等級 |
+|-------|---------|---------------|
+| loose | 探索/PoC（spike 豁免）+ 個人小型專案最小治理 | L0, L1 |
+| standard | 自動化品質護欄 + pipeline gates G1-G6 | L2, L3 |
+| autonomous | ROADMAP 驅動 + orchestrator + RAG | L4, L5 |
 
-Level details: see `~/.claude/skills/asp/` or `~/.claude/asp/levels/level-N.yaml`
+舊數字值（0-5）自動映射並印 deprecation 提示（v6 移除）。
+Level details: see `~/.claude/skills/asp/` or `~/.claude/asp/levels/{loose,standard,autonomous}.yaml`
 
 ## 啟動程序
 
@@ -353,18 +352,21 @@ if [ -t 0 ]; then
   esac
 
   echo ""
-  echo "  成熟度等級："
-  echo "    [1] L1 Starter       — 最小治理（ADR + SPEC + 測試）"
-  echo "    [2] L2 Disciplined   — + guardrail + coding_style"
-  echo "    [3] L3 Test-First    — + pipeline gates G1-G6"
-  echo "    [4] L4 Collaborative — + multi-agent"
-  echo "    [5] L5 Autonomous    — + autopilot + RAG"
-  read -rp "  選擇 level (Enter = L1): " LEVEL_CHOICE
-  apply_preset "${LEVEL_CHOICE:-1}"
+  echo "  成熟度等級（v5 三級制）："
+  echo "    [1] loose      — 探索與最小治理（spike 豁免 + ADR/SPEC/測試入門）"
+  echo "    [2] standard   — 自動化品質護欄 + pipeline gates G1-G6"
+  echo "    [3] autonomous — ROADMAP 驅動自主執行 + orchestrator + RAG"
+  read -rp "  選擇 level (Enter = loose): " LEVEL_CHOICE
+  case "${LEVEL_CHOICE:-}" in
+    1) apply_preset loose ;;
+    2) apply_preset standard ;;
+    3) apply_preset autonomous ;;
+    *) apply_preset "${LEVEL_CHOICE:-loose}" ;;
+  esac
 else
   PROJECT_TYPE="${ASP_TYPE:-$DETECTED}"
-  apply_preset "${ASP_LEVEL:-1}"
-  echo "  非互動模式 — type: $PROJECT_TYPE | level: L${ASP_LEVEL:-1}"
+  apply_preset "${ASP_LEVEL:-loose}"
+  echo "  非互動模式 — type: $PROJECT_TYPE | level: $ASP_LEVEL"
 fi
 
 PROJECT_NAME="$DEFAULT_NAME"
@@ -381,7 +383,6 @@ mode: ${MODE:-auto}
 workflow: ${WORKFLOW:-standard}
 hitl: ${HITL_LEVEL:-standard}
 rag: $([ "${ENABLE_RAG:-n}" = "y" ] && echo enabled || echo disabled)
-guardrail: $([ "${ENABLE_GUARDRAIL:-n}" = "y" ] && echo enabled || echo disabled)
 autonomous: $([ "${ENABLE_AUTONOMOUS:-n}" = "y" ] && echo enabled || echo disabled)
 orchestrator: $([ "${ENABLE_ORCHESTRATOR:-n}" = "y" ] && echo enabled || echo disabled)
 autopilot: $([ "${ENABLE_AUTOPILOT:-n}" = "y" ] && echo enabled || echo disabled)

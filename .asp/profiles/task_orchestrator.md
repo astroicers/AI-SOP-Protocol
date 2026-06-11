@@ -1,7 +1,7 @@
 # Task Orchestrator — 任務協調與專案健康審計
 
 <!-- requires: global_core, system_dev -->
-<!-- optional: autonomous_dev, multi_agent, vibe_coding, design_dev, openapi, guardrail, rag_context, frontend_quality -->
+<!-- optional: autonomous_dev, multi_agent, loose_mode, design_dev, openapi, rag_context, frontend_quality -->
 <!-- conflicts: (none) -->
 
 適用：統一任務入口，自動分類與路由任何任務類型；首次介入專案時自動審計並強制補齊缺失。
@@ -1058,7 +1058,7 @@ FUNCTION on_worker_done(handoff):
     ELSE:
       AWAIT human_confirm("merge")
   ELSE:
-    IF escalation_loaded AND task.retry_count < MAX_RETRIES(2):
+    IF task.retry_count < MAX_RETRIES(2):  // 升級路徑隨 global_core 永遠載入（ADR-014 D5）
       memory_hint = get_memory_hint(task, handoff.failure_context)
       reassign(task, create_handoff(REASSIGNMENT, memory_ref=memory_hint))
     ELSE:
@@ -1572,14 +1572,13 @@ FUNCTION execute_with_pipeline(task_type, request, team):
 
 ```
 task_orchestrator.md
-  ├── 依賴 global_core.md（鐵則 + 文件同步 + 迴歸預防）
+  ├── 依賴 global_core.md（鐵則 + HITL 等級 + 三層回應 + 升級路徑 + 文件同步 + 迴歸預防）
   ├── 依賴 system_dev.md（ADR/SPEC/TDD 流程 + Gates + Hotfix）
   ├── 可選 autonomous_dev.md（auto_fix_loop + 自主決策邊界）
   ├── Part G（本文件，v4.3 起含 multi-agent 並行任務分派協調邏輯）
-  ├── 可選 vibe_coding.md（HITL 等級 + context 管理）
+  ├── 可選 loose_mode.md（spike 豁免 + context 管理）
   ├── 可選 design_dev.md（Design Gate）
   ├── 可選 openapi.md（OpenAPI Gate）
-  ├── 可選 guardrail.md（敏感資訊保護）
   └── 可選 rag_context.md（歷史教訓查詢）
 ```
 

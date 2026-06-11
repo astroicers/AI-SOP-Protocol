@@ -29,12 +29,21 @@ mkproj; run
 { echo "$OUT" | grep -q "not an ASP-governed" && [ "$RC" = "0" ]; } \
   && pass "no profile → skip + exit 0" || fail "no-profile case wrong (rc=$RC)"
 
-# ── T2: level != 0 → not applicable, exit 0 ──
+# ── T2: level != loose → not applicable, exit 0（v5：legacy 2 → standard）──
 echo ""
-echo "T2: non-L0 project → not applicable, exit 0"
+echo "T2: non-loose project → not applicable, exit 0"
 mkproj; printf 'type: system\nlevel: 2\n' > "$TEST_DIR/.ai_profile"; run
-{ echo "$OUT" | grep -q "not L0" && [ "$RC" = "0" ]; } \
-  && pass "non-L0 → skip + exit 0" || fail "non-L0 case wrong (rc=$RC)"
+{ echo "$OUT" | grep -q "not loose" && [ "$RC" = "0" ]; } \
+  && pass "non-loose → skip + exit 0" || fail "non-loose case wrong (rc=$RC)"
+mkproj; printf 'type: system\nlevel: standard\n' > "$TEST_DIR/.ai_profile"; run
+{ echo "$OUT" | grep -q "not loose" && [ "$RC" = "0" ]; } \
+  && pass "named standard → skip + exit 0" || fail "named standard wrong (rc=$RC)"
+
+# ── T2a: legacy level 0 與 named loose 均進入 audit ──
+echo ""
+echo "T2a: legacy 0 and named loose both enter audit"
+mkproj; printf 'type: system\nlevel: loose\n' > "$TEST_DIR/.ai_profile"; run
+echo "$OUT" | grep -q "Level: loose" && pass "level: loose enters audit" || fail "named loose not audited"
 
 # ── T3: L0 + recent commit → Active ──
 echo ""

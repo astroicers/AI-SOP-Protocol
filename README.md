@@ -49,7 +49,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
 
 同一支腳本，第二次在**專案目錄**跑時，會偵測已有 user-level 並只執行 Phase 2：建立 `.ai_profile`、`CLAUDE.md`、`.claude/settings.json`（hooks 設定）。
 
-安裝腳本會問兩題：**專案類型**（system / content / architecture）→ **成熟度等級（L1–L5）**。全按 Enter 用預設值。
+安裝腳本會問兩題：**專案類型**（system / content / architecture）→ **成熟度等級（loose / standard / autonomous，v5 三級制）**。全按 Enter 用預設值。
 
 ---
 
@@ -84,7 +84,7 @@ AI 回覆會列出已載入的 Profile 名稱，和當前 session 的 BLOCKER / 
 
 ```yaml
 type: system        # system | content | architecture
-level: 1            # L1 Starter → L5 Autonomous
+level: loose        # loose | standard | autonomous（v5；遺留 0-5 自動映射）
 mode: auto          # auto（推薦） | single | multi-agent
 hitl: standard      # minimal | standard | strict
 autopilot: disabled # enabled 時讀 ROADMAP.yaml 自動執行
@@ -165,7 +165,7 @@ make asp-update
 |------|------|
 | 不確定下什麼指令（場景決策樹） | [docs/where-to-start.md](docs/where-to-start.md) |
 | MVP / 大型功能 / 事故應急 | [docs/runbooks/](docs/runbooks/) |
-| 成熟度等級 L0–L5 | `~/.claude/asp/levels/level-N.yaml` |
+|  成熟度等級（v5 三級制） | `~/.claude/asp/levels/{loose,standard,autonomous}.yaml` |
 | Multi-Agent worktree 隔離 | [docs/specs/SPEC-004-multi-agent-worktree-isolation.md](docs/specs/SPEC-004-multi-agent-worktree-isolation.md) |
 | Autopilot（ROADMAP 驅動） | [docs/autopilot.md](docs/autopilot.md) |
 | 架構總覽（含序列圖） | [docs/architecture.md](docs/architecture.md) |

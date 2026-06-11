@@ -130,21 +130,20 @@ Iron Rule 來源 ADR：[`adr/ADR-002-asp-v4-security-threat-model.md`](adr/ADR-0
 
 ---
 
-## 4. 成熟度模型（L0-L5）
+## 4. 成熟度模型（v5 三級制）
 
-ASP 按專案規模與風險容忍度提供 6 個等級。**鐵則在所有等級都不變**，只變動「自動化深度」與「治理開銷」。
+ASP v5 按專案規模與風險容忍度提供 3 個等級（ADR-014 由 v4 的 L0-L5 收斂）。
+**鐵則在所有等級都不變**，只變動「自動化深度」與「治理開銷」。
 
-| Level | 名稱 | 核心能力 | 適用場景 |
-|-------|------|---------|---------|
-| **L0** | Spike | 鐵則 + 探索/原型 | 技術假設驗證、PoC（≤5 working days） |
-| **L1** | Starter | + ADR + SPEC + 測試 | 個人/小型專案 |
-| **L2** | Disciplined | + guardrail + coding_style | 自動化品質護欄 |
-| **L3** | Test-First | + pipeline gates G1-G6 | 測試文化成熟 |
-| **L4** | Collaborative | + multi-agent + reality-checker | 中大型/跨模組 |
-| **L5** | Autonomous | + autopilot + RAG | ROADMAP 驅動全自動 |
+| Level | 核心能力 | 適用場景 | 吸收的 v4 等級 |
+|-------|---------|---------|---------------|
+| **loose** | 鐵則 + 探索豁免（`[spike]` 標記）+ ADR/SPEC/測試入門 | 技術假設驗證、PoC（≤5 working days）、個人/小型專案 | L0, L1 |
+| **standard** | + coding_style + pipeline gates G1-G6 | 自動化品質護欄、測試文化成熟 | L2, L3 |
+| **autonomous** | + orchestrator + autonomous_dev + autopilot + RAG + reality-checker | ROADMAP 驅動、中大型/跨模組 | L4, L5 |
 
-**L0 Spike 為什麼鐵則仍適用**：Spike 雖然「可以丟」，但若觸發鐵則違反（例如不小心 push 了憑證），影響範圍仍是真的。詳見 [`level0-spike-mode.md`](level0-spike-mode.md)。
+**探索豁免為什麼鐵則仍適用**：Spike 雖然「可以丟」，但若觸發鐵則違反（例如不小心 push 了憑證），影響範圍仍是真的。詳見 [`level0-spike-mode.md`](level0-spike-mode.md)（歷史文件）與 `loose_mode.md` 的「探索豁免」節。
 
+遺留數字值（0-5）由 `level-resolve.sh` 自動映射並印 deprecation 提示（v6 移除）。
 升級流程：[`spec-driven-dev.md`](spec-driven-dev.md) §6 + `make asp-level-check`。
 
 ---

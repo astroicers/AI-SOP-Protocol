@@ -1,7 +1,7 @@
 # Autonomous Development Profile
 
-<!-- requires: global_core, system_dev, vibe_coding -->
-<!-- optional: guardrail, multi_agent -->
+<!-- requires: global_core, system_dev -->
+<!-- optional: multi_agent -->
 <!-- conflicts: (none) -->
 
 適用：AI 全自動開發，人類僅在關鍵節點審核。
@@ -141,9 +141,10 @@ FUNCTION auto_fix_loop(test_command, max_retries=3):
   RETURN FAILURE
 ```
 
-### 升級協議整合（v3.0）
+### 升級協議整合（v3.0；v5 簡化）
 
-> auto_fix_loop 的三道防護觸發後，不再直接 PAUSE_AND_REPORT，而是走升級協議（如果 escalation.md 已載入）。
+> auto_fix_loop 的三道防護觸發後，不再直接 PAUSE_AND_REPORT，而是走升級路由
+> （global_core「升級路徑」節——隨 global_core 永遠載入，無 fallback 分支，ADR-014 D5）。
 
 ```
 FUNCTION auto_fix_loop_v3(test_command, max_retries=3):
@@ -151,32 +152,26 @@ FUNCTION auto_fix_loop_v3(test_command, max_retries=3):
   // 差異在於 PAUSE_AND_REPORT 的替代：
 
   // 偷渡偵測觸發：
-  IF smuggling_detected AND escalation_loaded:
+  IF smuggling_detected:
     escalate(severity="P1", reason="smuggling_detected", context={changed_tests, test_command})
     RETURN NEEDS_REVIEW
-  // fallback: PAUSE_AND_REPORT(reason="smuggling_detected")
 
   // 振盪偵測觸發：
-  IF oscillation_detected AND escalation_loaded:
+  IF oscillation_detected:
     escalate(severity="P2", reason="oscillation_detected", context={current_failures, attempted_fixes})
     RETURN FAILURE
-  // fallback: PAUSE_AND_REPORT(reason="oscillation_detected")
 
   // 級聯偵測觸發：
-  IF cascade_detected AND escalation_loaded:
+  IF cascade_detected:
     REVERT_LAST_FIX()
     escalate(severity="P2", reason="cascade_detected", context={before: previous_failures, after: current_failures})
     RETURN FAILURE
-  // fallback: REVERT + PAUSE_AND_REPORT(reason="cascade_detected")
 
   // 重試耗盡：
-  IF max_retries_exceeded AND escalation_loaded:
+  IF max_retries_exceeded:
     escalate(severity="P2", reason="max_retries_exceeded", context={current_failures, attempted_fixes: previous_fix_descriptions})
     RETURN FAILURE
-  // fallback: PAUSE_AND_REPORT(reason="max_retries_exceeded")
 ```
-
-> **向後相容**：如果 escalation.md 未載入（`mode: single` 或 `mode: auto` 未觸發 multi-agent 時），維持原有 PAUSE_AND_REPORT 行為。
 
 > **三道防護摘要**：
 > | 防護 | 偵測條件 | 動作 |
@@ -301,10 +296,8 @@ FUNCTION on_worker_auto_fix_exhausted(worker, task, failures):
 
 ```
 autonomous_dev.md
-  ├── 依賴 vibe_coding.md（hitl: minimal 定義）
+  ├── 依賴 global_core.md（鐵則 + HITL 等級定義 + 三層回應 + 升級路徑 + 連帶修復）
   ├── 依賴 system_dev.md（ADR/SPEC/TDD 流程）
-  ├── 依賴 global_core.md（鐵則 + 連帶修復）
-  ├── 可選 guardrail.md（敏感資訊保護）
   └── 搭配 task_orchestrator.md（統一任務入口 + 健康審計 + 強制補齊 + multi-agent 協調）
 ```
 

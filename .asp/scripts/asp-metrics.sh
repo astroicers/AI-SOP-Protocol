@@ -89,6 +89,24 @@ rows_sum() { # $1=column(2|3)
   awk -F'\t' -v c="$1" '{s+=$c} END{print s+0}'
 }
 
+# ── level 正規化：數字（v4 legacy）→ 名稱（v5），資料來源 = map 的 level_aliases ──
+resolve_level() { # $1=value → stdout 正規名稱（無法解析時原樣輸出）
+  case "$1" in
+    loose|standard|autonomous) echo "$1"; return ;;
+  esac
+  local name=""
+  name=$(awk -v n="$1" '
+    /^level_aliases:/ { in_sec=1; next }
+    /^[a-z_]+:/ { if (!/^level_aliases:/) in_sec=0 }
+    in_sec && /- "/ {
+      line=$0; gsub(/[" -]/,"",line)
+      split(line, kv, "=")
+      if (kv[1] == n) { print kv[2]; exit }
+    }
+  ' "$MAP_FILE")
+  echo "${name:-$1}"
+}
+
 # ── 組態模擬：欄位集 → 載入 profiles（map 命中聯集 + requires 遞移展開） ──
 get_requires() { # $1=profile name → stdout: 每行一個 require token
   local f="$PROFILES_DIR/$1.md" line
@@ -109,7 +127,12 @@ simulate_config() { # $1="k=v,k=v" → JSON {fields, profiles_loaded, missing_pr
   declare -A FIELDS=() SEEN=()
   IFS=',' read -ra _pairs <<< "$spec"
   for pair in "${_pairs[@]}"; do
-    [ -n "$pair" ] && FIELDS["${pair%%=*}"]="${pair#*=}"
+    [ -n "$pair" ] || continue
+    if [ "${pair%%=*}" = "level" ]; then
+      FIELDS[level]="$(resolve_level "${pair#*=}")"
+    else
+      FIELDS["${pair%%=*}"]="${pair#*=}"
+    fi
   done
   # 1) map 命中聯集（保持 map 順序）
   while IFS=$'\t' read -r when load; do

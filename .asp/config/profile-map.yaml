@@ -29,13 +29,13 @@ rules:
   # v4.3 起 multi-agent 協調邏輯在 task_orchestrator Part G；
   # escalation 載入條件：mode multi-agent 或 autonomous enabled（見其檔頭）
   - when: "mode=multi-agent"
-    load: "task_orchestrator pipeline escalation"
+    load: "task_orchestrator pipeline"
   # reality_checker 載入條件：mode multi-agent + 團隊含 reality 角色；
   # 量測上以 multi-agent+autonomous 組合近似（記 ADR-013）
   - when: "mode=multi-agent&autonomous=enabled"
     load: "reality_checker"
   - when: "workflow=vibe-coding"
-    load: "vibe_coding"
+    load: "loose_mode"
   - when: "workflow=vibe-coding&hitl=minimal"
     load: "autonomous_dev"
   - when: "design=enabled"
@@ -48,22 +48,22 @@ rules:
     load: "openapi"
   - when: "rag=enabled"
     load: "rag_context"
-  - when: "guardrail=enabled"
-    load: "guardrail"
+  # guardrail / escalation 已併入 global_core（ADR-014，v5 起永遠載入）；
+  # guardrail: enabled 欄位 deprecated → validate-profile 印 INFO
   - when: "orchestrator=enabled"
     load: "task_orchestrator"
   - when: "autonomous=enabled"
-    load: "autonomous_dev task_orchestrator escalation"
+    load: "autonomous_dev task_orchestrator"
   - when: "autopilot=enabled"
     load: "autonomous_dev task_orchestrator"
-  - when: "level=0"
-    load: "spike_mode"
-  - when: "level=3"
-    load: "pipeline"
-  - when: "level=4"
-    load: "pipeline"
-  - when: "level=5"
-    load: "pipeline"
+  # level 條件以 v5 名稱表示；消費端（asp-metrics / asp-compile）必須先以
+  # level_aliases 正規化數字值再比對
+  - when: "level=loose"
+    load: "loose_mode"
+  - when: "level=standard"
+    load: "pipeline coding_style"
+  - when: "level=autonomous"
+    load: "pipeline coding_style task_orchestrator reality_checker autonomous_dev"
 
 # level_aliases — 數字等級 → v5 名稱等級（Phase 1 起由 level-resolve.sh 消費；
 # 數字值將於 v6 移除）
