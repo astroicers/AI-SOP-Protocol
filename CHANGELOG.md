@@ -4,13 +4,15 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
-> **v5.0.0 候選**（asp/v5-slimming，ADR-013~018）。主題：**規則越少越鐵，執法越多越自動**——
+## [5.0.0] - 2026-06-11
+
+> **v5.0.0**（PR #25，ADR-013~018 全數 Accepted）。主題：**規則越少越鐵，執法越多越自動**——
 > 散文治理層瘦身（確定性邏輯下沉腳本、分類學收斂、Core/Experimental/Showcase 分離、規則存留
 > 以命中率為準）。量化成效（vs `.asp-metrics-baseline.json`，main@eb07438）：profiles 16→**12**
 > （5,177→3,832 行）、levels 6→**3**、task_orchestrator 1,587→**300** 行、context 稅 L3 **-30.1%**
 > / L5 **-34.7%**（L1 +50%：loose_mode 常駐為 ADR-014 既載取捨）。
 
-### ⚠️ Breaking Changes (v5)
+### ⚠️ Breaking Changes
 
 - **成熟度等級 6→3**（ADR-014）：`loose`（L0,L1）/`standard`（L2,L3）/`autonomous`（L4,L5）。`.ai_profile` 的 `level:` 數字值 0-5 由 `level-resolve.sh` 自動映射 + deprecation 提示（**v6 移除**）；舊 L2 映射 standard 後啟用 pipeline gates（取嚴）。
 - **profiles 16→12**（ADR-014/015/017，合併對照）：`vibe_coding`+`spike_mode`→`loose_mode`（保留 `[spike]` 顯式豁免與角色分工表）；`escalation`/`guardrail` 併入 `global_core`（升級路徑/三層回應節，HITL 等級定義同步上移）；task_orchestrator Part G 抽出後隨 multi-agent 凍結；rag_context 移 Showcase。原檔全部歸檔 `docs/archive/profiles/`（git mv，零刪除）。
@@ -18,20 +20,20 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 - **multi-agent 凍結為 Experimental**（ADR-017）：`mode: multi-agent` / `rag: enabled` 變 🟡 警告；asp-dispatch/asp-team-pick/asp-handoff 移出 skill router（escalate 路由改 global_core「升級路徑」節）；預設安裝不含 multi-agent/telemetry/RAG/ai-performance——`install.sh --with-showcase` 裝回 Showcase（`.showcase-installed` marker 保護 asp-sync）。
 - **`guardrail:` 欄位 deprecated**（內建 global_core，欄位忽略印 INFO）。
 
-### Added (v5)
+### Added
 
 - **v5-P0 `asp-metrics.sh` + `profile-map.yaml`**（ADR-013）：基線量測（行數/規則清點/三組態 context 稅）與 `.ai_profile`→profile 映射的 single source of truth（metrics/level-resolve/asp-compile 三消費者共用，契約測試鎖定）；`.asp-metrics-baseline.json` committed 作對照證據。
 - **v5-P2 orchestrator 確定性腳本**（ADR-015/SPEC-011）：`make orch-classify`（分類+bug 領域偵測，回傳 confidence；**hitl:minimal 矛盾機械解**——`await_required = NOT(minimal ∧ conf≥0.8)`，原 :36 無條件 AWAIT 走入歷史、:571 L3 PAUSE 原句保留）/`orch-audit-check`/`orch-round`（2 輪上限）/`orch-debt-log`。task_orchestrator.md 1,587→300 行（execute_* 與 Phase 編號錨點全保留；原文歸檔）。
 - **v5-P3 `asp-compile.sh`**（ADR-016）：依賴解析移到編譯期——profile-map 選集 → requires 拓撲展開（循環 exit 5、幽靈容錯）→ 衝突兩段式裁決（衍生降級 WARNING；顯式 `loose`+`autopilot` exit 1 指明衝突對）→ `.asp-compiled-profile.md`（gitignored 載入 artifact，>2,500 行 WARNING）。SessionStart 自動 mtime 重編（A16，恆不擋 session）；CLAUDE.md 啟動程序改讀產物（散文 fallback 保留）。
 - **v5-P5 規則命中率遙測（Core，方案 A 極簡版）**（ADR-018）：`rule-registry.yaml` 穩定 rule_id（鐵則 `exempt: true` 豁免刪除條款）+ session-audit `asp_metric()` 21 注入點 → `~/.claude/asp/metrics/rule-hits.jsonl`（失敗永不影響主流程）+ `make rule-stats`（90 天窗、零命中待刪候選、G1-G6 機械掃 gate-log、enabled_since 累積期保護）。治理原則入憲 CLAUDE.md。
 
-### Changed (v5)
+### Changed
 
 - **v5-P4 Core/Experimental/Showcase 實體分離**（ADR-017）：移出 `.asp/` 即脫離安裝面（單一規則）；Makefile `-include` 隨目錄存在自動載入分區 targets；`make test` 不掃 experimental（`make test-experimental` 手動入口，遷移後一次性 9/9 綠）；v3.7 deprecated stubs（agent-unlock 等）移除；README 新增功能矩陣。Partial supersede ADR-010/SPEC-004 的安裝面與維護承諾（不否定 21/21 驗收；解凍條件=單 session 無法完成的實際案例）。
 - 本 repo `.ai_profile` 修正既有不合規值（`type: system/architecture`→`system`、`level: L3`→`standard`——asp-compile 把關抓到的 pre-existing 問題）。
 - 升級提示：本版修改 `session-audit.sh`（Iron Rule A 保護檔）——升級後首個 session 出現 hash 告警屬預期，跑 `bash ~/.claude/scripts/asp-sync.sh` 即消失。
 
-### Fixed (v5)
+### Fixed
 
 - **A8.3 假陽性復活**（dogfood 抓到）：`.asp-compiled-profile.md` 複製框架格式範例使逾期掃描誤報——排除清單追加 compiled artifact/docs/archive/experimental/showcase（`test_tech_debt_scan_exclusions` 同步）。
 - `validate-profile.sh` 對 `level: 0` 誤報 ERROR 的既有不一致（level-resolve 接管後 0-5 全收）；`/asp-escalate` 幽靈斷鏈 ×7 修正（→ /asp-handoff，Phase 4 後 → global_core 升級路徑節）。
