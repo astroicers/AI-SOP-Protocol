@@ -7,9 +7,8 @@
 
 ## 啟動程序
 
-0. **（v5，ADR-016）** `.asp-compiled-profile.md` 存在 → **直接讀取之**（asp-compile 編譯產物，
-   檔頭列來源清單與行數；SessionStart hook 已做 mtime 比對自動重編）。不存在或 briefing 顯示
-   `compiled_profile_ok: false` → 走下列散文載入（fallback）
+0. **（v5，ADR-016）** `.asp-compiled-profile.md` 存在 → **直接讀取之**（編譯產物，檔頭列來源
+   清單；hook 已 mtime 自動重編）。不存在或 briefing `compiled_profile_ok: false` → 走下列散文載入（fallback）
 1. 讀取 `.ai_profile`，依欄位載入對應 profile（見下方映射表）
 2. `design: enabled` → 自動載入 `frontend_quality.md`
 3. `autonomous: enabled` 或 `workflow: vibe-coding + hitl: minimal` → 自動載入 `autonomous_dev.md`（HITL 等級定義已內建 `global_core.md`，ADR-014）；單獨 `workflow: vibe-coding` → 載入 `loose_mode.md`
@@ -43,9 +42,8 @@
 | **ADR 未定案禁止實作** | `Draft` ADR 禁止生產代碼；`FIRM` ADR 允許 commit（需 Verification Evidence，audit 輸出 🟡）；`session-audit.sh` 動態注入 deny |
 | **外部事實驗證防護** | 涉及第三方 API/版本/法規 → 必須查證並記錄至 `.asp-fact-check.md`（邏輯由 `global_core.md` Fact Verification Gate 執行） |
 
-> **規則存留治理（v5 ADR-018）**：`make rule-stats` 顯示 90 天零命中的規則，於下個 minor
-> 版本評估移除（移除動作本身仍走 ADR）。**鐵則（上表 4 條 + Iron Rule A/B/C，registry
-> `exempt: true`）豁免此條**——鐵則語意不變是 v5 紅線。命中記錄：`~/.claude/asp/metrics/rule-hits.jsonl`。
+> **規則存留治理（v5 ADR-018）**：`make rule-stats` 顯示 90 天零命中的規則，下個 minor 評估移除（移除仍走 ADR）。
+> **鐵則（上表 4 條 + Iron Rule A/B/C，registry `exempt: true`）豁免此條**。命中記錄：`~/.claude/asp/metrics/rule-hits.jsonl`。
 
 ---
 
@@ -75,11 +73,7 @@
 
 預設行為完整清單：`~/.claude/asp/profiles/global_core.md`「預設行為」section
 
----
-
-## 技術執行層
-
-策略：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入） | Hook 設定：`.claude/settings.json`
+**技術執行層**：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入）｜Hook 設定：`.claude/settings.json`
 
 ---
 

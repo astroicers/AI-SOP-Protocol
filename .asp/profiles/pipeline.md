@@ -2,7 +2,6 @@
 
 <!-- requires: global_core, system_dev, task_orchestrator -->
 <!-- optional: multi_agent, autonomous_dev, reality_checker -->
-<!-- removed (v4.x archived): dev_qa_loop → /asp-dev-qa-loop skill -->
 <!-- conflicts: (none) -->
 
 適用：所有任務類型。將 task_orchestrator.md 的隱式工作流轉為顯式管線 + 品質門。
@@ -464,7 +463,6 @@ FUNCTION execute_pipeline(task, team, phases):
 
 ## 量化閾值（v3.7）
 
-> 借鑒來源：huashu-design 5-10-2-8 量化閘門模式。
 > Gate 評分必須對照具體數字，不得使用「基本達標」等主觀描述。
 
 完整閾值定義在 `.asp/config/quality-thresholds.yaml`。Gate 評分時必須輸出以下格式：

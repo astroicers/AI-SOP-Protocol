@@ -5,8 +5,7 @@
 
 所有專案類型通用。定義溝通方式與核心安全邊界。
 
-> **v5 合併來源**（ADR-014）：原 guardrail（範疇與敏感資訊三層回應）、原 escalation
-> （升級路徑）、原 vibe coding 的 HITL 等級定義已併入本檔。原檔保存於 `docs/archive/profiles/`。
+> **v5 合併來源**（ADR-014）：原 guardrail / escalation / vibe coding HITL 已併入本檔；原檔在 `docs/archive/profiles/`。
 
 ---
 
@@ -131,7 +130,6 @@ FUNCTION handle_question(question, project_name):
 ## 外部事實驗證閘（Fact Verification Gate）（v3.7 升級，原 v3.5.1 外部資料校對）
 
 > LLM 幻覺 API 簽章、函式行為是常見問題。ASP evidence-based 精神延伸至外部資料：不可引用訓練資料記憶作為「事實」。
-> 借鑒來源：huashu-design Checkpoint #0 — "Before any work involving specific products/technologies, you must WebSearch to verify..."
 
 ### 觸發條件
 
@@ -165,7 +163,6 @@ FACT_VERIFICATION_CHECKLIST:
 | 事實點 | 聲稱值 | 驗證來源 | 驗證結果 | 日期 |
 |--------|--------|---------|---------|------|
 | axios 版本 | 1.6.x | package.json | ✅ 確認 1.6.8 | 2026-04-28 |
-| OpenAI Chat endpoint | /v1/chat/completions | 官方文件 | ✅ 確認 | 2026-04-28 |
 | GDPR 第 17 條 | 被遺忘權 | EUR-Lex | ⚠️ 需法務確認 | 2026-04-28 |
 ```
 
@@ -556,7 +553,6 @@ Postmortem 不是懲罰，是學習工具。重點是「系統為什麼沒有防
 
 ## Assumption Checkpoint Protocol（v3.7）
 
-> 借鑒來源：huashu-design Checkpoint #3 "Early show" + enforcement rule
 > "🛑 At each checkpoint: Stop, tell user what you've done, confirm next steps. Don't proceed silently."
 
 實作任何非 trivial 任務前，必須先輸出假設清單，等待使用者確認後才繼續：
