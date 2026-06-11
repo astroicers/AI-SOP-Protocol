@@ -4,7 +4,7 @@
     "title": "test: asp-operator inbox injection",
     "type": "GENERAL",
     "priority": "P2",
-    "status": "pending",
+    "status": "triaged",
     "sla_hours": 72,
     "source": {
       "type": "github_issue",
@@ -12,6 +12,7 @@
       "imported_at": "2026-05-30T18:57:53Z"
     },
     "triggered_by": "customer",
-    "description": ""
+    "description": "",
+    "triaged_at": "2026-06-11T05:32:00Z"
   }
 ]
