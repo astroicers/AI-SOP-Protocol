@@ -25,7 +25,7 @@ acontains() { TOTAL=$((TOTAL+1)); if printf '%s' "$2" | grep -qF "$3"; then echo
 run_converge() {
   local ef="$TEST_DIR/.stderr.$$"; set +e
   bash "$CONVERGE" "$@" 2>"$ef"; CONVERGE_RC=$?; set -e
-  CONVERGE_STDERR=$(cat "$ef"); rm -f "$ef"
+  rm -f "$ef"
 }
 
 setup_repo() {

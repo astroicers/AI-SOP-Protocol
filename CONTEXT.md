@@ -22,6 +22,10 @@
 | CONTEXT.md（領域詞彙表） | Domain Vocabulary File | — |
 | Maturity Level（成熟度等級） | Maturity Level | L0-L5 |
 | Autopilot（自動駕駛） | Autopilot (ROADMAP-driven execution) | — |
+| Provenance（來源出處） | Task Provenance | — |
+| Task Inbox（任務收件匣） | Task Inbox (External Task Queue) | inbox |
+| Held（待授權暫置） | Held (Awaiting Human Authorization) | held |
+| Triage-accept（人類分診核准） | Triage-accept | triage |
 | Pipeline（開發流程） | ASP Development Pipeline | G1→G6 |
 | SPEC | Software Design Specification | SPEC |
 | ADR | Architecture Decision Record | ADR |
@@ -111,6 +115,30 @@
 **定義：** ROADMAP.yaml 驅動的連續執行模式（`autopilot: enabled`），自動逐一執行 Roadmap 任務直到 token 用盡，跨 session 透過 `.asp-autopilot-state.json` 續接。
 **避免使用：** [自動模式, 自動執行]（Autopilot 特指 ROADMAP.yaml 驅動 + 跨 session 續接 這個完整機制）
 **相關 ADR：** ADR-001
+
+### Provenance（來源出處）
+**English:** Task Provenance
+**定義：** 任務的來源屬性標記——**人類手寫** vs **外部來源**（帶 `source_type`/`triggered_by` 等 inbox schema 欄位）。ADR-012 信任模型以 provenance 決定授權強度：外部來源任務須人類放行，人類手寫任務維持既有機制。
+**避免使用：** [來源, source, origin]（Provenance 特指「決定授權路徑的信任屬性」，不是一般的資料出處）
+**相關 ADR：** ADR-012
+
+### Task Inbox（任務收件匣）
+**English:** Task Inbox (External Task Queue)
+**定義：** `.asp-task-inbox.json`——asp-operator 將外部 GitHub issue 翻譯後投遞的**惰性佇列**。SPEC-007 起 inbox 內容不再自動進入 ROADMAP（見 Held），僅作為待人類授權的暫存。
+**避免使用：** [佇列, queue, 任務池]（Task Inbox 是固定檔名與固定機制，且自 SPEC-007 起為「惰性」——寫入不產生執行效果）
+**相關 ADR：** ADR-012
+
+### Held（待授權暫置）
+**English:** Held (Awaiting Human Authorization)
+**定義：** 外部來源任務在 inbox 中的暫置狀態：SessionStart 只**回報**不注入（`status: pending` 保持不變），直到人類透過 Triage-accept 或 Accepted ADR 放行。SPEC-007 的核心語意。
+**避免使用：** [擱置, 凍結, pending 中]（Held 特指「等待人類授權」的安全暫置，不是任意的延遲）
+**相關 ADR：** ADR-012
+
+### Triage-accept（人類分診核准）
+**English:** Triage-accept (Human Authorization for Non-architectural External Tasks)
+**定義：** 外部**非架構**任務的人類放行通道：人類執行 `make inbox-triage` 逐件核准，任務寫入 ROADMAP（帶 `triage_accepted_by`）並由人類自行 commit——**該 commit 的作者即機械可驗證的授權記號**（autopilot 閘以 `git log -S` 驗證、bot 樣式拒絕）。SPEC-009 落地。
+**避免使用：** [審核, approve, 人工確認]（Triage-accept 特指「人類 commit 即授權」這個可驗證機制，不是一般的口頭核可）
+**相關 ADR：** ADR-012
 
 ### Pipeline（G1→G6）
 **English:** ASP Development Pipeline (G1→G6)
