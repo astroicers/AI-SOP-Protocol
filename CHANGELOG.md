@@ -8,6 +8,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 - **SPEC-007 — 封 inbox-ingest 無授權旁路（ADR-012 INV-2/DP8，關閉 T-14）**：`inbox-ingest.sh` 自此為 held-mode——SessionStart 只回報 pending 外部任務（held、保持 `pending`），**不再自動注入 ROADMAP.yaml、不再標 `ingested`**（取代 v4.3.0 P1 的自動注入行為）。直推 `.asp-task-inbox.json` 到 main 不再能繞過信任模型進入 autopilot 執行佇列；外部任務的人類授權路徑由 SPEC-009（triage-accept）/ asp-op pivot 提供。`session-audit.sh` A15.1 由 INFO 升為 WARNING 並改 held 語意。順帶消除 inbox-ingest 對 ROADMAP 的無鎖寫入競態。測試：`test_inbox_ingest_no_bypass.sh`（14 斷言，含 T-14 攻擊模擬）；`test_task_inbox.sh` 由舊注入契約改寫為 held 契約（8 斷言）。
 
+### Security (continued)
+
+- **SPEC-008 — autopilot 外部來源 provenance 閘（ADR-012 INV-2/DP2）**：`autopilot.md` Phase 2 於既有 ADR 閘前新增 provenance 檢查——帶外部來源標記（`source_type` ≠ manual 或 `triggered_by` ∉ human/maintainer）的 ROADMAP 任務，須有人類 **Accepted** ADR 才可執行（外部任務不適用 FIRM 🟡 豁免、不自動建 Draft ADR）；DP8 過渡期外部非架構任務一律 blocked（待 SPEC-009 triage-accept）。人類手寫任務的既有機制逐字不變（DP3）。這是 SPEC-007（producer 側）之後的 consumer 側第二層防線。`asp-autopilot` skill 前置檢查表同步。測試：`test_autopilot_provenance_gate.sh`（15 斷言文字契約，TDD 先紅後綠）。
+
 ### Added
 
 - **ADR-012 — operator↔autopilot 互動信任模型（Accepted）**：provenance-scoped、授權隨架構影響縮放（外部架構級→Accepted ADR；外部非架構→人類 triage-accept；人類手寫 ROADMAP 任務機制完全不變）。新增 INV-1（autopilot 僅人類啟動）/ INV-2（外部工作須人類放行）兩不變量與 DP1–DP8 決策點；威脅模型新增 **T-14**（external-artifact → autopilot poisoning）併入 `threat-model-v4.0.md`；ADR-001 Relations 補記 C2 profile/skill 漂移。
