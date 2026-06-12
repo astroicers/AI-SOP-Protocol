@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "snapshot_role": "v5-pre-slimming baseline (frozen at eb07438 / v4.3.0) — 刻意凍結的瘦身前對照基準，勿誤判為 staleness 而重生；見 ADR-013",
   "generated_at": "2026-06-11T08:40:55Z",
   "git_commit": "eb07438",
   "asp_version": "4.3.0",
