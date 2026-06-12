@@ -10,6 +10,8 @@
 | **觸發事件** | ADR-007 完成三檔分離後，`docs/architecture.md` 仍畫舊單檔模型未同步；review 時發現 11 個內嵌 Mermaid 區塊無索引、無新鮮度標記、無校對機制 |
 | **關聯 ADR** | ADR-007（schema v2 三檔分離 — 觸發本 ADR 的具體導火線） |
 
+> ⏸️ **實作延後**（2026-06-12，外部失憶檢查 F3）：決策維持 `Accepted`，但 asp-diagram skill 實作延後，追蹤於 SPEC-005（`Draft (Deferred)`，全部實作項列 Stage 2 PENDING）。**觸發條件**：有實際 Mermaid 治理需求時走 asp-plan 落地 SPEC-005 Stage 2；否則維持 Deferred（不阻擋）。消除「Accepted ADR 卻無對應實作」的審計疑慮。注意：`make diagram`（定義於 `.asp/Makefile.inc:213`，舊 `architecture.html` 產生器，仍存在可跑）與本 skill 設計無關，不在實作範圍。
+
 ---
 
 ## 背景（Context）

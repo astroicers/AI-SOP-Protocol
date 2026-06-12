@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-11 | Status: Draft | Related ADR: ADR-008 -->
+<!-- Last Updated: 2026-06-12 | Status: Draft (Deferred) | Related ADR: ADR-008 | Note: 實作延後，全部測試列 Stage 2 PENDING（見文末），Stage 2 落地前不謊報 executable -->
 # SPEC-005：asp-diagram skill — Mermaid 架構圖管理
 
 > 結構完整的規格書讓 AI 零確認直接執行。
