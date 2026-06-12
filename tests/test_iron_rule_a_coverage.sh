@@ -28,10 +28,13 @@ echo "T2: Iron Rule A 涵蓋 chain 驗證器 bypass-hash.sh（ADR-019 review HIG
 echo "$CRIT" | grep -q 'bypass-hash.sh' \
   && pass "bypass-hash.sh 受 Iron Rule A 保護" \
   || fail "bypass-hash.sh 不受保護 — 改 verify() 即可繞過 chain（看守者缺口）"
+echo "$CRIT" | grep -q 'pretooluse-ship-gate.sh' \
+  && pass "pretooluse-ship-gate.sh 受 Iron Rule A 保護（ADR-020 commit 閘）" \
+  || fail "pretooluse-ship-gate.sh 不受保護 — 改 hook 即可繞過 commit 閘"
 
 echo ""
 echo "T3: 受保護腳本實際存在（git-tracked，否則 Iron Rule A 形同虛設）"
-for f in .asp/hooks/session-audit.sh .asp/hooks/denied-commands.json .asp/scripts/bypass-hash.sh; do
+for f in .asp/hooks/session-audit.sh .asp/hooks/denied-commands.json .asp/scripts/bypass-hash.sh .asp/hooks/pretooluse-ship-gate.sh; do
   [ -f "$ASP_ROOT/$f" ] && pass "$f 存在" || fail "$f 不存在"
 done
 

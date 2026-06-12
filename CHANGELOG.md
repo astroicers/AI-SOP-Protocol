@@ -6,6 +6,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Added
 
+- **ADR-020 — 把「AI 遺忘」設為一級威脅 + PreToolUse commit 閘**（ADR-020 FIRM / SPEC-013）：外部評估指出 ASP 真正的失憶是「執行時過程義務遺忘」（SessionStart 是唯一 hook、「commit 前 asp-ship」純散文、session 中途零機械提醒）。新增 `pretooluse-ship-gate.sh`：PreToolUse hook 攔 `git commit`，無新鮮測試痕跡（`.asp-test-result.json` passed 且 mtime ≥ `.git/index`）則 **deny**，把「commit 前跑測試」（asp-ship Step 1，最高後果步驟）從散文升硬強制（強制力架構新增 **L1.5** 層）。`escape hatch ASP_SHIP_OK=1` + jq/異常 fail-open 防死鎖、指令位置正則偵測防 `git log --grep` 誤判、`--amend` 退回 passed-only。寫 `SHIP-GATE` 遙測補 (c) 層「應觸發未觸發」盲區。hook 納入 Iron Rule A `CRITICAL_FILE`（防改 hook 繞過）。CLAUDE.md 加 L1.5 + **過程義務速查**（compaction-safe，P1b）。asp-plan Step 5.5.2 明確 G2 必含 CONTEXT.md 術語檢查（P3）。**誠實邊界**：擋的是「連 `make test` 都沒跑」，非完整 10 步 ship（Steps 2-9 仍自律，已知殘留）。介面查證記於 FC-002。新增 `test_pretooluse_ship_gate.sh`（12/12）。
 - **Repo community files**：新增 `LICENSE`（MIT）、`SECURITY.md`（GitHub 私密漏洞回報 + ASP hook/install 腳本範圍提醒）、`CODE_OF_CONDUCT.md`（Contributor Covenant v2.1）。GitHub About 補上 description 與 14 個 topics（`claude-code`、`ai-agents`、`ai-governance` 等）。README 版本標示 v4.2.0→v5.0.0 並加 MIT 授權連結。
 - **失憶修復批次（記憶持久化強化）**：診斷「專案是否容易失憶」後，按優先級修復跨 session context/狀態遺失點。
   - **P1 — profile 載入清單三來源 drift 收斂**（ADR-013 Phase 3 收尾）：`validate-profile.sh` 載入清單改由 `asp-compile --list` 產生（`profile-map.yaml` = single source of truth），消除硬編碼第二實作與 map 的 drift（修掉 `level=standard` 漏載 `pipeline`/`task_orchestrator` 的 bug）。新增 `test_profile_map_consistency.sh`（validate≡compile 契約 + CLAUDE.md↔map 護欄）。`asp-compile.sh` 加 `ASP_COMPILE_SKIP_VALIDATE` 守衛打破互呼遞迴。

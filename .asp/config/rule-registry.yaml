@@ -202,6 +202,10 @@ rules:
     desc: "偵測到未完成的 autopilot 狀態"
     source: "session-audit.sh A18"
     observed_by: session-audit
+  - id: SHIP-GATE
+    desc: "PreToolUse commit 閘：commit 前測試痕跡檢查（pass/block/bypass，ADR-020/SPEC-013）"
+    source: "pretooluse-ship-gate.sh"
+    observed_by: pretooluse-ship-gate
   - id: AUDIT-IRONB-MIGRATE
     desc: "bypass log 未遷移 ndjson 提示"
     source: "session-audit.sh Iron Rule B"
