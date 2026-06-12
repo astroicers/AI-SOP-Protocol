@@ -54,7 +54,7 @@ asp_metric() { # $1=rule_id  $2=action(blocker|warn|info|deny-inject)
 # Iron Rule A: Hook Integrity Verification
 # ═══════════════════════════════════════════
 if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
-    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh"; do
+    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" ".asp/scripts/bypass-hash.sh"; do
         if git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" &>/dev/null 2>&1; then
             CURRENT_HASH=$(sha256sum "${PROJECT_DIR}/${CRITICAL_FILE}" 2>/dev/null | cut -d' ' -f1)
             GIT_HASH=$(git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1)
