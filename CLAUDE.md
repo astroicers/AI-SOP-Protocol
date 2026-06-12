@@ -1,4 +1,4 @@
-# AI-SOP-Protocol (ASP) v4.0 — 行為憲法
+# AI-SOP-Protocol (ASP) v5.0.0 — 行為憲法
 
 > 讀取順序：本檔案 → `.ai_profile` → 對應 `~/.claude/asp/profiles/`（按需）
 > Profile 驗證邏輯：見 `~/.claude/asp/profiles/global_core.md`；由 `session-audit.sh` 在 SessionStart 自動執行
