@@ -184,45 +184,45 @@ if [ "$MODE" = "auto" ]; then
 fi
 
 echo ""
-echo "── 載入的 Profile 清單 ──"
-echo "  必載："
+echo "── 載入的 Profile 清單（依 .asp/config/profile-map.yaml；asp-compile --list 解析）──"
 
+# type 值 sanity（map 僅認 system/architecture/content；空 type 已由規則 1 報 ERROR）
 case "$TYPE" in
-  system|architecture)
-    echo "    • global_core.md"
-    echo "    • system_dev.md"
-    ;;
-  content)
-    echo "    • global_core.md"
-    echo "    • content_creative.md"
-    ;;
-  "")
-    echo "    （type 未設定，無法列出）"
-    ;;
-  *)
-    echo "    🔴 ERROR: 未知 type 值：$TYPE"
-    ERRORS=$((ERRORS + 1))
-    ;;
+  system|architecture|content|"") : ;;
+  *) echo "  🔴 ERROR: 未知 type 值：$TYPE"; ERRORS=$((ERRORS + 1)) ;;
 esac
 
-echo "  條件載入（依 .asp/config/profile-map.yaml，single source of truth — ADR-013）："
-if [ "$MODE" = "multi-agent" ]; then
-    echo "    • task_orchestrator.md（含 multi-agent 協調邏輯，v4.3+）"
-    echo "    • pipeline.md（auto）"
+# 載入清單改由 asp-compile --list 產生（profile-map.yaml = single source of truth，ADR-013
+# Phase 3）：消除 validate 自帶硬編碼清單與 map 的 drift（曾漏 level-based 載入如 pipeline）。
+# ASP_COMPILE_SKIP_VALIDATE=1 打破 validate ↔ compile 互呼遞迴（compile 不再回呼本腳本驗證）。
+ASP_ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"   # = .asp/
+COMPILE="$(dirname "$0")/asp-compile.sh"
+LOADED=""
+if [ -f "$COMPILE" ] && command -v jq >/dev/null 2>&1; then
+  LOADED=$(ASP_COMPILE_SKIP_VALIDATE=1 bash "$COMPILE" \
+             --asp-root "$ASP_ROOT_DIR" --profile "$PROFILE_FILE" --list 2>/dev/null)
 fi
-if [ "$MODE" = "multi-agent" ] && [ "$AUTONOMOUS" = "enabled" ]; then
-    echo "    • reality_checker.md（auto）"
+if [ -n "$LOADED" ]; then
+  for p in $LOADED; do echo "    • ${p}.md"; done
+else
+  # fallback（jq 或 asp-compile.sh 不可用）：僅印必載骨架，避免維護第二份完整清單（drift 源）
+  echo "    ⚠️  需 jq + asp-compile.sh 才能解析完整載入清單；以下僅必載骨架"
+  echo "    • global_core.md"
+  case "$TYPE" in
+    system|architecture) echo "    • system_dev.md" ;;
+    content)             echo "    • content_creative.md" ;;
+  esac
 fi
-[ "$MODE" = "committee" ]           && echo "    • ⚠️  committee.md (DEPRECATED 2026-05-10 — archived to docs/archive/profiles/; please use single/auto/multi-agent)"
-[ "$WORKFLOW" = "vibe-coding" ]     && echo "    • loose_mode.md（v5 併自 vibe coding + spike mode）"
-[ "$RESOLVED_LEVEL" = "loose" ]     && echo "    • loose_mode.md（loose 等級 auto）"
-[ "$RAG" = "enabled" ]              && echo "    • rag_context.md"
-[ "$DESIGN" = "enabled" ]           && echo "    • design_dev.md" && echo "    • frontend_quality.md（auto）"
-[ "$CODING_STYLE" = "enabled" ]     && echo "    • coding_style.md"
-[ "$OPENAPI" = "enabled" ]          && echo "    • openapi.md"
-[ "$ORCHESTRATOR" = "enabled" ]     && echo "    • task_orchestrator.md"
-[ "$AUTONOMOUS" = "enabled" ]       && echo "    • autonomous_dev.md" && echo "    • task_orchestrator.md（auto）"
-[ "$AUTOPILOT" = "enabled" ]        && echo "    • asp-autopilot skill Part 2（v4.4 起取代 autopilot.md profile）" && echo "    • autonomous_dev.md（auto）" && echo "    • task_orchestrator.md（auto）"
+
+# ADR-016 配套：手編 .ai_profile 後 .asp-compiled-profile.md 會 stale，直到下次
+# SessionStart 才由 asp-compile --check 自動重編；同 session 內手編時提示手動重編，
+# 閉合「AI 本 session 仍讀舊載入規則」窗口。純提示，不計入 error/warning。
+ARTIFACT="$(dirname "$PROFILE_FILE")/.asp-compiled-profile.md"
+if [ -f "$ARTIFACT" ] && [ "$PROFILE_FILE" -nt "$ARTIFACT" ]; then
+  echo ""
+  echo "🟡 .ai_profile 比 .asp-compiled-profile.md 新 — 編譯產物可能 stale"
+  echo "   → 跑 make asp-compile 重編，否則 AI 本 session 仍讀舊載入規則（ADR-016）"
+fi
 
 echo ""
 echo "================================="

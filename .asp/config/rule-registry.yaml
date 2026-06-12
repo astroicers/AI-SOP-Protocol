@@ -35,7 +35,7 @@ rules:
     observed_by: session-audit
     exempt: true
   - id: IRON-B
-    desc: "Bypass log append-only（HWM 截斷偵測）"
+    desc: "Bypass log append-only（HWM 截斷 + 每筆 hash chain 防竄改，ADR-019/SPEC-012）"
     source: "session-audit.sh Iron Rule B"
     observed_by: session-audit
     exempt: true
@@ -193,6 +193,14 @@ rules:
   - id: AUDIT-A16.2
     desc: "asp-compile 失敗回退散文"
     source: "session-audit.sh A16"
+    observed_by: session-audit
+  - id: AUDIT-A17.1
+    desc: "外部事實查證超過 TTL 未複查（fact-check staleness）"
+    source: "session-audit.sh A17"
+    observed_by: session-audit
+  - id: AUDIT-A18.1
+    desc: "偵測到未完成的 autopilot 狀態"
+    source: "session-audit.sh A18"
     observed_by: session-audit
   - id: AUDIT-IRONB-MIGRATE
     desc: "bypass log 未遷移 ndjson 提示"

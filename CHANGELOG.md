@@ -7,6 +7,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 ### Added
 
 - **Repo community files**：新增 `LICENSE`（MIT）、`SECURITY.md`（GitHub 私密漏洞回報 + ASP hook/install 腳本範圍提醒）、`CODE_OF_CONDUCT.md`（Contributor Covenant v2.1）。GitHub About 補上 description 與 14 個 topics（`claude-code`、`ai-agents`、`ai-governance` 等）。README 版本標示 v4.2.0→v5.0.0 並加 MIT 授權連結。
+- **失憶修復批次（記憶持久化強化）**：診斷「專案是否容易失憶」後，按優先級修復跨 session context/狀態遺失點。
+  - **P1 — profile 載入清單三來源 drift 收斂**（ADR-013 Phase 3 收尾）：`validate-profile.sh` 載入清單改由 `asp-compile --list` 產生（`profile-map.yaml` = single source of truth），消除硬編碼第二實作與 map 的 drift（修掉 `level=standard` 漏載 `pipeline`/`task_orchestrator` 的 bug）。新增 `test_profile_map_consistency.sh`（validate≡compile 契約 + CLAUDE.md↔map 護欄）。`asp-compile.sh` 加 `ASP_COMPILE_SKIP_VALIDATE` 守衛打破互呼遞迴。
+  - **session-audit 狀態時效掃描**：A17 外部事實查證 TTL（180 天）提醒、A18 autopilot 未完成狀態提醒，briefing 加 `stale_fact_count` / `autopilot_state_exists` 欄（rule-registry 同步登記）；`validate-profile.sh` 加手編 `.ai_profile` 後 stale 編譯產物提示（ADR-016 配套）。
+  - **Iron Rule B per-entry hash chain**（ADR-019 FIRM / SPEC-012）：bypass log 每筆 `prev`/`h` 串接，補上 HWM 盲區——偵測等量替換、中間竄改、HWM 被同步竄改時的獨立性；`.chained` marker 擋「刪 hash 欄降級回容錯」繞過（G2 review FIND-2 catch）。誠實界定為 **tamper-evidence 非 tamper-proof**（純本地無外部信任錨）。新增 `bypass-hash.sh`（canonical/rechain/verify 單一實作點）、`make asp-bypass-rechain`、`test_iron_rule_b_hashchain.sh`。
 
 ## [5.0.0] - 2026-06-11
 

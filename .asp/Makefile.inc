@@ -626,12 +626,22 @@ asp-bypass-record: ## 寫入 bypass 記錄（內部使用，或手動記錄：SK
 		mv ".asp-bypass-log.json.tmp" ".asp-bypass-log.json"; \
 	echo "✅ Bypass 記錄已寫入 (.asp-bypass-log.json)"
 
-asp-bypass-migrate: ## Migrate .asp-bypass-log.json → .asp-bypass-log.ndjson (Iron Rule B)
+asp-bypass-migrate: ## Migrate .asp-bypass-log.json → .ndjson + 建立 hash chain (Iron Rule B, ADR-019)
 	@if [ -f .asp-bypass-log.json ]; then \
 	    python3 -c "import json,sys; [print(json.dumps(e)) for e in json.load(open('.asp-bypass-log.json'))]" \
 	    >> .asp-bypass-log.ndjson && echo "[ASP] Migrated bypass log to NDJSON (.asp-bypass-log.ndjson)"; \
 	else echo "[ASP] No .asp-bypass-log.json to migrate"; fi
+	@$(MAKE) -s asp-bypass-rechain
 .PHONY: asp-bypass-migrate
+
+asp-bypass-rechain: ## 重算 bypass log hash chain 並啟用 (Iron Rule B, ADR-019/SPEC-012)
+	@if [ -f .asp-bypass-log.ndjson ]; then \
+	    bash .asp/scripts/bypass-hash.sh rechain .asp-bypass-log.ndjson && \
+	    echo "1" > .asp-bypass-log.chained && \
+	    awk 'END{print NR}' .asp-bypass-log.ndjson > .asp-bypass-log.hwm && \
+	    echo "[ASP] Bypass log hash chain 已重算並啟用（$$(awk 'END{print NR}' .asp-bypass-log.ndjson) 筆，.chained marker 已設）"; \
+	else echo "[ASP] No .asp-bypass-log.ndjson to rechain"; fi
+.PHONY: asp-bypass-rechain
 
 asp-update: ## Sync ASP core from local repo to ~/.claude/ (profiles/hooks/skills)
 	@bash ~/.claude/scripts/asp-sync.sh

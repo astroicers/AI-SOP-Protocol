@@ -106,6 +106,24 @@ if [ -f "${NDJSON_LOG}" ]; then
         echo "${LINE_COUNT}" > "${HWM_FILE}" 2>/dev/null || true
     fi
 fi
+# Iron Rule B — per-entry hash chain（SPEC-012 / ADR-019）
+# HWM 偵測「末尾截斷」；hash chain 補上 HWM 的盲區：等量替換、中間竄改/刪除，
+# 並與 HWM 獨立（HWM 被同步竄改時 chain 仍報）。僅當 chain 已啟用（.chained marker
+# 存在）才嚴格驗證——擋住「刪 hash 欄降級回容錯」繞過（FIND-2）；純未遷移舊 log
+# （無 marker）則容錯不驗。marker 本地仍可竄改 → tamper-evidence 非 tamper-proof（ADR-019）。
+CHAINED_MARKER="${PROJECT_DIR}/.asp-bypass-log.chained"
+if [ -f "${NDJSON_LOG}" ] && [ -f "${CHAINED_MARKER}" ]; then
+    HASH_SCRIPT=""
+    for h in "${PROJECT_DIR}/.asp/scripts/bypass-hash.sh" "${HOME}/.claude/asp/scripts/bypass-hash.sh"; do
+        [ -f "$h" ] && HASH_SCRIPT="$h" && break
+    done
+    if [ -n "$HASH_SCRIPT" ]; then
+        if ! CHAIN_ERR=$(bash "$HASH_SCRIPT" verify "${NDJSON_LOG}" 2>&1); then
+            BLOCKERS+=("Iron Rule B: bypass log hash chain 斷裂（${CHAIN_ERR}）— 稽核記錄遭竄改或移除（ADR-019/SPEC-012）；還原 log 或重算 make asp-bypass-rechain")
+            asp_metric "IRON-B" "blocker"
+        fi
+    fi
+fi
 
 # ─── 輔助函數 ───
 get_field() {
@@ -340,6 +358,39 @@ if [ -f "$PROJECT_DIR/.asp-test-result.json" ]; then
 fi
 
 # ═══════════════════════════════════════════
+# 8.5 外部事實查證時效（A17，fact-check staleness）
+#     fact-check 的「再驗證條件」多為語意型（無法機械偵測第三方 API/語意變更）；
+#     此處僅做日期型 TTL 提醒：距 **日期** 超過 FACT_TTL_DAYS → INFO 促週期複查。
+# ═══════════════════════════════════════════
+STALE_FACT_COUNT=0
+FACT_TTL_DAYS=180
+if [ -f "$PROJECT_DIR/.asp-fact-check.md" ]; then
+    fc_now_ts=$(date +%s)
+    while IFS= read -r fdate; do
+        fts=$(date -d "$fdate" +%s 2>/dev/null || echo 0)
+        [ "$fts" -gt 0 ] || continue
+        fdays=$(( (fc_now_ts - fts) / 86400 ))
+        [ "$fdays" -gt "$FACT_TTL_DAYS" ] && STALE_FACT_COUNT=$((STALE_FACT_COUNT + 1))
+    done < <(grep -oP '\*\*日期\*\*[:：]\s*\K\d{4}-\d{2}-\d{2}' "$PROJECT_DIR/.asp-fact-check.md" 2>/dev/null || true)
+    if [ "$STALE_FACT_COUNT" -gt 0 ]; then
+        INFOS+=("A17.1: $STALE_FACT_COUNT 筆外部事實查證已超過 ${FACT_TTL_DAYS} 天未複查（.asp-fact-check.md，建議重審再驗證條件）")
+        asp_metric "AUDIT-A17.1" "info"
+    fi
+fi
+
+# ═══════════════════════════════════════════
+# 8.6 Autopilot 未完成狀態提醒（A18）
+#     .asp-autopilot-state.json 存在 = 上次 autopilot 跑到一半（gitignored 跨 session
+#     續接用）；session 啟動主動告知，避免遺忘半成品。
+# ═══════════════════════════════════════════
+AUTOPILOT_STATE_EXISTS=false
+if [ -f "$PROJECT_DIR/.asp-autopilot-state.json" ]; then
+    AUTOPILOT_STATE_EXISTS=true
+    INFOS+=("A18.1: 偵測到未完成的 autopilot 狀態（.asp-autopilot-state.json）— 跑 /asp-autopilot 續接，或刪除該檔放棄")
+    asp_metric "AUDIT-A18.1" "info"
+fi
+
+# ═══════════════════════════════════════════
 # 9. 產生 briefing JSON
 # ═══════════════════════════════════════════
 {
@@ -364,6 +415,8 @@ fi
   "baseline_stale": $BASELINE_STALE,
   "baseline_exists": $BASELINE_EXISTS,
   "test_result_exists": $TEST_RESULT_EXISTS,
+  "stale_fact_count": $STALE_FACT_COUNT,
+  "autopilot_state_exists": $AUTOPILOT_STATE_EXISTS,
   "compiled_profile_ok": $COMPILED_OK,
   "compiled_profile_lines": $COMPILED_LINES,
   "dynamic_deny": $(if [ ${#DYNAMIC_DENY[@]} -gt 0 ]; then printf '%s\n' "${DYNAMIC_DENY[@]}" | jq -R . | jq -s .; else echo '[]'; fi)
