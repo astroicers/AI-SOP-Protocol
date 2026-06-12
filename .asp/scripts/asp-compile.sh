@@ -59,7 +59,9 @@ MAP_RULES=$(awk '
 [ -n "$MAP_RULES" ] || { echo "ERROR: no rules parsed from $MAP_FILE" >&2; exit 3; }
 
 # ── 欄位驗證（不複寫驗證邏輯）；error → exit 2 ──
-if [ -f "$ASPR/scripts/validate-profile.sh" ]; then
+# ASP_COMPILE_SKIP_VALIDATE=1：呼叫端（如 validate-profile.sh 自身印載入清單時）
+# 已在做欄位驗證，跳過此處二次驗證以打破 validate ↔ compile 互呼遞迴（ADR-013 Phase 3）
+if [ "${ASP_COMPILE_SKIP_VALIDATE:-0}" != "1" ] && [ -f "$ASPR/scripts/validate-profile.sh" ]; then
   if ! (cd "$PROJECT" && bash "$ASPR/scripts/validate-profile.sh" "$PROFILE" >/dev/null 2>&1); then
     echo "ERROR: .ai_profile 欄位驗證失敗（執行 make profile-validate 看細節）" >&2
     exit 2

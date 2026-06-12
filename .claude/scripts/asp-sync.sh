@@ -69,6 +69,7 @@ SHOWCASE_INSTALLED=false
 DIFF_ASP=$(diff -rq --exclude="*.pyc" --exclude="__pycache__" \
   --exclude=".showcase-installed" --exclude="telemetry" --exclude="rag" \
   --exclude="rag-auto-index.sh" --exclude="rag_context.md" --exclude="ai-performance" \
+  --exclude="metrics" \
   "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
 DIFF_SKILLS=$(diff -rq \
   "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
@@ -82,7 +83,9 @@ fi
 # 列出差異摘要
 if [ -n "$DIFF_ASP" ]; then
   echo "  ~/.claude/asp/ 差異："
-  diff -rq --exclude="*.pyc" --exclude="__pycache__" \
+  diff -rq --exclude="*.pyc" --exclude="__pycache__" --exclude="metrics" \
+    --exclude=".showcase-installed" --exclude="telemetry" --exclude="rag" \
+    --exclude="rag-auto-index.sh" --exclude="rag_context.md" --exclude="ai-performance" \
     "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null | sed 's/^/    /' | head -20 || true
 fi
 if [ -n "$DIFF_SKILLS" ]; then
@@ -113,13 +116,22 @@ mkdir -p "$USER_ASP" "$USER_SKILLS"
 
 if command -v rsync &>/dev/null; then
   rsync -a --delete \
-    --exclude="*.pyc" --exclude="__pycache__" --exclude=".showcase-installed" \
+    --exclude="*.pyc" --exclude="__pycache__" --exclude=".showcase-installed" --exclude="metrics" \
     "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete \
     "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
 else
-  # rsync 不可用時 fallback
+  # rsync 不可用時 fallback（保護 runtime 生成的 metrics/，勿隨 rm -rf 抹除遙測）
+  if [ -d "$USER_ASP/metrics" ]; then
+    METRICS_BAK=$(mktemp -d)
+    cp -r "$USER_ASP/metrics" "$METRICS_BAK/"
+  else
+    METRICS_BAK=""
+  fi
   rm -rf "$USER_ASP" && cp -r "$ASP_REPO/.asp" "$USER_ASP"
+  if [ -n "$METRICS_BAK" ]; then
+    cp -r "$METRICS_BAK/metrics" "$USER_ASP/" && rm -rf "$METRICS_BAK"
+  fi
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
 fi
 

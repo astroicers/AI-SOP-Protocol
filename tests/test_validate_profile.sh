@@ -96,6 +96,19 @@ printf 'type: system\nlevel: standard\nhitl: standard\nmode: single\n' > "$(P)";
 { echo "$OUT" | grep -q "驗證通過" && [ "$RC" = "0" ]; } \
   && pass "valid profile passes with exit 0" || fail "valid profile not passing (rc=$RC)"
 
+# ── T8: 手編 .ai_profile 比編譯產物新 → stale 提示（ADR-016 配套；純提示不改 rc） ──
+echo ""
+echo "T8: .ai_profile newer than compiled artifact → stale 提示"
+printf 'type: system\nlevel: standard\n' > "$(P)"
+ART="$TEST_DIR/.asp-compiled-profile.md"
+: > "$ART"; touch -d '2020-01-01' "$ART"; touch "$(P)"   # artifact 舊、profile 新
+run
+{ echo "$OUT" | grep -q "編譯產物可能 stale" && [ "$RC" = "0" ]; } \
+  && pass "stale 提示出現且不改 rc" || fail "stale 提示缺失或誤改 rc=$RC"
+touch -d '2099-01-01' "$ART"; run                        # artifact 未來（fresh）→ 不提示
+echo "$OUT" | grep -q "編譯產物可能 stale" && fail "fresh 時誤報 stale" || pass "fresh 時不提示"
+rm -f "$ART"
+
 # ── Summary ──
 echo ""
 echo "════════════════════════════════"
