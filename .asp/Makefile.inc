@@ -146,6 +146,7 @@ lint:
 			echo "── shellcheck (.asp v5 scripts + tests) ──"; \
 			shellcheck -S warning -e SC1090,SC1091,SC2086,SC2207 \
 				.asp/scripts/asp-metrics.sh .asp/scripts/asp-compile.sh \
+				.asp/scripts/bypass-hash.sh \
 				.asp/scripts/level-resolve.sh .asp/scripts/orchestrator/*.sh tests/*.sh \
 				|| LINT_FAIL=1; \
 		else \
