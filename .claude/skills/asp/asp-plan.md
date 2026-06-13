@@ -167,6 +167,7 @@ deleted_gov=$(echo "$staged" | grep '^D' | awk '{print $NF}' | grep -cE '^docs/(
 - `subagent_type`: `general-purpose`（trial 期；ADR-009 trial 完可路由到 reality-checker / test-engineer）
 - `model`: `sonnet`
 - Prompt body：直接引用 `.claude/skills/asp/asp-gate.md` 內 G1 / G2 prompt 模板，填入 target 路徑
+- **G2 subagent prompt 必含**「CONTEXT.md 術語一致性檢查」（asp-gate.md G2 item 6）—— 若 `CONTEXT.md` 存在，逐字要求 reviewer 檢查 SPEC 術語 vs CONTEXT.md「避免使用」清單（ADR-020 P3：避免術語檢查淪為散文義務被漏帶）
 - spawn 失敗（API error / timeout）→ 主對話 echo「⚠️ auto-gate spawn 失敗：<error>」+ 寫 bypass log（reason=spawn-failure），**不**阻擋 plan 完成（E9）
 
 ### 5.5.3 結果處理

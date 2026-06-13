@@ -52,6 +52,7 @@
 | Layer | 機制 | 強制力 |
 |-------|------|--------|
 | L1: SessionStart | `session-audit.sh` → `.asp-session-briefing.json` | 硬（啟動時輸出 BLOCKER） |
+| L1.5: PreToolUse | `pretooluse-ship-gate.sh` 攔 `git commit`：無新鮮測試痕跡 → deny（ADR-020 遺忘威脅；escape hatch `ASP_SHIP_OK=1` + fail-open 防死鎖） | 硬（commit 前機械擋） |
 | L2: Dynamic Deny | `Draft` ADR / 測試未過 → 動態阻擋 `git commit`；`FIRM` ADR → 允許但記錄 bypass log | 硬（VSCode deny dialog） |
 | L3: Skill Gates | `asp-ship`(10步，含 Step 9.6 gate-log 後驗) + `asp-gate`(G1-G6) + `asp-plan` Step 5.5 auto-gate（ADR-009 + SPEC-006 已落地：staged ADR/SPEC 機械觸發 G1/G2 subagent，報告存 `.asp-gate-log/`） | 結構化軟性 |
 | L4: Subagent QA | `asp-reality-check` 獨立驗證（on-demand） | 中等 |
@@ -61,6 +62,12 @@
 **必須調用 Skill 的時機（跳過須輸出 ⚠️ ASP BYPASS 警告，見 `asp-ship` Step 10）：**
 - 實作前 → `/asp-gate G1,G2` → 測試寫完 → `/asp-gate G3` → 實作完 → `/asp-gate G4`
 - 任何 git commit 前 → `/asp-ship` | 驗證階段 → `/asp-gate G5` + `/asp-reality-check`
+
+**過程義務速查（compaction-safe，ADR-020 P1b — 壓縮後最先蒸發的散文義務一行版）：**
+- commit 前跑測試 / asp-ship（L1.5 hook 兜底）｜實作前 ADR 須 Accepted/FIRM
+- bug 修復後**全專案 grep** 同類問題｜外部事實 → 查證並記錄 `.asp-fact-check.md`
+- 假設未明 → Assumption Checkpoint｜需求變更 → L1-L4 分級回溯
+- ↑ 多為語意型，hook 無法機械化（ADR-020 已知殘留）→ 靠此速查在長對話壓縮後存活
 
 ---
 
