@@ -9,11 +9,10 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$ASP_ROOT/.asp/hooks/session-audit.sh"
-PASS=0; FAIL=0; TOTAL=0
-pass(){ echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail(){ echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 # 擷取 CRITICAL_FILE 迴圈列出的受保護檔
 CRIT=$(grep -oE 'for CRITICAL_FILE in [^;]+' "$HOOK" | head -1)

@@ -6,14 +6,11 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLAN="$ASP_ROOT/.claude/skills/asp/asp-plan.md"
-TEST_DIR=$(mktemp -d /tmp/asp-test-glob-XXXXXX)
-PASS=0; FAIL=0; TOTAL=0
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
+mk_test_dir
 
 # ── 擷取 asp-plan.md Step 5.5.1 的觸發 bash 區塊（契約：文件內的程式碼必須可執行且正確）──
 SNIPPET=$(sed -n '/^### 5\.5\.1/,/^### 5\.5\.2/p' "$PLAN" | sed -n '/^```bash$/,/^```$/p' | sed '1d;$d')

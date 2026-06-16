@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "$0")/lib/common.sh"
 # test_install_precheck.sh — SPEC-004 Done When #13: install.sh runtime precheck
 #
 # Tests precheck_runtime() in isolation by sourcing the helpers from install.sh
@@ -8,13 +9,8 @@
 set -euo pipefail
 
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TEST_DIR=$(mktemp -d /tmp/asp-test-precheck-XXXXXX)
-PASS=0
-FAIL=0
-TOTAL=0
+mk_test_dir
 
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
 
 INSTALL="$ASP_ROOT/.asp/scripts/install.sh"
 

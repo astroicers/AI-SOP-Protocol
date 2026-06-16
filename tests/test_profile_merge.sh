@@ -8,13 +8,12 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 P="$ASP_ROOT/.asp/profiles"
 GC="$P/global_core.md"
 LM="$P/loose_mode.md"
-PASS=0; FAIL=0; TOTAL=0
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 # ── T1: profile count = 13 (Phase 1 target; Phase 2 adds orchestrator_multi_agent → 14; Phase 4 → 12) ──
 echo ""

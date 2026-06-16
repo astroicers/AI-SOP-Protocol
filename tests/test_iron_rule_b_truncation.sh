@@ -23,18 +23,13 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AUDIT="$ASP_ROOT/.asp/hooks/session-audit.sh"
-TEST_DIR=$(mktemp -d /tmp/asp-test-ironb-XXXXXX)
-PASS=0
-FAIL=0
-TOTAL=0
+mk_test_dir
 
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
 
-pass() { echo "  ✅ PASS: $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ FAIL: $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 LOG=".asp-bypass-log.ndjson"
 

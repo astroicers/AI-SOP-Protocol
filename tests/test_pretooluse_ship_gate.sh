@@ -8,14 +8,11 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$ASP_ROOT/.asp/hooks/pretooluse-ship-gate.sh"
-TEST_DIR=$(mktemp -d /tmp/asp-test-ptu-XXXXXX)
-PASS=0; FAIL=0; TOTAL=0
-cleanup(){ rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
-pass(){ echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail(){ echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
+mk_test_dir
 command -v jq >/dev/null 2>&1 || { echo "SKIP: jq 不存在"; exit 0; }
 
 PROJ="$TEST_DIR/proj"; mkdir -p "$PROJ/.git"

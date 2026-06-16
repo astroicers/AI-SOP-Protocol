@@ -8,14 +8,11 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$ASP_ROOT/.asp/scripts/asp-metrics.sh"
-TEST_DIR=$(mktemp -d /tmp/asp-test-metrics-XXXXXX)
-PASS=0; FAIL=0; TOTAL=0
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
+mk_test_dir
 
 # ── fixture repo builder ──
 FIX="$TEST_DIR/repo"

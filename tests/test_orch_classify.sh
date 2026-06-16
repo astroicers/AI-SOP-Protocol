@@ -6,11 +6,10 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$ASP_ROOT/.asp/scripts/orchestrator/classify-task.sh"
-PASS=0; FAIL=0; TOTAL=0
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 t() { OUT=$(bash "$SCRIPT" "$@" 2>/dev/null); RC=$?; }
 jval() { echo "$OUT" | jq -r "$1"; }

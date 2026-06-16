@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "$0")/lib/common.sh"
 # test_autopilot_targets.sh — TDD tests for autopilot Makefile targets
 # Run: bash tests/test_autopilot_targets.sh
 # All tests run in an isolated /tmp directory to avoid polluting the project.
@@ -7,9 +8,6 @@ set -euo pipefail
 
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEST_DIR=$(mktemp -d /tmp/asp-test-autopilot-XXXXXX)
-PASS=0
-FAIL=0
-TOTAL=0
 
 cleanup() {
   rm -rf "$TEST_DIR"

@@ -13,6 +13,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **session-audit 狀態時效掃描**：A17 外部事實查證 TTL（180 天）提醒、A18 autopilot 未完成狀態提醒，briefing 加 `stale_fact_count` / `autopilot_state_exists` 欄（rule-registry 同步登記）；`validate-profile.sh` 加手編 `.ai_profile` 後 stale 編譯產物提示（ADR-016 配套）。
   - **Iron Rule B per-entry hash chain**（ADR-019 FIRM / SPEC-012）：bypass log 每筆 `prev`/`h` 串接，補上 HWM 盲區——偵測等量替換、中間竄改、HWM 被同步竄改時的獨立性；`.chained` marker 擋「刪 hash 欄降級回容錯」繞過（G2 review FIND-2 catch）。誠實界定為 **tamper-evidence 非 tamper-proof**（純本地無外部信任錨）。新增 `bypass-hash.sh`（canonical/rechain/verify 單一實作點）、`make asp-bypass-rechain`、`test_iron_rule_b_hashchain.sh`。
 
+### Changed
+
+- **測試套件去重（`tests/lib/common.sh`）**：45 個 `tests/test_*.sh` 各自重複定義的 `pass()/fail()` 計數器與 `mktemp -d + trap cleanup` 樣板（淨 -106 行）抽至共用 `tests/lib/common.sh`（提供 `pass`/`fail`/`mk_test_dir`）。各測試以 `source "$(dirname "$0")/lib/common.sh"` 載入；lib 置於 `tests/lib/` 子目錄，避開 `make test` runner 與 shellcheck lint 的 `tests/*.sh` glob（不遞迴）而不被當測試執行或重複計數。零行為變更，bash 45/45 + pytest 16/16 全綠、lint 通過。
+
 ## [5.0.0] - 2026-06-11
 
 > **v5.0.0**（PR #25，ADR-013~018 全數 Accepted）。主題：**規則越少越鐵，執法越多越自動**——

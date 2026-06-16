@@ -5,17 +5,14 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$ASP_ROOT/.asp/scripts/inbox-triage.sh"
 PROFILE="$ASP_ROOT/.claude/skills/asp/asp-autopilot.md"
 INGEST="$ASP_ROOT/.asp/scripts/inbox-ingest.sh"
 AUDIT_HOOK="$ASP_ROOT/.asp/hooks/session-audit.sh"
-TEST_DIR=$(mktemp -d /tmp/asp-test-triage-XXXXXX)
-PASS=0; FAIL=0; TOTAL=0
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
+mk_test_dir
 
 INBOX() { echo "$TEST_DIR/.asp-task-inbox.json"; }
 ROADMAP() { echo "$TEST_DIR/ROADMAP.yaml"; }

@@ -5,12 +5,11 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURE="$ASP_ROOT/tests/fixtures/auto-gate/sample-summary.md"
 PLAN="$ASP_ROOT/.claude/skills/asp/asp-plan.md"
-PASS=0; FAIL=0; TOTAL=0
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 echo ""; echo "Fixture: canonical summary format"
 [ -f "$FIXTURE" ] || { fail "fixture 不存在"; echo "PASS: 0/1"; exit 1; }

@@ -5,11 +5,10 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLAN="$ASP_ROOT/.claude/skills/asp/asp-plan.md"
-PASS=0; FAIL=0; TOTAL=0
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 echo ""
 grep -q '^## Step 5\.[0-9]\+ — auto-gate' "$PLAN" \

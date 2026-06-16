@@ -11,18 +11,15 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VALIDATE="$ASP_ROOT/.asp/scripts/validate-profile.sh"
 COMPILE="$ASP_ROOT/.asp/scripts/asp-compile.sh"
 MAP="$ASP_ROOT/.asp/config/profile-map.yaml"
 CLAUDEMD="$ASP_ROOT/CLAUDE.md"
 PROFILES_DIR="$ASP_ROOT/.asp/profiles"
-TEST_DIR=$(mktemp -d /tmp/asp-test-pmc-XXXXXX)
-PASS=0; FAIL=0; TOTAL=0
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
+mk_test_dir
 
 command -v jq >/dev/null 2>&1 || { echo "SKIP: jq 不存在（asp-compile 依賴），跳過一致性測試"; exit 0; }
 

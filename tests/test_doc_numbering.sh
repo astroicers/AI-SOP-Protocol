@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "$0")/lib/common.sh"
 # test_doc_numbering.sh — TDD tests for adr-new / spec-new / postmortem-new
 #
 # Bug: original logic uses (count + 1) which collides when there's a gap in
@@ -11,13 +12,8 @@
 set -euo pipefail
 
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TEST_DIR=$(mktemp -d /tmp/asp-test-numbering-XXXXXX)
-PASS=0
-FAIL=0
-TOTAL=0
+mk_test_dir
 
-cleanup() { rm -rf "$TEST_DIR"; }
-trap cleanup EXIT
 
 setup_project() {
   rm -rf "${TEST_DIR:?}"/*

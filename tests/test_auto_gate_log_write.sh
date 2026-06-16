@@ -5,12 +5,11 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_DIR="$ASP_ROOT/.asp-gate-log"
 FIXTURE="$ASP_ROOT/tests/fixtures/auto-gate/sample-gate-log.md"
-PASS=0; FAIL=0; TOTAL=0
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 FNAME_RE='^[0-9]{8}T[0-9]{6}Z-G[1-6]-(ADR|SPEC)-[0-9]+.*\.md$'
 REQUIRED_KEYS=(gate target_id target_path trigger_commit spawn_timestamp_utc subagent_type result findings_count)

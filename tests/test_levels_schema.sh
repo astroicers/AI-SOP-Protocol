@@ -7,12 +7,11 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/lib/common.sh"
+
 ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LEVELS_DIR="$ASP_ROOT/.asp/levels"
 PROFILES_DIR="$ASP_ROOT/.asp/profiles"
-PASS=0; FAIL=0; TOTAL=0
-pass() { echo "  ✅ $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
-fail() { echo "  ❌ $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 # ── T1: exactly 3 yamls, named loose/standard/autonomous ──
 echo ""
