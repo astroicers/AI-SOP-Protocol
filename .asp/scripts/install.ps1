@@ -1,4 +1,4 @@
-# AI-SOP-Protocol Windows Installer (PowerShell) v4.1
+# AI-SOP-Protocol Windows Installer (PowerShell) v5
 #
 # 對應 install.sh 的 Windows 版本。安裝兩段：
 #   Phase 1：ASP 核心安裝到 $env:USERPROFILE\.claude\asp\（所有專案共用）
@@ -9,7 +9,7 @@
 #   irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
 #
 #   # 非互動式（CI / 預設值）
-#   $env:ASP_TYPE='system'; $env:ASP_LEVEL='2'
+#   $env:ASP_TYPE='system'; $env:ASP_LEVEL='standard'
 #   irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
 #
 # 必要前置：
@@ -174,7 +174,7 @@ function ConvertTo-BashPath {
 # 開場
 # ═══════════════════════════════════════════════════════════════════
 Write-Host ''
-Write-Host '🤖 AI-SOP-Protocol 安裝程式 v4.1（Windows / PowerShell）'
+Write-Host '🤖 AI-SOP-Protocol 安裝程式 v5（Windows / PowerShell）'
 Write-Host '================================================='
 Write-Host '  架構：User-level（%USERPROFILE%\.claude\asp\）— 所有專案共用'
 Write-Host ''
@@ -215,7 +215,7 @@ try {
     Write-Host "  版本：v$NewVersion ($NewCommit)"
 
     New-Item -ItemType Directory -Path $UserAsp -Force | Out-Null
-    foreach ($dir in @('profiles','hooks','templates','levels','agents','config','advanced')) {
+    foreach ($dir in @('profiles','hooks','templates','levels','config','scripts','advanced')) {
         $src = Join-Path $TmpDir ".asp\$dir"
         $dst = Join-Path $UserAsp $dir
         if (Test-Path $src) {
@@ -362,7 +362,8 @@ if ($hasClaudeMd -and $claudeMdIsAsp) {
     $claudeMdContent = @"
 # $PROJECT_NAME — AI 行為設定
 
-> ASP v4.0 | 讀取順序：本檔案 → ``.ai_profile`` → ``~/.claude/CLAUDE.md``（user-level 鐵則）
+> ASP v5 | 讀取順序：本檔案 → ``.asp-compiled-profile.md``（asp-compile 編譯產物；
+> 不存在時 → 依 ``.ai_profile`` 載入散文 profile 為 fallback）→ ``~/.claude/CLAUDE.md``（user-level 鐵則）
 > Profile 邏輯與 ASP skills 詳見 ``~/.claude/asp/profiles/`` 與 ``~/.claude/skills/asp/``
 
 ## 專案說明
@@ -383,6 +384,7 @@ New-Item -ItemType Directory -Path '.claude' -Force | Out-Null
 $bashHomeForward = ConvertTo-BashPath $HOME
 $hookAudit = "bash `"$bashHomeForward/.claude/asp/hooks/session-audit.sh`""
 $hookAllow = "bash `"$bashHomeForward/.claude/asp/hooks/clean-allow-list.sh`""
+$hookShip  = "bash `"$bashHomeForward/.claude/asp/hooks/pretooluse-ship-gate.sh`""
 
 $settingsPath = '.claude\settings.json'
 $jqAvailable = $null -ne (Get-Command jq -ErrorAction SilentlyContinue)
@@ -401,11 +403,24 @@ if ($jqAvailable -and (Test-Path $settingsPath)) {
           {"type": "command", "command": $audit}
         ]}
       ] |
+      .hooks.PreToolUse = [
+        ((.hooks.PreToolUse // [])[] |
+          select((.hooks // []) | all(.command | test("pretooluse-ship-gate") | not))
+        ),
+        {"matcher": "Bash", "hooks": [
+          {"type": "command", "command": $ship}
+        ]}
+      ] |
       .permissions.allow = ((.permissions.allow // []) + ["Bash(*)"] | unique)
 '@
-    & jq --arg audit $hookAudit --arg allow $hookAllow $jqFilter $settingsPath | Set-Content $tmpSettings -Encoding UTF8
-    Move-Item -Force $tmpSettings $settingsPath
-    Write-Success '.claude\settings.json（hooks 更新為 user-level 路徑 + bash 啟動）'
+    $jqOut = & jq --arg audit $hookAudit --arg allow $hookAllow --arg ship $hookShip $jqFilter $settingsPath
+    if ($LASTEXITCODE -eq 0 -and $jqOut) {
+        $jqOut | Set-Content $tmpSettings -Encoding UTF8
+        Move-Item -Force $tmpSettings $settingsPath
+        Write-Success '.claude\settings.json（hooks 更新為 user-level 路徑 + bash 啟動）'
+    } else {
+        Write-Warning 'jq 更新 settings.json 失敗，保留原檔（未變更）'
+    }
 } else {
     $settingsObj = [ordered]@{
         hooks = @{
@@ -414,6 +429,14 @@ if ($jqAvailable -and (Test-Path $settingsPath)) {
                     hooks = @(
                         @{ type='command'; command=$hookAllow },
                         @{ type='command'; command=$hookAudit }
+                    )
+                }
+            )
+            PreToolUse = @(
+                @{
+                    matcher = 'Bash'
+                    hooks = @(
+                        @{ type='command'; command=$hookShip }
                     )
                 }
             )
@@ -436,8 +459,13 @@ $denyJson = Join-Path $UserAsp 'hooks\denied-commands.json'
 if ($jqAvailable -and (Test-Path $denyJson)) {
     $tmpSettings = "$settingsPath.tmp"
     $denyContent = Get-Content $denyJson -Raw
-    & jq --argjson ask $denyContent '.permissions.ask = ((.permissions.ask // []) + $ask | unique)' $settingsPath | Set-Content $tmpSettings -Encoding UTF8
-    Move-Item -Force $tmpSettings $settingsPath
+    $jqDeny = & jq --argjson ask $denyContent '.permissions.ask = ((.permissions.ask // []) + $ask | unique)' $settingsPath
+    if ($LASTEXITCODE -eq 0 -and $jqDeny) {
+        $jqDeny | Set-Content $tmpSettings -Encoding UTF8
+        Move-Item -Force $tmpSettings $settingsPath
+    } else {
+        Write-Warning 'jq 合併 denied-commands 失敗，保留原 settings.json'
+    }
 }
 
 # docs/
@@ -465,7 +493,9 @@ $aspGitignoreEntries = @(
     '.asp-bypass-log.ndjson',
     '.asp-telemetry.jsonl',
     '.asp-fact-check.md',
-    '.asp-review-calibration.jsonl'
+    '.asp-review-calibration.jsonl',
+    '.asp-orch-state.json',
+    '.asp-compiled-profile.md'
 )
 if (Test-Path '.gitignore') {
     $existing = Get-Content '.gitignore'
@@ -477,6 +507,9 @@ if (Test-Path '.gitignore') {
         }
     }
     if ($added -gt 0) { Write-Success ".gitignore（補充 $added 條 ASP 執行時檔案）" }
+} else {
+    Set-Content '.gitignore' ($aspGitignoreEntries -join "`n") -Encoding UTF8
+    Write-Success ".gitignore（建立並寫入 $($aspGitignoreEntries.Count) 條 ASP 執行時檔案）"
 }
 
 # ═══════════════════════════════════════════════════════════════════

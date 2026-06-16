@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI-SOP-Protocol 安裝腳本 v4.0 — User-level 架構
+# AI-SOP-Protocol 安裝腳本 v5 — User-level 架構
 #
 # 安裝架構：
 #   Phase 1：ASP 核心裝到 ~/.claude/（所有專案共用，一次安裝）
@@ -180,7 +180,7 @@ apply_preset() {
 # 開場
 # ═══════════════════════════════════════════════════════════════════
 echo ""
-echo "🤖 AI-SOP-Protocol 安裝程式 v4.1"
+echo "🤖 AI-SOP-Protocol 安裝程式 v5"
 echo "======================================"
 echo "  架構：User-level（~/.claude/asp/）— 所有專案共用"
 echo ""
@@ -457,11 +457,12 @@ command -v jq &>/dev/null && JQ_OK=true
 
 HOOK_CMD_AUDIT="${HOME}/.claude/asp/hooks/session-audit.sh"
 HOOK_CMD_ALLOW="${HOME}/.claude/asp/hooks/clean-allow-list.sh"
+HOOK_CMD_SHIP="${HOME}/.claude/asp/hooks/pretooluse-ship-gate.sh"
 
 if [ "$JQ_OK" = true ]; then
   if [ -f ".claude/settings.json" ]; then
     # 升級：清理舊版 ASP hooks（project-local 路徑），加入 user-level 路徑
-    jq --arg audit "$HOOK_CMD_AUDIT" --arg allow "$HOOK_CMD_ALLOW" '
+    jq --arg audit "$HOOK_CMD_AUDIT" --arg allow "$HOOK_CMD_ALLOW" --arg ship "$HOOK_CMD_SHIP" '
       .hooks.SessionStart = [
         ((.hooks.SessionStart // [])[] |
           select((.hooks // []) | all(.command |
@@ -472,17 +473,31 @@ if [ "$JQ_OK" = true ]; then
           {"type": "command", "command": $audit}
         ]}
       ] |
+      .hooks.PreToolUse = [
+        ((.hooks.PreToolUse // [])[] |
+          select((.hooks // []) | all(.command | test("pretooluse-ship-gate\\.sh") | not))
+        ),
+        {"matcher": "Bash", "hooks": [
+          {"type": "command", "command": $ship}
+        ]}
+      ] |
       .permissions.allow = ((.permissions.allow // []) + ["Bash(*)"] | unique)
     ' .claude/settings.json > .claude/settings.json.tmp \
       && mv .claude/settings.json.tmp .claude/settings.json
     success ".claude/settings.json（ASP hooks 更新為 user-level 路徑）"
   else
-    jq -n --arg audit "$HOOK_CMD_AUDIT" --arg allow "$HOOK_CMD_ALLOW" '{
+    jq -n --arg audit "$HOOK_CMD_AUDIT" --arg allow "$HOOK_CMD_ALLOW" --arg ship "$HOOK_CMD_SHIP" '{
       "hooks": {
         "SessionStart": [{
           "hooks": [
             {"type": "command", "command": $allow},
             {"type": "command", "command": $audit}
+          ]
+        }],
+        "PreToolUse": [{
+          "matcher": "Bash",
+          "hooks": [
+            {"type": "command", "command": $ship}
           ]
         }]
       },
@@ -506,6 +521,12 @@ else
       "hooks": [
         {"type": "command", "command": "${HOME}/.claude/asp/hooks/clean-allow-list.sh"},
         {"type": "command", "command": "${HOME}/.claude/asp/hooks/session-audit.sh"}
+      ]
+    }],
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "hooks": [
+        {"type": "command", "command": "${HOME}/.claude/asp/hooks/pretooluse-ship-gate.sh"}
       ]
     }]
   },
@@ -564,6 +585,9 @@ if [ -f ".gitignore" ]; then
     fi
   done
   [ "$ADDED" -gt 0 ] && success ".gitignore（補充 $ADDED 條 ASP 執行時檔案）"
+else
+  printf '%s\n' "${ASP_GITIGNORE_ENTRIES[@]}" > .gitignore
+  success ".gitignore（建立並寫入 ${#ASP_GITIGNORE_ENTRIES[@]} 條 ASP 執行時檔案）"
 fi
 
 # ─── 首次編譯 profile（v5 ADR-016；best-effort，失敗不擋安裝） ───

@@ -110,10 +110,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
 快速掃描（僅 blocker）：
 └─ make audit-quick
 
-完整審計（7 個維度）：
+完整審計（9 個維度）：
 └─ make audit-health
-   維度：測試覆蓋 / SPEC覆蓋 / ADR合規 /
-         文件完整 / 程式碼衛生 / 依賴健康 / 文件新鮮度
+   維度：測試覆蓋 / SPEC覆蓋 / ADR合規 / 文件完整 /
+         程式碼衛生 / 依賴健康 / 文件新鮮度 / 測試品質 / SPEC場景覆蓋
 
 文件新鮮度：
 └─ make doc-audit
@@ -234,7 +234,7 @@ make runbook-view SCENARIO=incident-response  # 閱讀特定場景
 |------|------|
 | `docs/ROADMAP.md` | ASP 框架路線圖：v4.0 → v4.1 → v5.0 |
 | `docs/multi-agent-architecture.md` | Multi-agent 系統架構（角色、溝通協議） |
-| `docs/level0-spike-mode.md` | L0 Spike 模式使用指南 |
+| `docs/level0-spike-mode.md` | loose 等級 spike 模式使用指南（v5：原 L0 Spike） |
 | `docs/adr/ADR-002-asp-v4-security-threat-model.md` | 安全威脅模型（Iron Rules 來源） |
 | `docs/security/threat-model-v4.0.md` | STRIDE 威脅分析 + 8 步攻擊鏈 |
 | `~/.claude/asp/templates/example-profile-full.yaml` | 完整 `.ai_profile` schema 範例 |

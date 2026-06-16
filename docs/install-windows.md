@@ -47,9 +47,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
 irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
 ```
 
-非互動式（CI / 預設 L2）：
+非互動式（CI；未指定時預設 loose，下例顯式指定 standard）：
 ```powershell
-$env:ASP_TYPE='system'; $env:ASP_LEVEL='2'
+$env:ASP_TYPE='system'; $env:ASP_LEVEL='standard'
 irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.ps1 | iex
 ```
 

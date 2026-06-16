@@ -39,7 +39,7 @@ irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scrip
 
 > 需要 Git for Windows、Python 3.10+、jq 1.6+。詳見 [docs/install-windows.md](docs/install-windows.md)。
 
-安裝後：`~/.claude/asp/`（profiles/hooks）和 `~/.claude/skills/asp/`（24 個 skills）即可用於所有專案。
+安裝後：`~/.claude/asp/`（profiles/hooks）和 `~/.claude/skills/asp/`（15 個 skills）即可用於所有專案。
 
 ### Step 2 — Project-level 設定（每個專案一次，在專案根目錄執行）
 
