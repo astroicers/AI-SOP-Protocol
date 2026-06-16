@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-12 |
 | **決策者** | ASP framework maintainers |
 
 > ⬆️ 由 `Draft` 升 `FIRM`：使用者 2026-06-12 透過 asp-plan HITL（AskUserQuestion）明確授權「升 FIRM + 實作 P1+P1b+P3」並放行實作（非 AI 自行升級，符合 ADR 狀態變更鐵則）。G1/G2 auto-gate 雙 PASS_WITH_WARN，findings 已修補。
+
+> ⬆️ 由 `FIRM` 升 `Accepted`：使用者 2026-06-16 透過 `/approve-adr 020` 呼叫，看完本指令摘要（ADR-020 決策重點 + Verification Evidence 全綠）後經 AskUserQuestion 明確同意（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
 
