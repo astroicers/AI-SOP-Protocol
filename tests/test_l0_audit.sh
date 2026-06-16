@@ -26,24 +26,24 @@ run() { OUT=$(bash "$SCRIPT" "$TEST_DIR" 2>&1); RC=$?; }
 echo ""
 echo "T1: no .ai_profile → skip, exit 0"
 mkproj; run
-{ echo "$OUT" | grep -q "not an ASP-governed" && [ "$RC" = "0" ]; } \
+{ grep -q "not an ASP-governed" <<<"$OUT" && [ "$RC" = "0" ]; } \
   && pass "no profile → skip + exit 0" || fail "no-profile case wrong (rc=$RC)"
 
 # ── T2: level != loose → not applicable, exit 0（v5：legacy 2 → standard）──
 echo ""
 echo "T2: non-loose project → not applicable, exit 0"
 mkproj; printf 'type: system\nlevel: 2\n' > "$TEST_DIR/.ai_profile"; run
-{ echo "$OUT" | grep -q "not loose" && [ "$RC" = "0" ]; } \
+{ grep -q "not loose" <<<"$OUT" && [ "$RC" = "0" ]; } \
   && pass "non-loose → skip + exit 0" || fail "non-loose case wrong (rc=$RC)"
 mkproj; printf 'type: system\nlevel: standard\n' > "$TEST_DIR/.ai_profile"; run
-{ echo "$OUT" | grep -q "not loose" && [ "$RC" = "0" ]; } \
+{ grep -q "not loose" <<<"$OUT" && [ "$RC" = "0" ]; } \
   && pass "named standard → skip + exit 0" || fail "named standard wrong (rc=$RC)"
 
 # ── T2a: legacy level 0 與 named loose 均進入 audit ──
 echo ""
 echo "T2a: legacy 0 and named loose both enter audit"
 mkproj; printf 'type: system\nlevel: loose\n' > "$TEST_DIR/.ai_profile"; run
-echo "$OUT" | grep -q "Level: loose" && pass "level: loose enters audit" || fail "named loose not audited"
+grep -q "Level: loose" <<<"$OUT" && pass "level: loose enters audit" || fail "named loose not audited"
 
 # ── T3: L0 + recent commit → Active ──
 echo ""
@@ -51,7 +51,7 @@ echo "T3: L0 with a recent commit → diagnosed Active"
 mkproj; printf 'type: system\nlevel: 0\n' > "$TEST_DIR/.ai_profile"
 git -C "$TEST_DIR" add -A; git -C "$TEST_DIR" commit -q -m init
 run
-echo "$OUT" | grep -q "Active" && pass "L0 + recent commit → Active" || fail "Active not diagnosed"
+grep -q "Active" <<<"$OUT" && pass "L0 + recent commit → Active" || fail "Active not diagnosed"
 [ "$RC" = "0" ] && pass "exit 0 (non-blocking)" || fail "non-zero exit (rc=$RC)"
 
 # ── T4: L0 with no commits → zombie signal, still exit 0 ──
@@ -59,7 +59,7 @@ echo ""
 echo "T4: L0 with no commit history → zombie signal, exit 0"
 mkproj; printf 'type: system\nlevel: 0\n' > "$TEST_DIR/.ai_profile"
 run
-echo "$OUT" | grep -qiE "zombie|0 commits" && pass "L0 + no commits → zombie signal" || fail "zombie not flagged"
+grep -qiE "zombie|0 commits" <<<"$OUT" && pass "L0 + no commits → zombie signal" || fail "zombie not flagged"
 [ "$RC" = "0" ] && pass "still exit 0 with empty git history" || fail "non-zero exit on empty history (rc=$RC)"
 
 # ── Summary ──

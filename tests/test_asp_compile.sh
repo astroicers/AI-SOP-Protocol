@@ -86,7 +86,7 @@ echo "T4: 顯式衝突（level=loose + autopilot）→ exit 1 指明衝突對"
 build_fixture; P "type: system" "level: loose" "autopilot: enabled"
 t
 [ "$RC" = "1" ] && pass "exit 1" || fail "rc=$RC"
-echo "$ERR" | grep -q 'loosey' && echo "$ERR" | grep -q 'autopiloty' \
+grep -q 'loosey' <<<"$ERR" && grep -q 'autopiloty' <<<"$ERR" \
   && pass "stderr 指明衝突對" || fail "err=$ERR"
 
 echo ""
@@ -95,14 +95,14 @@ build_fixture; P "type: system" "level: standard" "workflow: vibe-coding" "autop
 t
 [ "$RC" = "0" ] && pass "exit 0（降級不報錯）" || fail "rc=$RC err=$ERR"
 ! grep -q 'profile: loosey' "$ART" && pass "loosey 不在產物（已丟棄）" || fail "loosey still compiled"
-echo "$ERR" | grep -qi 'warn' && pass "stderr 有 WARNING" || fail "no warning"
+grep -qi 'warn' <<<"$ERR" && pass "stderr 有 WARNING" || fail "no warning"
 
 echo ""
 echo "T5: 幽靈引用容錯（rag=enabled → ghost_profile 無檔）"
 build_fixture; P "type: content" "rag: enabled"
 t
 [ "$RC" = "0" ] && pass "exit 0" || fail "rc=$RC"
-echo "$ERR" | grep -q 'ghost_profile' && pass "WARNING 提及 ghost_profile" || fail "no ghost warning"
+grep -q 'ghost_profile' <<<"$ERR" && pass "WARNING 提及 ghost_profile" || fail "no ghost warning"
 
 echo ""
 echo "T6: >2500 行 → WARNING"
@@ -115,7 +115,7 @@ awk '1; /load: "global_core"$/ && !d {print "  - when: \"type=content\""; print 
 P "type: content"
 t
 [ "$RC" = "0" ] && pass "exit 0" || fail "rc=$RC"
-echo "$ERR" | grep -q '2,\?500\|2500' && pass "WARNING 提及 2500 門檻" || fail "no size warning: $ERR"
+grep -q '2,\?500\|2500' <<<"$ERR" && pass "WARNING 提及 2500 門檻" || fail "no size warning: $ERR"
 
 echo ""
 echo "T7: --check 新鮮/重編"
@@ -124,10 +124,12 @@ t
 TS1=$(grep 'compiled_at:' "$ART")
 sleep 1.1
 t --check
-echo "$ERR$OUT" | grep -qi 'fresh' && pass "--check 新鮮不重編" || fail "expected fresh"
+grep -qi 'fresh' <<<"$ERR$OUT" && pass "--check 新鮮不重編" || fail "expected fresh"
 TS2=$(grep 'compiled_at:' "$ART")
 [ "$TS1" = "$TS2" ] && pass "compiled_at 未變" || fail "rewritten when fresh"
-touch "$FIX/.ai_profile"; sleep 0.1
+# sleep 在 touch 前：保證 .ai_profile mtime 跨秒嚴格新於產物。
+# （秒級 mtime 比對下 sleep 0.1 不足跨秒 → --check 偶發誤判 fresh → not recompiled）
+sleep 1.1; touch "$FIX/.ai_profile"
 t --check
 TS3=$(grep 'compiled_at:' "$ART")
 [ "$TS1" != "$TS3" ] && pass "touch .ai_profile → 重編（compiled_at 變）" || fail "not recompiled"

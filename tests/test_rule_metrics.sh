@@ -45,7 +45,7 @@ mkdir -p "$TEST_DIR/ro"; chmod 555 "$TEST_DIR/ro"
 OUT=$(CLAUDE_PROJECT_DIR="$P" ASP_METRICS_FILE="$TEST_DIR/ro/sub/m.jsonl" bash "$HOOK" 2>&1); RC=$?
 [ "$RC" = "0" ] && pass "唯讀下 hook exit 0" || fail "rc=$RC"
 [ -f "$P/.asp-session-briefing.json" ] && pass "briefing 仍生成" || fail "briefing 缺失"
-echo "$OUT" | grep -qi 'metrics.*error\|permission denied' && fail "stderr 有 metrics 噪音" || pass "無 metrics 錯誤噪音"
+grep -qi 'metrics.*error\|permission denied' <<<"$OUT" && fail "stderr 有 metrics 噪音" || pass "無 metrics 錯誤噪音"
 
 echo ""
 echo "T3: 專案名含引號 → JSON 仍合法"

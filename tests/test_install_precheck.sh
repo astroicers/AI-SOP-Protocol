@@ -28,7 +28,7 @@ assert_eq() {
 assert_contains() {
   TOTAL=$((TOTAL + 1))
   local desc="$1"; local haystack="$2"; local needle="$3"
-  if printf '%s' "$haystack" | grep -qF "$needle"; then echo "  ✅ $desc"; PASS=$((PASS + 1));
+  if grep -qF "$needle" <<<"$haystack"; then echo "  ✅ $desc"; PASS=$((PASS + 1));
   else echo "  ❌ $desc"; echo "     haystack: $haystack"; echo "     needle:   $needle"; FAIL=$((FAIL + 1)); fi
 }
 

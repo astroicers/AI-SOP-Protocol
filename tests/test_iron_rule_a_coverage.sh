@@ -20,15 +20,15 @@ CRIT=$(grep -oE 'for CRITICAL_FILE in [^;]+' "$HOOK" | head -1)
 
 echo ""
 echo "T1: Iron Rule A 涵蓋核心 hook 與 deny 清單"
-echo "$CRIT" | grep -q 'session-audit.sh' && pass "session-audit.sh 受保護" || fail "session-audit.sh 未受保護"
-echo "$CRIT" | grep -q 'denied-commands.json' && pass "denied-commands.json 受保護" || fail "denied-commands.json 未受保護"
+grep -q 'session-audit.sh' <<<"$CRIT" && pass "session-audit.sh 受保護" || fail "session-audit.sh 未受保護"
+grep -q 'denied-commands.json' <<<"$CRIT" && pass "denied-commands.json 受保護" || fail "denied-commands.json 未受保護"
 
 echo ""
 echo "T2: Iron Rule A 涵蓋 chain 驗證器 bypass-hash.sh（ADR-019 review HIGH）"
-echo "$CRIT" | grep -q 'bypass-hash.sh' \
+grep -q 'bypass-hash.sh' <<<"$CRIT" \
   && pass "bypass-hash.sh 受 Iron Rule A 保護" \
   || fail "bypass-hash.sh 不受保護 — 改 verify() 即可繞過 chain（看守者缺口）"
-echo "$CRIT" | grep -q 'pretooluse-ship-gate.sh' \
+grep -q 'pretooluse-ship-gate.sh' <<<"$CRIT" \
   && pass "pretooluse-ship-gate.sh 受 Iron Rule A 保護（ADR-020 commit 閘）" \
   || fail "pretooluse-ship-gate.sh 不受保護 — 改 hook 即可繞過 commit 閘"
 

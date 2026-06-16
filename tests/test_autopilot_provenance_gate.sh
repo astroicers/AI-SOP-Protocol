@@ -23,33 +23,33 @@ echo ""
 echo "S1: is_external_provenance defined with source_type + triggered_by rules"
 grep -q "is_external_provenance" "$PROFILE" \
     && pass "is_external_provenance defined" || fail "is_external_provenance missing"
-echo "$GATE_SECTION" | grep -q "source_type" \
+grep -q "source_type" <<<"$GATE_SECTION" \
     && pass "rule covers source_type" || fail "source_type not in gate section"
-echo "$GATE_SECTION" | grep -q "triggered_by" \
+grep -q "triggered_by" <<<"$GATE_SECTION" \
     && pass "rule covers triggered_by" || fail "triggered_by not in gate section"
 
 # ── S2/P2: 外部 + 無 ADR → blocked，含 INV-2 與 SPEC-009 過渡語意 ──
 echo ""
 echo "S2: external task without ADR is blocked (INV-2, SPEC-009 transition)"
-echo "$GATE_SECTION" | grep -q "INV-2" \
+grep -q "INV-2" <<<"$GATE_SECTION" \
     && pass "gate cites INV-2" || fail "no INV-2 reference in gate"
-echo "$GATE_SECTION" | grep -q "SPEC-009" \
+grep -q "SPEC-009" <<<"$GATE_SECTION" \
     && pass "gate cites SPEC-009 transition" || fail "no SPEC-009 transition reference"
-echo "$GATE_SECTION" | grep -q "blocked_by_provenance" \
+grep -q "blocked_by_provenance" <<<"$GATE_SECTION" \
     && pass "blocked_by_provenance list exists" || fail "blocked_by_provenance missing"
 
 # ── S3/P3: 外部任務不適用 FIRM 🟡 豁免 ──
 echo ""
 echo "S3: external tasks get NO FIRM yellow-flag exemption"
-echo "$GATE_SECTION" | grep -q "FIRM" \
+grep -q "FIRM" <<<"$GATE_SECTION" \
     && pass "gate addresses FIRM explicitly" || fail "gate silent on FIRM (exemption ambiguity)"
-echo "$GATE_SECTION" | grep -qE 'Accepted' \
+grep -qE 'Accepted' <<<"$GATE_SECTION" \
     && pass "gate requires Accepted" || fail "gate does not require Accepted"
 
 # ── S4/N1: provenance 閘段內不自動建 Draft ADR ──
 echo ""
 echo "S4: provenance gate never auto-creates Draft ADRs for external tasks"
-if echo "$GATE_SECTION" | grep -q "make adr-new"; then
+if grep -q "make adr-new" <<<"$GATE_SECTION"; then
     fail "provenance gate auto-creates ADRs (C1 noise; belongs to asp-op pivot)"
 else
     pass "no make adr-new inside provenance gate"

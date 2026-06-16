@@ -42,9 +42,9 @@ echo "T1: type=system, level=standard → validate 載入清單含 pipeline + co
 P1="$TEST_DIR/p1"
 printf 'type: system\nlevel: standard\ncoding_style: enabled\n' > "$P1"
 VP=$(validate_profiles "$P1")
-echo "$VP" | grep -qx "pipeline"     && pass "validate 載入清單含 pipeline" \
+grep -qx "pipeline" <<<"$VP"     && pass "validate 載入清單含 pipeline" \
   || fail "validate 載入清單缺 pipeline（level=standard drift — map 有但 validate 硬編碼漏列）"
-echo "$VP" | grep -qx "coding_style" && pass "validate 載入清單含 coding_style" \
+grep -qx "coding_style" <<<"$VP" && pass "validate 載入清單含 coding_style" \
   || fail "validate 載入清單缺 coding_style"
 
 # ── T2: 契約鎖定 — validate 載入清單 ≡ asp-compile --list（多組態，皆不觸發 auto-fix） ──
@@ -77,7 +77,7 @@ T3FAIL=0; T3CHECKED=0
 for tok in $CANDIDATES; do
   [ -f "$PROFILES_DIR/$tok.md" ] || continue   # 只檢真 profile 檔（排除 asp-autopilot skill 等非 profile token）
   T3CHECKED=$((T3CHECKED+1))
-  echo "$MAP_PROFILES" | grep -qx "$tok" || { fail "CLAUDE.md 提到 $tok 但 map 無對應 load（drift）"; T3FAIL=1; }
+  grep -qx "$tok" <<<"$MAP_PROFILES" || { fail "CLAUDE.md 提到 $tok 但 map 無對應 load（drift）"; T3FAIL=1; }
 done
 if [ "$T3CHECKED" = 0 ]; then
   fail "CLAUDE.md 映射段未抽到任何 profile token（解析失效，需檢查段落格式）"

@@ -180,12 +180,12 @@ if [ -f "$ASP_ROOT/.asp/scripts/audit-fallback.sh" ]; then
   setup
   write_firm_adr "$TEST_DIR/docs/adr/ADR-TEST-firm.md"
   output=$(CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$ASP_ROOT/.asp/scripts/audit-fallback.sh" 2>/dev/null || true)
-  if echo "$output" | grep -q "YELLOW\|🟡\|FIRM"; then
+  if grep -q "YELLOW\|🟡\|FIRM" <<<"$output"; then
     pass "audit-fallback.sh outputs YELLOW/FIRM signal for FIRM ADR"
   else
     fail "audit-fallback.sh missing YELLOW/FIRM signal for FIRM ADR"
   fi
-  if echo "$output" | grep -qE "BLOCKER.*FIRM|FIRM.*BLOCKER"; then
+  if grep -qE "BLOCKER.*FIRM|FIRM.*BLOCKER" <<<"$output"; then
     fail "audit-fallback.sh incorrectly marks FIRM ADR as BLOCKER"
   else
     pass "audit-fallback.sh does not mark FIRM ADR as BLOCKER"

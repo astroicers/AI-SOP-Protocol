@@ -54,7 +54,7 @@ count_hits() { # $1 = JSON array of keywords → stdout: 每行一個命中的 k
   local kw
   while IFS= read -r kw; do
     [ -n "$kw" ] || continue
-    if echo "$TASK" | grep -qiF -- "$kw"; then
+    if grep -qiF -- "$kw" <<<"$TASK"; then
       printf '%s\n' "$kw"
     fi
   done < <(jq -r '.[]' <<< "$1")
@@ -91,7 +91,7 @@ while [ "$i" -lt "$N" ]; do
   rule=$(jq -c ".types[$i] " "$RULES")
   t=$(jq -r '.type' <<< "$rule")
   hits=$(count_hits "$(jq -c '.keywords' <<< "$rule")")
-  n=0; [ -n "$hits" ] && n=$(echo "$hits" | grep -c .)
+  n=0; [ -n "$hits" ] && n=$(grep -c . <<<"$hits")
   TYPE_HITS[$t]=$n
   TOTAL_HITS=$((TOTAL_HITS + n))
   # priority 序 = 陣列順序：只在「嚴格更多命中於更高優先類之前未命中」時取代——

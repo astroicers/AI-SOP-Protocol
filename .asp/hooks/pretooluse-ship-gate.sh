@@ -20,7 +20,7 @@ COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null) 
 [ -n "$COMMAND" ] || exit 0
 
 # ── 只攔「指令位置」的 git commit（行首或 ;/&&/| 之後），避免字串內誤判 ──
-echo "$COMMAND" | grep -qE '(^|[;&|]+[[:space:]]*)git[[:space:]]+commit' || exit 0
+grep -qE '(^|[;&|]+[[:space:]]*)git[[:space:]]+commit' <<<"$COMMAND" || exit 0
 
 PROJ="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$INPUT" | jq -r '.cwd // "."' 2>/dev/null)}"
 METRICS_FILE="${ASP_METRICS_FILE:-$HOME/.claude/asp/metrics/rule-hits.jsonl}"
@@ -44,7 +44,7 @@ IDX="$PROJ/.git/index"
 fresh=0
 if [ -f "$TR" ] && [ "$(jq -r '.passed // false' "$TR" 2>/dev/null)" = "true" ]; then
   if [ -f "$IDX" ]; then
-    if echo "$COMMAND" | grep -qE '\-\-amend'; then
+    if grep -qE '\-\-amend' <<<"$COMMAND"; then
       fresh=1                       # amend：.git/index mtime 不可靠 → passed-only（保守放行）
     elif [ ! "$IDX" -nt "$TR" ]; then
       fresh=1                       # test-result 不舊於 index（= staging 後跑過測試）

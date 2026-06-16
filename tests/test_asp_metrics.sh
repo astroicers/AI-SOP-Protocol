@@ -121,8 +121,8 @@ echo "T5: --compare with self"
 bash "$SCRIPT" --repo-root "$FIX" --output "$TEST_DIR/base.json" >/dev/null 2>&1
 CMP=$(bash "$SCRIPT" --repo-root "$FIX" --compare "$TEST_DIR/base.json" 2>/dev/null); RC=$?
 [ "$RC" = "0" ] && pass "--compare exit 0" || fail "--compare rc=$RC"
-echo "$CMP" | grep -q 'Δ' && pass "compare table contains Δ column" || fail "no Δ in compare output"
-echo "$CMP" | grep -qE '\+0|-0| 0 ' && pass "self-compare shows zero delta" || fail "no zero delta found"
+grep -q 'Δ' <<<"$CMP" && pass "compare table contains Δ column" || fail "no Δ in compare output"
+grep -qE '\+0|-0| 0 ' <<<"$CMP" && pass "self-compare shows zero delta" || fail "no zero delta found"
 
 # ── T6: exit codes ──
 echo ""

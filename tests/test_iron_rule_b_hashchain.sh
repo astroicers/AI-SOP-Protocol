@@ -38,7 +38,7 @@ bash "$HASH" verify "$L" >/dev/null 2>&1 && pass "rechain 後 verify 通過" || 
 e='{"timestamp":"t","skill":"x","step":"y","reason":"z","actor":"ai","prev":"P","h":"H"}'
 c1=$(bash "$HASH" canonical "$e" 2>/dev/null); c2=$(bash "$HASH" canonical "$e" 2>/dev/null)
 { [ -n "$c1" ] && [ "$c1" = "$c2" ]; } && pass "canonical 穩定且去除 prev/h" || fail "canonical 不穩定: '$c1'"
-echo "$c1" | grep -q '"prev"' && fail "canonical 仍含 prev（應去除）" || pass "canonical 已去除 prev/h"
+grep -q '"prev"' <<<"$c1" && fail "canonical 仍含 prev（應去除）" || pass "canonical 已去除 prev/h"
 
 echo ""; echo "P2: 空 log → verify 通過"
 : > "$TEST_DIR/empty.ndjson"

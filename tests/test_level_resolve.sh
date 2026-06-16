@@ -29,8 +29,8 @@ done
 echo ""
 echo "T2: deprecation notice on stderr for numeric input"
 ERR=$(bash "$SCRIPT" 3 2>&1 >/dev/null)
-echo "$ERR" | grep -q "DEPRECATED" && pass "stderr contains DEPRECATED" || fail "no DEPRECATED in stderr: $ERR"
-echo "$ERR" | grep -q "v6" && pass "stderr mentions v6 removal" || fail "no v6 mention"
+grep -q "DEPRECATED" <<<"$ERR" && pass "stderr contains DEPRECATED" || fail "no DEPRECATED in stderr: $ERR"
+grep -q "v6" <<<"$ERR" && pass "stderr mentions v6 removal" || fail "no v6 mention"
 OUT=$(bash "$SCRIPT" 3 2>/dev/null)
 [ "$OUT" = "standard" ] && pass "stdout is clean name only" || fail "stdout polluted: '$OUT'"
 

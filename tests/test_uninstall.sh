@@ -31,7 +31,7 @@ echo "T1: dry-run is non-destructive (deletes nothing) and exits 0"
 setup
 OUT=$(cd "$TEST_DIR" && bash "$SCRIPT" --dry-run --yes 2>&1); RC=$?
 [ "$RC" = "0" ] && pass "dry-run exits 0" || fail "dry-run exit code $RC"
-echo "$OUT" | grep -q "\[DRY\]" && pass "ran in dry mode ([DRY] markers present)" || fail "no [DRY] markers — dry mode not active"
+grep -q "\[DRY\]" <<<"$OUT" && pass "ran in dry mode ([DRY] markers present)" || fail "no [DRY] markers — dry mode not active"
 intact=1
 for f in .asp .asp/hooks .claude/settings.json Makefile .ai_profile docs/adr/ADR-001-x.md; do
   [ -e "$TEST_DIR/$f" ] || { intact=0; echo "    deleted: $f"; }
@@ -41,7 +41,7 @@ done
 # ── T2: user content is NOT in the removal set (preserve guarantee) ──
 echo ""
 echo "T2: .ai_profile and docs/ are preserved (never marked for removal)"
-if echo "$OUT" | grep -E "\[DRY\].*(\.ai_profile|docs/adr)" >/dev/null; then
+if grep -qE "\[DRY\].*(\.ai_profile|docs/adr)" <<<"$OUT"; then
   fail "uninstall would remove user content (.ai_profile / docs/adr)"
 else
   pass "user content (.ai_profile, docs/adr) not in removal set"

@@ -33,7 +33,7 @@ case "$VALUE" in
 esac
 
 # 數字 → 名稱
-if echo "$VALUE" | grep -qE '^[0-5]$'; then
+if grep -qE '^[0-5]$' <<<"$VALUE"; then
   NAME=""
   if [ -f "$MAP_FILE" ]; then
     NAME=$(awk -v n="$VALUE" '

@@ -92,7 +92,7 @@ assert_file_not_exists() {
 assert_output_contains() {
   local test_name="$1" needle="$2" haystack="$3"
   TOTAL=$((TOTAL + 1))
-  if echo "$haystack" | grep -q "$needle"; then
+  if grep -q "$needle" <<<"$haystack"; then
     echo "  ✅ $test_name"
     PASS=$((PASS + 1))
   else

@@ -26,7 +26,7 @@ run_hook(){ # $1=command ; env ASP_SHIP_OK optional
     "$(printf '%s' "$1" | jq -Rs .)" "$PROJ" \
     | CLAUDE_PROJECT_DIR="$PROJ" ASP_METRICS_FILE="$METRICS" ASP_SHIP_OK="${ASP_SHIP_OK:-}" bash "$HOOK"
 }
-denied(){ printf '%s' "$1" | grep -q '"permissionDecision":[[:space:]]*"deny"'; }
+denied(){ grep -q '"permissionDecision":[[:space:]]*"deny"' <<<"$1"; }
 metric_has(){ grep -q "\"rule_id\":\"SHIP-GATE\".*\"action\":\"$1\"" "$METRICS" 2>/dev/null; }
 
 fresh_ship(){ rm -f "$METRICS"; touch "$PROJ/.git/index"; sleep 1; echo '{"passed":true}' > "$PROJ/.asp-test-result.json"; }

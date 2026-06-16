@@ -22,7 +22,7 @@ echo ""
 echo "T1: hook 內 asp_metric id ⊆ registry"
 MISSING=""
 for id in $HOOK_IDS; do
-  echo "$REG_IDS" | grep -qx "$id" || MISSING="$MISSING $id"
+  grep -qx "$id" <<<"$REG_IDS" || MISSING="$MISSING $id"
 done
 [ -z "$MISSING" ] && pass "hook 全部 id 已註冊（$(echo "$HOOK_IDS" | wc -l) 個）" || fail "未註冊 id:$MISSING"
 
@@ -31,20 +31,20 @@ echo "T2: registry 中 observed_by=session-audit 的 AUDIT-*/IRON-*/DENY-DYNAMIC
 SA_IDS=$(awk '/^  - id: /{id=$3} /observed_by: session-audit/{print id}' "$REG" | grep -E '^(AUDIT-|IRON-|DENY-DYNAMIC)' | sort -u)
 DRIFT=""
 for id in $SA_IDS; do
-  echo "$HOOK_IDS" | grep -qx "$id" || DRIFT="$DRIFT $id"
+  grep -qx "$id" <<<"$HOOK_IDS" || DRIFT="$DRIFT $id"
 done
 [ -z "$DRIFT" ] && pass "registry session-audit ids 全部在 hook 中（$(echo "$SA_IDS" | wc -l) 個）" || fail "registry 漂移（hook 無此 id）:$DRIFT"
 
 echo ""
 echo "T3: DENY-NN 條數 = denied-commands.json 長度"
-REG_DENY=$(echo "$REG_IDS" | grep -cE '^DENY-[0-9]+$')
+REG_DENY=$(grep -cE '^DENY-[0-9]+$' <<<"$REG_IDS")
 JSON_DENY=$(jq 'length' "$DENY")
 [ "$REG_DENY" = "$JSON_DENY" ] && pass "DENY 條數一致（$REG_DENY）" || fail "registry=$REG_DENY json=$JSON_DENY"
 
 echo ""
 echo "T4: 必在 id（gates / 鐵則）"
 for id in GATE-G1 GATE-G2 GATE-G3 GATE-G4 GATE-G5 GATE-G6 IRON-A IRON-B IRON-C CLAUDE-IR-1 CLAUDE-IR-2 CLAUDE-IR-3 CLAUDE-IR-4 DENY-DYNAMIC; do
-  echo "$REG_IDS" | grep -qx "$id" && pass "$id" || fail "$id 缺席"
+  grep -qx "$id" <<<"$REG_IDS" && pass "$id" || fail "$id 缺席"
 done
 
 echo ""

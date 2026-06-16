@@ -58,27 +58,27 @@ echo "T1: 全 id 枚舉 + 命中計數"
 run
 [ "$RC" = "0" ] && pass "exit 0" || fail "rc=$RC err=$(cat "$TEST_DIR/err")"
 for id in IRON-X AUDIT-HIT AUDIT-COLD DENY-X GATE-G1; do
-  echo "$OUT" | grep -q "$id" && pass "$id 在輸出中" || fail "$id 缺席"
+  grep -q "$id" <<<"$OUT" && pass "$id 在輸出中" || fail "$id 缺席"
 done
-echo "$OUT" | grep 'AUDIT-HIT' | grep -q ' 2 ' && pass "AUDIT-HIT hits=2" || fail "AUDIT-HIT 計數錯: $(echo "$OUT" | grep AUDIT-HIT)"
+grep 'AUDIT-HIT' <<<"$OUT" | grep -q ' 2 ' && pass "AUDIT-HIT hits=2" || fail "AUDIT-HIT 計數錯: $(grep AUDIT-HIT <<<"$OUT")"
 
 echo ""
 echo "T2: 90 天窗（窗外事件不計）+ disposition 四分類"
-echo "$OUT" | grep 'AUDIT-COLD' | grep -q '待刪候選' && pass "AUDIT-COLD（窗外）→ 待刪候選" || fail "AUDIT-COLD 分類錯"
-echo "$OUT" | grep 'IRON-X' | grep -q '鐵則豁免' && pass "exempt → 鐵則豁免" || fail "IRON-X 分類錯"
-echo "$OUT" | grep 'DENY-X' | grep -q '不可觀測' && pass "observed_by none → 不可觀測" || fail "DENY-X 分類錯"
-echo "$OUT" | grep 'AUDIT-HIT' | grep -q 'active' && pass "有命中 → active" || fail "AUDIT-HIT 分類錯"
-echo "$OUT" | grep 'GATE-G1' | grep -q ' 1 ' && pass "GATE-G1 gate-log 機械計數=1" || fail "GATE-G1 計數錯"
+grep 'AUDIT-COLD' <<<"$OUT" | grep -q '待刪候選' && pass "AUDIT-COLD（窗外）→ 待刪候選" || fail "AUDIT-COLD 分類錯"
+grep 'IRON-X' <<<"$OUT" | grep -q '鐵則豁免' && pass "exempt → 鐵則豁免" || fail "IRON-X 分類錯"
+grep 'DENY-X' <<<"$OUT" | grep -q '不可觀測' && pass "observed_by none → 不可觀測" || fail "DENY-X 分類錯"
+grep 'AUDIT-HIT' <<<"$OUT" | grep -q 'active' && pass "有命中 → active" || fail "AUDIT-HIT 分類錯"
+grep 'GATE-G1' <<<"$OUT" | grep -q ' 1 ' && pass "GATE-G1 gate-log 機械計數=1" || fail "GATE-G1 計數錯"
 
 echo ""
 echo "T3: --days 365 → 窗外事件納入"
 run --days 365
-echo "$OUT" | grep 'AUDIT-COLD' | grep -q ' 1 ' && pass "--days 365 納入舊事件" || fail "窗口參數無效"
+grep 'AUDIT-COLD' <<<"$OUT" | grep -q ' 1 ' && pass "--days 365 納入舊事件" || fail "窗口參數無效"
 
 echo ""
 echo "T4: 待刪候選彙總段存在"
 run
-echo "$OUT" | grep -q '待刪候選' && pass "輸出含待刪候選段" || fail "缺彙總段"
+grep -q '待刪候選' <<<"$OUT" && pass "輸出含待刪候選段" || fail "缺彙總段"
 
 echo ""
 echo "T5: 退出碼"

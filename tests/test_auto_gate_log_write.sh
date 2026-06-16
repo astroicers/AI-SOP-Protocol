@@ -20,10 +20,10 @@ check_log() {  # $1=path → asserts frontmatter keys + result 值域
     local fm; fm=$(sed -n '/^---$/,/^---$/p' "$f")
     local ok=1
     for k in "${REQUIRED_KEYS[@]}"; do
-        echo "$fm" | grep -q "^${k}:" || { fail "$name 缺 frontmatter key: $k"; ok=0; }
+        grep -q "^${k}:" <<<"$fm" || { fail "$name 缺 frontmatter key: $k"; ok=0; }
     done
     [ "$ok" -eq 1 ] && pass "$name frontmatter keys 齊全"
-    echo "$fm" | grep -E "^result: *(PASS|PASS_WITH_WARN|FAIL)" >/dev/null \
+    grep -qE "^result: *(PASS|PASS_WITH_WARN|FAIL)" <<<"$fm" \
         && pass "$name result 值域正確" || fail "$name result 值域非法"
 }
 
@@ -48,7 +48,7 @@ if [ "${#REAL[@]}" -eq 0 ]; then
 else
     for f in "${REAL[@]}"; do
         name=$(basename "$f")
-        echo "$name" | grep -qE "$FNAME_RE" \
+        grep -qE "$FNAME_RE" <<<"$name" \
             && pass "$name 檔名符合 pattern" || fail "$name 檔名不符 {ts}-G{n}-{id}.md"
         check_log "$f"
     done

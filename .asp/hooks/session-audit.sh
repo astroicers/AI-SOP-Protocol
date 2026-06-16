@@ -274,7 +274,7 @@ TODAY=$(date +%Y-%m-%d)
 
 # 掃描整個專案的 tech-debt 標記（排除 .git）
 while IFS= read -r line; do
-    due_date=$(echo "$line" | grep -oP 'DUE:\s*\K\d{4}-\d{2}-\d{2}' || true)
+    due_date=$(grep -oP 'DUE:\s*\K\d{4}-\d{2}-\d{2}' <<<"$line" || true)
     if [ -n "$due_date" ] && [[ "$due_date" < "$TODAY" ]]; then
         OVERDUE_COUNT=$((OVERDUE_COUNT + 1))
     fi

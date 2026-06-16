@@ -108,7 +108,7 @@ get_requires() { # $1=name
   line=${line#*requires:}; line=${line%-->*}
   echo "$line" | tr ',' '\n' | while IFS= read -r tok; do
     tok=$(echo "$tok" | awk '{print $1}')
-    case "$tok" in ''|\(*) continue ;; *) echo "$tok" | grep -qE '^[a-z_][a-z0-9_]*$' && echo "$tok" ;; esac
+    case "$tok" in ''|\(*) continue ;; *) grep -qE '^[a-z_][a-z0-9_]*$' <<<"$tok" && echo "$tok" ;; esac
   done
 }
 get_conflicts() { # $1=name
@@ -118,7 +118,7 @@ get_conflicts() { # $1=name
   line=${line#*conflicts:}; line=${line%-->*}
   echo "$line" | tr ',' '\n' | while IFS= read -r tok; do
     tok=$(echo "$tok" | awk '{print $1}')
-    case "$tok" in ''|\(*) continue ;; *) echo "$tok" | grep -qE '^[a-z_][a-z0-9_]*$' && echo "$tok" ;; esac
+    case "$tok" in ''|\(*) continue ;; *) grep -qE '^[a-z_][a-z0-9_]*$' <<<"$tok" && echo "$tok" ;; esac
   done
 }
 

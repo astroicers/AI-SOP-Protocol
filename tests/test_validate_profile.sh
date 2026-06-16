@@ -30,49 +30,49 @@ OUT=$(bash "$SCRIPT" "$TEST_DIR/nope" 2>&1); RC=$?
 echo ""
 echo "T2: missing 'type' → ERROR, exit 1"
 printf 'level: 2\n' > "$(P)"; run
-{ echo "$OUT" | grep -q "缺少必填欄位 type" && [ "$RC" = "1" ]; } \
+{ grep -q "缺少必填欄位 type" <<<"$OUT" && [ "$RC" = "1" ]; } \
   && pass "missing type produces ERROR + exit 1" || fail "missing type not caught (rc=$RC)"
 
 # ── T3: invalid level → ERROR ──
 echo ""
 echo "T3: invalid level value → ERROR"
 printf 'type: system\nlevel: 9\n' > "$(P)"; run
-echo "$OUT" | grep -q "level 值無效" && pass "invalid level → ERROR" || fail "invalid level not caught"
+grep -q "level 值無效" <<<"$OUT" && pass "invalid level → ERROR" || fail "invalid level not caught"
 
 # ── T3a: legacy numeric level → deprecation WARNING, not ERROR (v5 ADR-014) ──
 echo ""
 echo "T3a: legacy numeric level → WARNING + mapped, exit != 1"
 printf 'type: system\nlevel: 3\n' > "$(P)"; run
-echo "$OUT" | grep -q "v4 數字等級" && pass "deprecation warning shown" || fail "no deprecation warning"
-echo "$OUT" | grep -q "level: standard" && pass "mapped to standard" || fail "not mapped to standard"
+grep -q "v4 數字等級" <<<"$OUT" && pass "deprecation warning shown" || fail "no deprecation warning"
+grep -q "level: standard" <<<"$OUT" && pass "mapped to standard" || fail "not mapped to standard"
 [ "$RC" != "1" ] && pass "numeric level does not exit 1" || fail "numeric level exits 1"
 
 # ── T3b: named level passes cleanly ──
 echo ""
 echo "T3b: level: standard → ✅, no warning"
 printf 'type: system\nlevel: standard\n' > "$(P)"; run
-{ echo "$OUT" | grep -q "✅ level: standard" && [ "$RC" = "0" ]; } \
+{ grep -q "✅ level: standard" <<<"$OUT" && [ "$RC" = "0" ]; } \
   && pass "named level ok, exit 0" || fail "named level rc=$RC"
 
 # ── T3c: workflow vibe-coding loads loose_mode; with autonomous → conflict WARNING ──
 echo ""
 echo "T3c: vibe-coding → loose_mode; +autonomous → conflict warning"
 printf 'type: system\nlevel: standard\nworkflow: vibe-coding\n' > "$(P)"; run
-echo "$OUT" | grep -q "loose_mode.md" && pass "vibe-coding lists loose_mode.md" || fail "loose_mode.md not listed"
+grep -q "loose_mode.md" <<<"$OUT" && pass "vibe-coding lists loose_mode.md" || fail "loose_mode.md not listed"
 printf 'type: system\nworkflow: vibe-coding\nautonomous: enabled\n' > "$(P)"; run
-echo "$OUT" | grep -q "衝突" && pass "vibe-coding+autonomous → conflict warning" || fail "no conflict warning"
+grep -q "衝突" <<<"$OUT" && pass "vibe-coding+autonomous → conflict warning" || fail "no conflict warning"
 
 # ── T3d: guardrail field deprecated → INFO ──
 echo ""
 echo "T3d: guardrail: enabled → deprecated INFO"
 printf 'type: system\nlevel: standard\nguardrail: enabled\n' > "$(P)"; run
-echo "$OUT" | grep -q "guardrail 欄位已 deprecated" && pass "guardrail INFO shown" || fail "no guardrail INFO"
+grep -q "guardrail 欄位已 deprecated" <<<"$OUT" && pass "guardrail INFO shown" || fail "no guardrail INFO"
 
 # ── T4: invalid hitl → ERROR ──
 echo ""
 echo "T4: invalid hitl value → ERROR"
 printf 'type: system\nhitl: bogus\n' > "$(P)"; run
-echo "$OUT" | grep -q "hitl 值無效" && pass "invalid hitl → ERROR" || fail "invalid hitl not caught"
+grep -q "hitl 值無效" <<<"$OUT" && pass "invalid hitl → ERROR" || fail "invalid hitl not caught"
 
 # ── T5: design:enabled w/o frontend_quality → WARNING + portable auto-fix ──
 echo ""
@@ -93,7 +93,7 @@ run
 echo ""
 echo "T7: valid profile → pass, exit 0"
 printf 'type: system\nlevel: standard\nhitl: standard\nmode: single\n' > "$(P)"; run
-{ echo "$OUT" | grep -q "驗證通過" && [ "$RC" = "0" ]; } \
+{ grep -q "驗證通過" <<<"$OUT" && [ "$RC" = "0" ]; } \
   && pass "valid profile passes with exit 0" || fail "valid profile not passing (rc=$RC)"
 
 # ── T8: 手編 .ai_profile 比編譯產物新 → stale 提示（ADR-016 配套；純提示不改 rc） ──
@@ -103,10 +103,10 @@ printf 'type: system\nlevel: standard\n' > "$(P)"
 ART="$TEST_DIR/.asp-compiled-profile.md"
 : > "$ART"; touch -d '2020-01-01' "$ART"; touch "$(P)"   # artifact 舊、profile 新
 run
-{ echo "$OUT" | grep -q "編譯產物可能 stale" && [ "$RC" = "0" ]; } \
+{ grep -q "編譯產物可能 stale" <<<"$OUT" && [ "$RC" = "0" ]; } \
   && pass "stale 提示出現且不改 rc" || fail "stale 提示缺失或誤改 rc=$RC"
 touch -d '2099-01-01' "$ART"; run                        # artifact 未來（fresh）→ 不提示
-echo "$OUT" | grep -q "編譯產物可能 stale" && fail "fresh 時誤報 stale" || pass "fresh 時不提示"
+grep -q "編譯產物可能 stale" <<<"$OUT" && fail "fresh 時誤報 stale" || pass "fresh 時不提示"
 rm -f "$ART"
 
 # ── Summary ──

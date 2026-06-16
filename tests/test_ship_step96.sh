@@ -42,8 +42,8 @@ setup_repo
 echo "# adr" > "$TEST_DIR/repo/docs/adr/ADR-099-test.md"
 ( cd "$TEST_DIR/repo" && git add docs/adr/ADR-099-test.md )
 out=$(run96)
-echo "$out" | grep -q "Step 9.6 WARN" && pass "WARN 輸出" || fail "無 WARN（got: $out）"
-echo "$out" | grep -q "ADR-099" && pass "WARN 指名缺漏 ID" || fail "WARN 未指名 ID"
+grep -q "Step 9.6 WARN" <<<"$out" && pass "WARN 輸出" || fail "無 WARN（got: $out）"
+grep -q "ADR-099" <<<"$out" && pass "WARN 指名缺漏 ID" || fail "WARN 未指名 ID"
 
 # ── T2: staged ADR + 對應 gate log → 無 WARN ──
 echo ""; echo "T2: staged ADR with matching gate log → no WARN"
@@ -53,7 +53,7 @@ echo "# adr" > "$TEST_DIR/repo/docs/adr/ADR-099-test.md"
 mkdir -p "$TEST_DIR/repo/.asp-gate-log"
 touch "$TEST_DIR/repo/.asp-gate-log/20260611T000000Z-G1-ADR-099.md"
 out=$(run96)
-echo "$out" | grep -q "Step 9.6 WARN" && fail "不應有 WARN（got: $out）" || pass "無 WARN"
+grep -q "Step 9.6 WARN" <<<"$out" && fail "不應有 WARN（got: $out）" || pass "無 WARN"
 
 # ── T3: 無 ADR/SPEC staged → 安靜跳過（exit 0）──
 echo ""; echo "T3: no ADR/SPEC staged → silent exit 0"
@@ -62,7 +62,7 @@ echo x > "$TEST_DIR/repo/other.txt"
 ( cd "$TEST_DIR/repo" && git add other.txt )
 out=$(run96); rc=$?
 [ "$rc" -eq 0 ] && pass "exit 0" || fail "exit $rc"
-echo "$out" | grep -q "WARN" && fail "不應有 WARN" || pass "無輸出噪音"
+grep -q "WARN" <<<"$out" && fail "不應有 WARN" || pass "無輸出噪音"
 
 # ── T4: SPEC staged 也納管 ──
 echo ""; echo "T4: staged SPEC without log → WARN"
@@ -70,7 +70,7 @@ setup_repo
 echo "# spec" > "$TEST_DIR/repo/docs/specs/SPEC-099-test.md"
 ( cd "$TEST_DIR/repo" && git add docs/specs/SPEC-099-test.md )
 out=$(run96)
-echo "$out" | grep -q "Step 9.6 WARN" && pass "SPEC 缺 log → WARN" || fail "SPEC 未被納管"
+grep -q "Step 9.6 WARN" <<<"$out" && pass "SPEC 缺 log → WARN" || fail "SPEC 未被納管"
 
 echo ""
 echo "================================"

@@ -119,7 +119,7 @@ get_requires() { # $1=profile name → stdout: 每行一個 require token
     tok=$(echo "$tok" | awk '{print $1}')
     case "$tok" in
       ''|\(*) continue ;;
-      *) echo "$tok" | grep -qE '^[a-z_][a-z0-9_]*$' && echo "$tok" ;;
+      *) grep -qE '^[a-z_][a-z0-9_]*$' <<<"$tok" && echo "$tok" ;;
     esac
   done
 }
@@ -218,7 +218,7 @@ RESULT=$(jq -n \
   --argjson profile_total "$(printf '%s\n' "$PROFILE_ROWS" | rows_sum 2)" \
   --argjson skill_total "$(printf '%s\n' "$SKILL_ROWS" | rows_sum 2)" \
   --argjson level_total "$(printf '%s\n' "$LEVEL_ROWS" | rows_sum 2)" \
-  --argjson level_count "$(printf '%s\n' "$LEVEL_ROWS" | grep -c . || true)" \
+  --argjson level_count "$(grep -c . <<<"$LEVEL_ROWS" || true)" \
   --argjson rules_total "$(( $(printf '%s\n' "$PROFILE_ROWS" | rows_sum 3) + $(printf '%s\n' "$SKILL_ROWS" | rows_sum 3) ))" \
   --argjson claude_md "$CLAUDE_MD_LINES" \
   --argjson tax_l1 "$TAX_L1" \
