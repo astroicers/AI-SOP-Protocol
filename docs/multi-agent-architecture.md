@@ -1,6 +1,6 @@
 <!-- Status: FROZEN — multi-agent 已於 v5 凍結為 Experimental（ADR-017）；本文件為歷史架構記錄，活內容見 experimental/multi-agent/README.md -->
 
-<!-- Last Updated: 2026-05-09 | Status: Active | Audience: L4-L5 users -->
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: autonomous users -->
 # Multi-Agent 協作架構（ASP v3.0）
 
 > 本文件是 ASP v3.0 multi-agent 系統的完整技術參考。

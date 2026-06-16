@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-09 | Status: Active | Audience: L2+ users -->
+<!-- Last Updated: 2026-05-09 | Status: Active | Audience: standard+ users -->
 # ASP Telemetry 使用指南
 
 > Telemetry 系統以 JSONL append-only 格式記錄 session 事件，供後期分析使用。

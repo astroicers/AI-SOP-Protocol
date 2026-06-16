@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-09 | Status: Accepted | Audience: L5 users -->
+<!-- Last Updated: 2026-05-09 | Status: Accepted | Audience: autonomous users -->
 # [ADR-001]: Autopilot — Roadmap 驅動持續執行
 
 | 欄位 | 內容 |
