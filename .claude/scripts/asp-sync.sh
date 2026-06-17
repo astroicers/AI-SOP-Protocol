@@ -23,6 +23,8 @@ USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
 USER_SKILLS="${USER_CLAUDE}/skills/asp"
 USER_CMDS="${USER_CLAUDE}/commands/asp"
+SELF_SRC="${ASP_REPO}/.claude/scripts/asp-sync.sh"     # 自我更新來源
+SELF_DST="${USER_CLAUDE}/scripts/asp-sync.sh"          # 已安裝副本
 
 DRY_RUN=false
 AUTO_YES=false
@@ -109,8 +111,10 @@ if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
 else
   DIFF_CMDS=""
 fi
+# asp-sync 自身：已安裝副本與 repo 版不同 → 視為需同步（否則「只有 asp-sync 變」時會誤判 already-in-sync 而不自我更新）
+if [ -f "$SELF_SRC" ] && ! cmp -s "$SELF_SRC" "$SELF_DST" 2>/dev/null; then DIFF_SELF="asp-sync.sh changed"; else DIFF_SELF=""; fi
 
-if [ -z "$DIFF_ASP" ] && [ -z "$DIFF_SKILLS" ] && [ -z "$DIFF_CMDS" ]; then
+if [ -z "$DIFF_ASP" ] && [ -z "$DIFF_SKILLS" ] && [ -z "$DIFF_CMDS" ] && [ -z "$DIFF_SELF" ]; then
   echo "  Already in sync — v${INSTALLED_VERSION} 是最新版本"
   echo ""
   exit 0
@@ -216,6 +220,19 @@ fi
 
 # hooks 需要執行權限
 chmod +x "$USER_ASP/hooks/"*.sh "$USER_ASP/scripts/"*.sh "$USER_ASP/scripts/orchestrator/"*.sh 2>/dev/null || true
+
+# 自我更新：把最新 asp-sync.sh 裝回 ~/.claude/scripts/。asp-sync 過去不更新自己
+# （只有 install.sh 會裝它）→ 改了 repo 版後已安裝副本會一直舊。用 temp + mv（atomic）
+# 避免覆蓋「執行中」的腳本檔導致 bash 讀取錯亂（mv 換 dir entry，執行中行程仍持有舊 inode）。
+if [ -n "$DIFF_SELF" ]; then
+  mkdir -p "$USER_CLAUDE/scripts"
+  if cp "$SELF_SRC" "$SELF_DST.tmp.$$" && chmod +x "$SELF_DST.tmp.$$"; then
+    mv "$SELF_DST.tmp.$$" "$SELF_DST"
+    success "~/.claude/scripts/asp-sync.sh（自我更新）"
+  else
+    rm -f "$SELF_DST.tmp.$$" 2>/dev/null || true
+  fi
+fi
 
 # user-level CLAUDE.md 同步（只更新 ASP 版本）
 USER_CLAUDE_MD="$USER_CLAUDE/CLAUDE.md"
