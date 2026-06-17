@@ -15,7 +15,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/m
 cd your-project
 bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)
 
-# 更新 ASP 到最新版本
+# 更新 ASP 到最新版本（來源比已安裝舊時會偵測為降級並中止；刻意回退設 ASP_ALLOW_DOWNGRADE=1）
 bash ~/.claude/scripts/asp-sync.sh
 
 # 移除當前專案的 ASP 設定

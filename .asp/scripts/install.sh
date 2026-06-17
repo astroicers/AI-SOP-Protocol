@@ -29,6 +29,7 @@ TMP_DIR=$(mktemp -d /tmp/asp-install-XXXXX)
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
 USER_SKILLS="${USER_CLAUDE}/skills/asp"
+USER_CMDS="${USER_CLAUDE}/commands/asp"
 
 # 失敗時清理暫存目錄
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -61,6 +62,18 @@ version_at_least() {
     local required="$1" actual="$2"
     [ "$actual" = "$required" ] && return 0
     [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -1)" = "$required" ]
+}
+
+is_downgrade() {
+    # is_downgrade <installed> <source>  →  exit 0 iff 兩者皆 semver 且 source < installed。
+    # 非 semver（unknown / not installed / 含非數字點字元）一律回 1，不誤判方向。
+    local installed="$1" source="$2"
+    case "$installed" in ''|*[!0-9.]*) return 1;; esac   # 含非數字非點 → 非版本
+    case "$source"    in ''|*[!0-9.]*) return 1;; esac
+    case "$installed" in *[0-9]*) ;; *) return 1;; esac   # 須含至少一個數字（擋純點 "." ".."）
+    case "$source"    in *[0-9]*) ;; *) return 1;; esac
+    [ "$installed" = "$source" ] && return 1
+    [ "$(printf '%s\n%s\n' "$installed" "$source" | sort -V | head -1)" = "$source" ]
 }
 
 precheck_runtime() {
@@ -200,6 +213,7 @@ echo "📦 Phase 1：安裝 ASP 核心到 ~/.claude/"
 echo "──────────────────────────────────────"
 
 IS_USER_UPGRADE=false
+DOWNGRADE=false; UPGRADE=false   # 版本方向（clone 後計算；提前宣告供完成訊息在 set -u 下安全引用）
 if [ -d "$USER_ASP" ] || [ -d "$USER_SKILLS" ]; then
   IS_USER_UPGRADE=true
   INSTALLED_VERSION="unknown"
@@ -213,6 +227,22 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   NEW_VERSION=$(cat "$TMP_DIR/.asp/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
   NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
+
+  # ─── 版本方向守門（防無聲降級；對應 asp-sync.sh 同款防護）───
+  if [ "$IS_USER_UPGRADE" = true ]; then
+    if   is_downgrade "${INSTALLED_VERSION:-unknown}" "$NEW_VERSION"; then DOWNGRADE=true
+    elif is_downgrade "$NEW_VERSION" "${INSTALLED_VERSION:-unknown}"; then UPGRADE=true
+    fi
+  fi
+  if [ "$DOWNGRADE" = true ]; then
+    warn "偵測到降級：已安裝 v${INSTALLED_VERSION} 比來源 v${NEW_VERSION} 新（${PROTOCOL_REPO}@${NEW_COMMIT}）"
+    echo "     來源可能落後（GitHub main 未更新 / ASP_REPO_URL 指向舊版）。"
+    if [ "${ASP_ALLOW_DOWNGRADE:-0}" != "1" ]; then
+      warn "已中止：預設不把 user-level 降級。確定要降級請設 ASP_ALLOW_DOWNGRADE=1 重跑。"
+      exit 1
+    fi
+    warn "ASP_ALLOW_DOWNGRADE=1 — 強制降級"
+  fi
 
   # ~/.claude/asp/（profiles/hooks/templates/levels/config/scripts）
   # v5（ADR-015）：scripts 加入複製清單——orchestrator 確定性腳本與 asp-compile 需部署到 user-level
@@ -254,6 +284,15 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   mkdir -p "$USER_SKILLS"
   rm -rf "${USER_SKILLS:?}/"*
   cp -r "$TMP_DIR/.claude/skills/asp/." "$USER_SKILLS/"
+
+  # ~/.claude/commands/asp/（自訂 slash 指令，namespaced → /asp:approve-adr、/asp:review-work）
+  # rm -rf 安全：目標是 ASP 專屬子目錄，非共用頂層 ~/.claude/commands/
+  if [ -d "$TMP_DIR/.claude/commands/asp" ]; then
+    mkdir -p "$USER_CMDS"
+    rm -rf "${USER_CMDS:?}/"*
+    cp -r "$TMP_DIR/.claude/commands/asp/." "$USER_CMDS/"
+    success "~/.claude/commands/asp/（自訂 slash 指令）"
+  fi
 
   # ~/.claude/CLAUDE.md（user-level 鐵則）
   # 只有在不存在或已是 ASP 版本時才覆蓋
@@ -317,17 +356,24 @@ ASP_REPO="${HOME}/AI-SOP-Protocol"
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
 USER_SKILLS="${USER_CLAUDE}/skills/asp"
+USER_CMDS="${USER_CLAUDE}/commands/asp"
 [ -d "$ASP_REPO" ] || { echo "ERROR: ASP repo not found at $ASP_REPO"; exit 1; }
 DIFF=$(diff -rq "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
 DIFF2=$(diff -rq "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
-[ -z "$DIFF" ] && [ -z "$DIFF2" ] && { echo "Already in sync"; exit 0; }
+# commands/asp：來源在但目標未裝 → 視為需同步（目標缺時 diff 報錯會被吞成空字串）
+if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+  [ -d "$USER_CMDS" ] && DIFF3=$(diff -rq "$USER_CMDS" "$ASP_REPO/.claude/commands/asp" 2>/dev/null || true) || DIFF3="missing"
+else DIFF3=""; fi
+[ -z "$DIFF" ] && [ -z "$DIFF2" ] && [ -z "$DIFF3" ] && { echo "Already in sync"; exit 0; }
 echo "Changes detected. Syncing..."
 if command -v rsync &>/dev/null; then
   rsync -a --delete "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
+  [ -d "$ASP_REPO/.claude/commands/asp" ] && { mkdir -p "$USER_CMDS"; rsync -a --delete "$ASP_REPO/.claude/commands/asp/" "$USER_CMDS/"; }
 else
   rm -rf "$USER_ASP" && cp -r "$ASP_REPO/.asp" "$USER_ASP"
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
+  [ -d "$ASP_REPO/.claude/commands/asp" ] && { rm -rf "${USER_CMDS:?}"; mkdir -p "$(dirname "$USER_CMDS")"; cp -r "$ASP_REPO/.claude/commands/asp" "$USER_CMDS"; }
 fi
 chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
 echo "Synced $(find "$USER_SKILLS" -type f | wc -l) skill files + profiles/hooks/templates"
@@ -336,7 +382,13 @@ SYNCSH
   success "~/.claude/scripts/asp-sync.sh"
 
   if [ "$IS_USER_UPGRADE" = true ]; then
-    success "User-level 升級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    if [ "$DOWNGRADE" = true ]; then
+      success "User-level 降級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    elif [ "$UPGRADE" = true ]; then
+      success "User-level 升級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    else
+      success "User-level 同步完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    fi
   else
     success "User-level 安裝完成（v${NEW_VERSION}）"
   fi
@@ -601,7 +653,9 @@ fi
 # 完成
 # ═══════════════════════════════════════════════════════════════════
 echo ""
-if [ "$IS_PROJECT_UPGRADE" = true ]; then
+if [ "$DOWNGRADE" = true ]; then
+  echo "🎉 降級完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
+elif [ "$IS_PROJECT_UPGRADE" = true ]; then
   echo "🎉 升級完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
 else
   echo "🎉 安裝完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
