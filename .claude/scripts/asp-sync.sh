@@ -38,6 +38,18 @@ GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 success() { echo -e "  ${GREEN}✓${NC} $1"; }
 warn()    { echo -e "  ${YELLOW}⚠${NC}  $1"; }
 
+# is_downgrade <installed> <source> — 0 (true) iff 兩者皆 semver 且 source < installed。
+# 非 semver（unknown / not installed / 含非數字點字元）一律回 1（不誤判方向）。
+is_downgrade() {
+  local installed="$1" source="$2"
+  case "$installed" in ''|*[!0-9.]*) return 1;; esac   # 含非數字非點 → 非版本
+  case "$source"    in ''|*[!0-9.]*) return 1;; esac
+  case "$installed" in *[0-9]*) ;; *) return 1;; esac   # 須含至少一個數字（擋純點 "." ".."）
+  case "$source"    in *[0-9]*) ;; *) return 1;; esac
+  [ "$installed" = "$source" ] && return 1
+  [ "$(printf '%s\n%s\n' "$installed" "$source" | sort -V | head -1)" = "$source" ]
+}
+
 # ─── Source 驗證 ─────────────────────────────────────────────────
 if [ ! -d "$ASP_REPO" ]; then
   echo "ERROR: ASP repo not found at $ASP_REPO"
@@ -53,10 +65,21 @@ fi
 REPO_VERSION=$(cat "$ASP_REPO/.asp/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
 INSTALLED_VERSION=$(cat "$USER_ASP/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "not installed")
 
+# ─── 版本方向（ADR-020 類：防止無聲降級）───
+DOWNGRADE=false; UPGRADE=false
+if   is_downgrade "$INSTALLED_VERSION" "$REPO_VERSION"; then DOWNGRADE=true   # 來源 < 已安裝
+elif is_downgrade "$REPO_VERSION" "$INSTALLED_VERSION"; then UPGRADE=true     # 已安裝 < 來源
+fi
+
 echo ""
 echo "🔄 ASP Sync"
 echo "  repo:      v${REPO_VERSION} (${ASP_REPO})"
 echo "  installed: v${INSTALLED_VERSION}"
+if [ "$DOWNGRADE" = true ]; then
+  warn "偵測到降級：已安裝 v${INSTALLED_VERSION} 比來源 v${REPO_VERSION} 新"
+  echo "     來源：${ASP_REPO}（$(git -C "$ASP_REPO" log -1 --oneline 2>/dev/null || echo '非 git / 未知 commit')）"
+  echo "     來源 repo 可能停在舊 commit。請先 cd ${ASP_REPO} && git pull，或確認來源未指向舊版。"
+fi
 if [ "$DRY_RUN" = true ]; then
   echo "  ── DRY RUN 模式（不實際同步）──"
 fi
@@ -123,9 +146,23 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
-if [ "$AUTO_YES" = false ] && [ -t 0 ]; then
+# 降級守門：非互動預設中止（ASP_ALLOW_DOWNGRADE=1 覆寫）；互動需額外確認。
+if [ "$DOWNGRADE" = true ]; then
+  if [ "$AUTO_YES" = true ] || [ ! -t 0 ]; then
+    if [ "${ASP_ALLOW_DOWNGRADE:-0}" != "1" ]; then
+      warn "已中止：非互動模式預設不執行降級。確定要降級請設 ASP_ALLOW_DOWNGRADE=1 重跑。"
+      echo ""
+      exit 1
+    fi
+    warn "ASP_ALLOW_DOWNGRADE=1 — 強制降級"
+  else
+    printf "  ⚠️ 確定要降級 v${INSTALLED_VERSION} → v${REPO_VERSION}（會覆蓋成舊版）？[y/N] "
+    read -r CONFIRM || CONFIRM=""
+    if [ "${CONFIRM,,}" != "y" ]; then echo "  已取消"; exit 0; fi
+  fi
+elif [ "$AUTO_YES" = false ] && [ -t 0 ]; then
   printf "  同步 v${INSTALLED_VERSION} → v${REPO_VERSION}？[y/N] "
-  read -r CONFIRM
+  read -r CONFIRM || CONFIRM=""
   if [ "${CONFIRM,,}" != "y" ]; then
     echo "  已取消"
     exit 0
@@ -198,7 +235,19 @@ PROFILE_COUNT=$(find "$USER_ASP/profiles" -name "*.md" 2>/dev/null | wc -l || ec
 
 success "~/.claude/asp/（${PROFILE_COUNT} profiles + hooks/templates/levels）"
 success "~/.claude/skills/asp/（${SKILL_COUNT} skills）"
+if [ -d "$USER_CMDS" ]; then
+  CMD_COUNT=$(find "$USER_CMDS" -name "*.md" | wc -l)
+  success "~/.claude/commands/asp/（${CMD_COUNT} 自訂 slash 指令）"
+fi
 
 echo ""
-echo "  同步完成：v${INSTALLED_VERSION} → v${REPO_VERSION}"
+if [ "$DOWNGRADE" = true ]; then
+  echo "  降級完成：v${INSTALLED_VERSION} → v${REPO_VERSION}"
+elif [ "$UPGRADE" = true ]; then
+  echo "  升級完成：v${INSTALLED_VERSION} → v${REPO_VERSION}"
+elif [ "$INSTALLED_VERSION" = "$REPO_VERSION" ]; then
+  echo "  同步完成（同版本內容更新）：v${REPO_VERSION}"
+else
+  echo "  同步完成：v${INSTALLED_VERSION} → v${REPO_VERSION}"
+fi
 echo ""

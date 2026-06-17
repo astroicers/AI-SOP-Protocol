@@ -147,6 +147,8 @@ git pull
 make asp-update
 ```
 
+> 版本方向防護：若來源版本比已安裝舊（如忘記 `git pull`、repo 停在舊 commit），同步會偵測為**降級**並預設中止。確需降級（如刻意回退）請設 `ASP_ALLOW_DOWNGRADE=1` 重跑。
+
 ### 其他電腦（全新安裝）
 
 重新執行 Step 1 安裝指令，腳本自動覆蓋舊版並 clone repo 到 `~/AI-SOP-Protocol/`。

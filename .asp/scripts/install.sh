@@ -64,6 +64,18 @@ version_at_least() {
     [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -1)" = "$required" ]
 }
 
+is_downgrade() {
+    # is_downgrade <installed> <source>  →  exit 0 iff 兩者皆 semver 且 source < installed。
+    # 非 semver（unknown / not installed / 含非數字點字元）一律回 1，不誤判方向。
+    local installed="$1" source="$2"
+    case "$installed" in ''|*[!0-9.]*) return 1;; esac   # 含非數字非點 → 非版本
+    case "$source"    in ''|*[!0-9.]*) return 1;; esac
+    case "$installed" in *[0-9]*) ;; *) return 1;; esac   # 須含至少一個數字（擋純點 "." ".."）
+    case "$source"    in *[0-9]*) ;; *) return 1;; esac
+    [ "$installed" = "$source" ] && return 1
+    [ "$(printf '%s\n%s\n' "$installed" "$source" | sort -V | head -1)" = "$source" ]
+}
+
 precheck_runtime() {
     if [ "${ASP_SKIP_PRECHECK:-0}" = "1" ]; then
         warn "ASP_SKIP_PRECHECK=1 set — bypassing v4.1 runtime checks"
@@ -201,6 +213,7 @@ echo "📦 Phase 1：安裝 ASP 核心到 ~/.claude/"
 echo "──────────────────────────────────────"
 
 IS_USER_UPGRADE=false
+DOWNGRADE=false; UPGRADE=false   # 版本方向（clone 後計算；提前宣告供完成訊息在 set -u 下安全引用）
 if [ -d "$USER_ASP" ] || [ -d "$USER_SKILLS" ]; then
   IS_USER_UPGRADE=true
   INSTALLED_VERSION="unknown"
@@ -214,6 +227,22 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   NEW_VERSION=$(cat "$TMP_DIR/.asp/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "unknown")
   NEW_COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   echo "  版本：v${NEW_VERSION} (${NEW_COMMIT})"
+
+  # ─── 版本方向守門（防無聲降級；對應 asp-sync.sh 同款防護）───
+  if [ "$IS_USER_UPGRADE" = true ]; then
+    if   is_downgrade "${INSTALLED_VERSION:-unknown}" "$NEW_VERSION"; then DOWNGRADE=true
+    elif is_downgrade "$NEW_VERSION" "${INSTALLED_VERSION:-unknown}"; then UPGRADE=true
+    fi
+  fi
+  if [ "$DOWNGRADE" = true ]; then
+    warn "偵測到降級：已安裝 v${INSTALLED_VERSION} 比來源 v${NEW_VERSION} 新（${PROTOCOL_REPO}@${NEW_COMMIT}）"
+    echo "     來源可能落後（GitHub main 未更新 / ASP_REPO_URL 指向舊版）。"
+    if [ "${ASP_ALLOW_DOWNGRADE:-0}" != "1" ]; then
+      warn "已中止：預設不把 user-level 降級。確定要降級請設 ASP_ALLOW_DOWNGRADE=1 重跑。"
+      exit 1
+    fi
+    warn "ASP_ALLOW_DOWNGRADE=1 — 強制降級"
+  fi
 
   # ~/.claude/asp/（profiles/hooks/templates/levels/config/scripts）
   # v5（ADR-015）：scripts 加入複製清單——orchestrator 確定性腳本與 asp-compile 需部署到 user-level
@@ -353,7 +382,13 @@ SYNCSH
   success "~/.claude/scripts/asp-sync.sh"
 
   if [ "$IS_USER_UPGRADE" = true ]; then
-    success "User-level 升級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    if [ "$DOWNGRADE" = true ]; then
+      success "User-level 降級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    elif [ "$UPGRADE" = true ]; then
+      success "User-level 升級完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    else
+      success "User-level 同步完成（v${INSTALLED_VERSION} → v${NEW_VERSION}）"
+    fi
   else
     success "User-level 安裝完成（v${NEW_VERSION}）"
   fi
@@ -618,7 +653,9 @@ fi
 # 完成
 # ═══════════════════════════════════════════════════════════════════
 echo ""
-if [ "$IS_PROJECT_UPGRADE" = true ]; then
+if [ "$DOWNGRADE" = true ]; then
+  echo "🎉 降級完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
+elif [ "$IS_PROJECT_UPGRADE" = true ]; then
   echo "🎉 升級完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
 else
   echo "🎉 安裝完成！（v${NEW_VERSION} @ ${NEW_COMMIT}）"
