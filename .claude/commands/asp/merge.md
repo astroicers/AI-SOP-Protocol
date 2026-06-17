@@ -26,7 +26,7 @@ ASP 鐵則：`git push origin main`、`--force`、`rebase`、`gh pr merge` **必
    - 當前分支未 push → `git push origin <branch>`（feature/* 或 asp/* 可直接做）。
    - 無 PR → 用 `gh pr create` 起草（標題/內文交使用者確認後再建）。
    - 有 PR → 摘要 PR 狀態（CI、review、mergeable）。
-   - **`gh pr merge` 是鐵則人類確認動作**：列出建議旗標 `--squash`（或專案慣例）+ `--delete-branch`，**提醒 stacked-PR 陷阱**：base 分支未刪時，後續 PR 會合進該 base 而非 main——必要時先 retarget 或加 `--delete-branch`。停在此處等使用者下令。
+   - **`gh pr merge` 是鐵則人類確認動作**：若 repo 已設 branch protection + auto-merge（ASP 預設），**建議 arm auto-merge**：`gh pr merge <#> --auto --squash --delete-branch`——CI 綠才自動合、合後自動刪分支，使用者一鍵即走、不必盯。未啟用 auto-merge 的 repo 才退回立即 `--merge`/`--squash`。**提醒 stacked-PR 陷阱**：base 分支未刪時後續 PR 會合進該 base 而非 main——`--delete-branch` 可防。停在此處等使用者下令（AI 不自行執行 `gh pr merge`，含 `--auto`）。
 
    **B. 純本地 / 無 remote → 本地 `--no-ff` 合併**
    - `git checkout <target> && git pull --ff-only`（有 remote 時）。

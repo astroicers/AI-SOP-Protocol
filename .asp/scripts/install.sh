@@ -555,10 +555,16 @@ if [ "$JQ_OK" = true ]; then
       },
       "permissions": {
         "allow": ["Bash(*)"],
-        "ask": [
-          "Bash(git push *)", "Bash(git push)",
-          "Bash(git rebase *)", "Bash(rm -rf *)", "Bash(rm -r *)",
+        "deny": [
+          "Bash(gh pr merge *)", "Bash(gh pr merge)",
+          "Bash(git push --force *)", "Bash(git push -f *)",
+          "Bash(git push origin main *)", "Bash(git push origin main)",
+          "Bash(git rebase *)", "Bash(git rebase)",
+          "Bash(rm -rf *)", "Bash(rm -r *)",
           "Bash(docker push *)", "Bash(docker deploy *)"
+        ],
+        "ask": [
+          "Bash(git push *)", "Bash(git push)"
         ]
       }
     }' > .claude/settings.json
@@ -584,7 +590,15 @@ else
   },
   "permissions": {
     "allow": ["Bash(*)"],
-    "ask": ["Bash(git push *)", "Bash(git push)", "Bash(rm -rf *)", "Bash(rm -r *)"]
+    "deny": [
+      "Bash(gh pr merge *)", "Bash(gh pr merge)",
+      "Bash(git push --force *)", "Bash(git push -f *)",
+      "Bash(git push origin main *)", "Bash(git push origin main)",
+      "Bash(git rebase *)", "Bash(git rebase)",
+      "Bash(rm -rf *)", "Bash(rm -r *)",
+      "Bash(docker push *)", "Bash(docker deploy *)"
+    ],
+    "ask": ["Bash(git push *)", "Bash(git push)"]
   }
 }
 HOOKJSON

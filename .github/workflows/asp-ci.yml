@@ -1,0 +1,61 @@
+# ASP CI — PR gate for main（由 .asp/templates/github-actions-ci.yml 落地）
+# Jobs: Test Suite | ASP Audit Quick | Secret Scan
+# 這些 job 名即 branch protection 的 required status checks。
+
+name: ASP CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Job 1: Unit tests ────────────────────────────────────────────────
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pyyaml 2>/dev/null || true
+          sudo apt-get install -y jq 2>/dev/null || true
+
+      - name: Run tests
+        run: make test
+
+  # ── Job 2: ASP Audit (blocker check only) ────────────────────────────
+  audit:
+    name: ASP Audit Quick
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Run audit-quick (blocker check)
+        run: make audit-quick
+
+  # ── Job 3: Secret scan ───────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for gitleaks
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # only needed for private repos
