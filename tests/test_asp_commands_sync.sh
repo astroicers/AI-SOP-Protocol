@@ -57,6 +57,11 @@ grep -q "commands/asp" "$ASP_ROOT/.asp/scripts/install.sh"      && pass "install
 grep -q "commands.asp" "$ASP_ROOT/.asp/scripts/install.ps1"     && pass "install.ps1 含 commands\\asp 複製邏輯"    || fail "install.ps1 缺 commands\\asp 邏輯"
 grep -q "commands/asp" "$ASP_ROOT/.claude/scripts/asp-sync.sh"  && pass "asp-sync.sh 含 commands/asp 同步邏輯"     || fail "asp-sync.sh 缺 commands/asp 邏輯"
 
+# ── review-work.md 內容護欄（防範圍自動判斷邏輯被未來編輯靜默移除）──
+RW="$ASP_ROOT/.claude/commands/asp/review-work.md"
+grep -q "argument-hint" "$RW" && pass "review-work.md 保留 argument-hint frontmatter"          || fail "review-work.md 缺 argument-hint"
+grep -q "推斷規則"      "$RW" && pass "review-work.md 含未指定參數時的自動範圍推斷規則段落"   || fail "review-work.md 缺自動推斷規則（auto-judgment 邏輯遺失）"
+
 echo ""
 echo "════════════════════════════════"
 echo "Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
