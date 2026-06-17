@@ -97,6 +97,15 @@
 
 完整指令：`make help` | 入門文件：`docs/where-to-start.md`
 
+## ASP slash 指令三形式（命名慣例）
+
+三種掛 "asp" 的指令機制不同，別混：
+
+- **`/asp <意圖>`** — 路由 skill（`skills/asp/SKILL.md`，唯一註冊的 ASP skill）。依意圖分流到內部 worker（`skills/asp/asp-*.md`：plan/ship/gate/audit/level…）。docs 裡 `/asp-ship` 等連字號是舊寫法，實際走 `/asp ship`。
+- **`/asp:approve-adr`、`/asp:review-work`、`/asp:merge`** — 獨立單步 command（`.claude/commands/asp/*.md`，子資料夾＝冒號前綴；user-global 經 `asp-sync` 同步，本環境實證呼叫名帶冒號，見 `.asp-fact-check.md` FC-003）。
+
+**慣例**：`/asp <意圖>`＝治理工作流（plan/ship/gate/audit/level/review/release）；`/asp:<動作>`＝單步快捷（approve-adr/review-work/merge）。新增單步快捷 → 放 `.claude/commands/asp/`；新增工作流階段 → 放 `skills/asp/` 並更新路由表。
+
 ## Agent skills
 
 | Role | Detail |
