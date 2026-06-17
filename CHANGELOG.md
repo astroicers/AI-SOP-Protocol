@@ -20,6 +20,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 - **文件等級詞彙漂移修正（v4 L0-L5 → v5 三級制）**：7 個 `docs/` 檔的 `Audience: L#` header 依 ADR-014 映射改為 `loose+`/`standard+`/`autonomous`（autopilot.md、telemetry.md、spec-driven-dev.md、task-orchestration.md、multi-agent-architecture.md、ADR-001、ADR-004）。`docs/level0-spike-mode.md` 重寫：詞彙 L0/L1→loose-level spike 豁免（v5 已合併），並修正三個指向已刪檔的死引用（`level-0.yaml`→`loose.yaml`、`spike_mode.md`→`loose_mode.md`、`example-profile-spike.yaml`→`example-profile-loose.yaml`）、`make asp-level`→`make asp-level-check`；檔名保留（避免斷 inbound links），頂部加 v5 術語 banner 指向 canonical `loose_mode.md`。純文件、零行為變更。
 
+### Fixed
+
+- **安裝器未同步自訂 slash 指令**：`/approve-adr`、`/review-work` 過去只存在於原作者本機的 `~/.claude/commands/`，從未進 repo，故新電腦跑安裝後缺這些指令。修法：(1) 把兩個指令收進 repo 權威來源 `.claude/commands/asp/`（namespaced → 安裝後以 `/asp:approve-adr`、`/asp:review-work` 呼叫）；(2) `install.sh`（Phase 1 + 內嵌 fallback heredoc）、`install.ps1`、`asp-sync.sh` 三處安裝/同步腳本補上 `commands/asp/` 複製與差異偵測。安全考量：目標是 ASP 專屬子目錄 `commands/asp/`，`rm -rf`/`rsync --delete` 不波及共用頂層 `~/.claude/commands/`（使用者/其他工具的指令）；來源不存在時整段條件式略過（向後相容舊 repo）。當 bugfix 直接修，未另開 ADR（v4 post-release 計畫原本就含 `mkdir ~/.claude/commands`，僅 v5 漏實作）。
+
 ## [5.0.0] - 2026-06-11
 
 > **v5.0.0**（PR #25，ADR-013~018 全數 Accepted）。主題：**規則越少越鐵，執法越多越自動**——

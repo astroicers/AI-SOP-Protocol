@@ -7,9 +7,10 @@
 #   bash ~/.claude/scripts/asp-sync.sh --dry-run  # 只顯示差異，不同步
 #
 # 同步範圍：
-#   ~/.claude/asp/         ← .asp/（profiles/hooks/templates/levels/config/scripts）
-#   ~/.claude/skills/asp/  ← .claude/skills/asp/（所有 asp-*.md skills）
-#   ~/.claude/CLAUDE.md    ← .claude/CLAUDE.md（user-level 鐵則，若已是 ASP 版本）
+#   ~/.claude/asp/          ← .asp/（profiles/hooks/templates/levels/config/scripts）
+#   ~/.claude/skills/asp/   ← .claude/skills/asp/（所有 asp-*.md skills）
+#   ~/.claude/commands/asp/ ← .claude/commands/asp/（自訂 slash 指令，/asp:approve-adr 等；選用）
+#   ~/.claude/CLAUDE.md     ← .claude/CLAUDE.md（user-level 鐵則，若已是 ASP 版本）
 #
 # v5（ADR-017）：若 ~/.claude/asp/.showcase-installed marker 存在，rsync --delete
 # 後會自 showcase/ 補同步裝回內容（telemetry/RAG/ai-performance），避免抹掉
@@ -17,10 +18,11 @@
 
 set -euo pipefail
 
-ASP_REPO="${HOME}/AI-SOP-Protocol"
+ASP_REPO="${ASP_REPO:-${HOME}/AI-SOP-Protocol}"   # 可由 env 覆寫（本地測試 / 非家目錄 repo）
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
 USER_SKILLS="${USER_CLAUDE}/skills/asp"
+USER_CMDS="${USER_CLAUDE}/commands/asp"
 
 DRY_RUN=false
 AUTO_YES=false
@@ -73,8 +75,19 @@ DIFF_ASP=$(diff -rq --exclude="*.pyc" --exclude="__pycache__" \
   "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
 DIFF_SKILLS=$(diff -rq \
   "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
+# commands/asp：來源不存在（舊 repo）→ 無差異；來源在但目標未裝 → 視為需同步
+# （升級情境：已裝舊版 ASP 但無 commands/asp。目標缺時 diff 報錯會被 2>/dev/null||true 吞成空字串，故需顯式判斷）
+if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+  if [ -d "$USER_CMDS" ]; then
+    DIFF_CMDS=$(diff -rq "$USER_CMDS" "$ASP_REPO/.claude/commands/asp" 2>/dev/null || true)
+  else
+    DIFF_CMDS="(commands/asp 尚未安裝)"
+  fi
+else
+  DIFF_CMDS=""
+fi
 
-if [ -z "$DIFF_ASP" ] && [ -z "$DIFF_SKILLS" ]; then
+if [ -z "$DIFF_ASP" ] && [ -z "$DIFF_SKILLS" ] && [ -z "$DIFF_CMDS" ]; then
   echo "  Already in sync — v${INSTALLED_VERSION} 是最新版本"
   echo ""
   exit 0
@@ -91,6 +104,14 @@ fi
 if [ -n "$DIFF_SKILLS" ]; then
   echo "  ~/.claude/skills/asp/ 差異："
   diff -rq "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null | sed 's/^/    /' | head -20 || true
+fi
+if [ -n "$DIFF_CMDS" ]; then
+  echo "  ~/.claude/commands/asp/ 差異："
+  if [ -d "$USER_CMDS" ]; then
+    diff -rq "$USER_CMDS" "$ASP_REPO/.claude/commands/asp" 2>/dev/null | sed 's/^/    /' | head -20 || true
+  else
+    echo "    $DIFF_CMDS"   # 目標未安裝：印狀態文字（直接 diff 不存在路徑會空白）
+  fi
 fi
 echo ""
 
@@ -120,6 +141,11 @@ if command -v rsync &>/dev/null; then
     "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete \
     "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
+  # commands/asp（選用）：mirror 至專屬子目錄；--delete 安全，不碰共用頂層 ~/.claude/commands/
+  if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+    mkdir -p "$USER_CMDS"
+    rsync -a --delete "$ASP_REPO/.claude/commands/asp/" "$USER_CMDS/"
+  fi
 else
   # rsync 不可用時 fallback（保護 runtime 生成的 metrics/，勿隨 rm -rf 抹除遙測）
   if [ -d "$USER_ASP/metrics" ]; then
@@ -133,6 +159,10 @@ else
     cp -r "$METRICS_BAK/metrics" "$USER_ASP/" && rm -rf "$METRICS_BAK"
   fi
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
+  if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+    rm -rf "${USER_CMDS:?}"; mkdir -p "$(dirname "$USER_CMDS")"
+    cp -r "$ASP_REPO/.claude/commands/asp" "$USER_CMDS"
+  fi
 fi
 
 # ─── Showcase 補同步（v5 ADR-017：--delete 後依 marker 裝回）────────

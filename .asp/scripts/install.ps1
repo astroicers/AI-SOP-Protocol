@@ -190,6 +190,7 @@ Write-Host ''
 $UserClaude = Join-Path $HOME '.claude'
 $UserAsp    = Join-Path $UserClaude 'asp'
 $UserSkills = Join-Path $UserClaude 'skills\asp'
+$UserCmds   = Join-Path $UserClaude 'commands\asp'
 $TmpDir     = Join-Path $env:TEMP "asp-install-$(Get-Random)"
 
 Write-Host '📦 Phase 1：安裝 ASP 核心到 ~/.claude/'
@@ -228,6 +229,14 @@ try {
     New-Item -ItemType Directory -Path $UserSkills -Force | Out-Null
     Get-ChildItem $UserSkills -Force | Remove-Item -Recurse -Force
     Copy-Item -Recurse -Force (Join-Path $TmpDir '.claude\skills\asp\*') $UserSkills
+
+    # ~/.claude/commands/asp/（自訂 slash 指令，namespaced → /asp:approve-adr 等）
+    # 清空僅限 ASP 專屬子目錄，不碰共用頂層 commands\
+    if (Test-Path (Join-Path $TmpDir '.claude\commands\asp')) {
+        New-Item -ItemType Directory -Path $UserCmds -Force | Out-Null
+        Get-ChildItem $UserCmds -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+        Copy-Item -Recurse -Force (Join-Path $TmpDir '.claude\commands\asp\*') $UserCmds
+    }
 
     $UserClaudeMd = Join-Path $UserClaude 'CLAUDE.md'
     $SrcClaudeMd  = Join-Path $TmpDir '.claude\CLAUDE.md'

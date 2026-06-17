@@ -29,6 +29,7 @@ TMP_DIR=$(mktemp -d /tmp/asp-install-XXXXX)
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
 USER_SKILLS="${USER_CLAUDE}/skills/asp"
+USER_CMDS="${USER_CLAUDE}/commands/asp"
 
 # 失敗時清理暫存目錄
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -255,6 +256,15 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   rm -rf "${USER_SKILLS:?}/"*
   cp -r "$TMP_DIR/.claude/skills/asp/." "$USER_SKILLS/"
 
+  # ~/.claude/commands/asp/（自訂 slash 指令，namespaced → /asp:approve-adr、/asp:review-work）
+  # rm -rf 安全：目標是 ASP 專屬子目錄，非共用頂層 ~/.claude/commands/
+  if [ -d "$TMP_DIR/.claude/commands/asp" ]; then
+    mkdir -p "$USER_CMDS"
+    rm -rf "${USER_CMDS:?}/"*
+    cp -r "$TMP_DIR/.claude/commands/asp/." "$USER_CMDS/"
+    success "~/.claude/commands/asp/（自訂 slash 指令）"
+  fi
+
   # ~/.claude/CLAUDE.md（user-level 鐵則）
   # 只有在不存在或已是 ASP 版本時才覆蓋
   USER_CLAUDE_MD="$USER_CLAUDE/CLAUDE.md"
@@ -317,17 +327,24 @@ ASP_REPO="${HOME}/AI-SOP-Protocol"
 USER_CLAUDE="${HOME}/.claude"
 USER_ASP="${USER_CLAUDE}/asp"
 USER_SKILLS="${USER_CLAUDE}/skills/asp"
+USER_CMDS="${USER_CLAUDE}/commands/asp"
 [ -d "$ASP_REPO" ] || { echo "ERROR: ASP repo not found at $ASP_REPO"; exit 1; }
 DIFF=$(diff -rq "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
 DIFF2=$(diff -rq "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
-[ -z "$DIFF" ] && [ -z "$DIFF2" ] && { echo "Already in sync"; exit 0; }
+# commands/asp：來源在但目標未裝 → 視為需同步（目標缺時 diff 報錯會被吞成空字串）
+if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+  [ -d "$USER_CMDS" ] && DIFF3=$(diff -rq "$USER_CMDS" "$ASP_REPO/.claude/commands/asp" 2>/dev/null || true) || DIFF3="missing"
+else DIFF3=""; fi
+[ -z "$DIFF" ] && [ -z "$DIFF2" ] && [ -z "$DIFF3" ] && { echo "Already in sync"; exit 0; }
 echo "Changes detected. Syncing..."
 if command -v rsync &>/dev/null; then
   rsync -a --delete "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
+  [ -d "$ASP_REPO/.claude/commands/asp" ] && { mkdir -p "$USER_CMDS"; rsync -a --delete "$ASP_REPO/.claude/commands/asp/" "$USER_CMDS/"; }
 else
   rm -rf "$USER_ASP" && cp -r "$ASP_REPO/.asp" "$USER_ASP"
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
+  [ -d "$ASP_REPO/.claude/commands/asp" ] && { rm -rf "${USER_CMDS:?}"; mkdir -p "$(dirname "$USER_CMDS")"; cp -r "$ASP_REPO/.claude/commands/asp" "$USER_CMDS"; }
 fi
 chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
 echo "Synced $(find "$USER_SKILLS" -type f | wc -l) skill files + profiles/hooks/templates"
