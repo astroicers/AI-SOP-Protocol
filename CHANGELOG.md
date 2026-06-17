@@ -17,6 +17,8 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Changed
 
+- **`/asp:review-work` 範圍參數自動判斷**：未指定 `session`/`fix` 時，從「固定 fallback `session`」改為由主 agent 依本次對話 context（`git status -s`/`git diff --stat` 訊號 + 對話聚焦點）自動推斷，並在彙整開頭透明說明判定理由與 override 方式（仿 `merge.md` 智能選路）；訊號模糊時保守落 `session`，不打斷使用者。顯式帶參數照舊覆寫。動機：使用者不會記得參數，常因漏帶 `fix` 而誤跑成全 session 體檢。單檔 prompt UX 微調、可逆、不涉架構，故未另開 ADR；補 `test_asp_commands_sync.sh` 兩條 grep 護欄（`argument-hint` + 推斷規則段落）防未來編輯靜默移除。
+
 - **測試套件去重（`tests/lib/common.sh`）**：45 個 `tests/test_*.sh` 各自重複定義的 `pass()/fail()` 計數器與 `mktemp -d + trap cleanup` 樣板（淨 -106 行）抽至共用 `tests/lib/common.sh`（提供 `pass`/`fail`/`mk_test_dir`）。各測試以 `source "$(dirname "$0")/lib/common.sh"` 載入；lib 置於 `tests/lib/` 子目錄，避開 `make test` runner 與 shellcheck lint 的 `tests/*.sh` glob（不遞迴）而不被當測試執行或重複計數。零行為變更，bash 45/45 + pytest 16/16 全綠、lint 通過。
 
 - **文件等級詞彙漂移修正（v4 L0-L5 → v5 三級制）**：7 個 `docs/` 檔的 `Audience: L#` header 依 ADR-014 映射改為 `loose+`/`standard+`/`autonomous`（autopilot.md、telemetry.md、spec-driven-dev.md、task-orchestration.md、multi-agent-architecture.md、ADR-001、ADR-004）。`docs/level0-spike-mode.md` 重寫：詞彙 L0/L1→loose-level spike 豁免（v5 已合併），並修正三個指向已刪檔的死引用（`level-0.yaml`→`loose.yaml`、`spike_mode.md`→`loose_mode.md`、`example-profile-spike.yaml`→`example-profile-loose.yaml`）、`make asp-level`→`make asp-level-check`；檔名保留（避免斷 inbound links），頂部加 v5 術語 banner 指向 canonical `loose_mode.md`。純文件、零行為變更。
