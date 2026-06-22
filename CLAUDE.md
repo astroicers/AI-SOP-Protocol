@@ -67,6 +67,7 @@
 - commit 前跑測試 / asp-ship（L1.5 hook 兜底）｜實作前 ADR 須 Accepted/FIRM
 - bug 修復後**全專案 grep** 同類問題｜外部事實 → 查證並記錄 `.asp-fact-check.md`
 - 假設未明 → Assumption Checkpoint｜需求變更 → L1-L4 分級回溯
+- 輕量改動（單檔 prompt/doc/config）可跳 G1-G6 重 gate，但**獨立審查**（/asp gate G5 或 asp:review-work / reality-check）不可省
 - ↑ 多為語意型，hook 無法機械化（ADR-020 已知殘留）→ 靠此速查在長對話壓縮後存活
 
 ---
