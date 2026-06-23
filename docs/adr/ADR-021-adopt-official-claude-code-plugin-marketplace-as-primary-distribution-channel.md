@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-23 |
 | **決策者** | ASP framework maintainers（待人類核准） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
+>
+> ⬆️ 由 `Draft` 升 `Accepted`：使用者 2026-06-23 透過 `/asp:approve-adr ADR-021` 呼叫、看完本指令摘要的決策（選項 C）與 Verification Evidence（POC-1/POC-2 待填、外部事實已於 FC-004 查證）後明確同意直升（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。直升取捨：外部 plugin 機制事實已查證，ASP 動態 deny 端到端 POC（POC-1）留待 P1 實作時補。
 
 ---
 
