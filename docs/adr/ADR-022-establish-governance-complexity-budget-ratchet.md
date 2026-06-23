@@ -86,7 +86,7 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 - baseline 需隨正當演化更新，更新本身要走治理。
 
 **後續追蹤：**
-- [ ] **POC-1（行數棘輪，全自動可行）**：CI gate 機械化——`total_lines > baseline 且無豁免 ADR → exit 1`。複用 `.asp-metrics-baseline.json` 與既有 `asp-metrics.sh`。
+- [x] **POC-1（行數棘輪）— 已驗證**。探針（`docs/research/2026-06-23-poc1-linecount-ratchet.md` + `poc1-linecount-ratchet-probe.sh`）三情境跑通：真實 PASS(exit0)、合成 violation(exit1)、豁免放行(exit0)。複用 `asp-metrics.sh` 現值 vs `.asp-metrics-baseline.json`。生產化僅剩接 CI step（無技術未知）。附帶 finding：current 3626 << baseline 5177，生產化時應 re-freeze baseline。
 - [x] **POC-2（可推導性軸）— 已完成，結果：負面 → 降級**。spike（`docs/research/2026-06-23-poc2-derivability-spike.md` + `poc2-derivability-probe.py`）證實字面代理無法機械近似可推導性（語意關係：精確度 ~33%、召回失敗）。**已觸發降級**：去重從機械 gate 改為 advisory review，不上 per-commit LLM judge 迴圈（避免撞 ADR-020）。
 - [ ] **逃生門濫用監控**：豁免 ADR 認列次數記錄於既有 telemetry（rule-hits / `.asp-gate-log/`），定期計算豁免率；> 50% 觸發「重新評估條件」重議（量測機制不另建，複用既有記錄）。
 - [ ] 鐵則 / Iron Rule 豁免清單繼承（沿用 rule-stats `exempt: true`）。
@@ -128,7 +128,7 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 
 | 欄位 | 內容 |
 |------|------|
-| **POC 分支 / 測試結果** | **POC-2：已完成**——spike 結果負面（`docs/research/2026-06-23-poc2-derivability-spike.md`），可推導性不可便宜機械化 → 去重降 advisory（決策已收窄）。**POC-1：待建**——行數棘輪 CI gate（`total_lines > baseline 且無豁免 → exit 1`），確定性可行、低風險。 |
+| **POC 分支 / 測試結果** | **POC-1：已驗證**——`docs/research/2026-06-23-poc1-linecount-ratchet.md`，探針三情境跑通（PASS exit0 / violation exit1 / 豁免 exit0），確定性可行。**POC-2：已完成（負面）**——`docs/research/2026-06-23-poc2-derivability-spike.md`，可推導性不可便宜機械化 → 去重降 advisory（決策已收窄）。 |
 | **驗證日期** | （待填） |
 | **驗證者** | （待填，人類） |
-| **驗證摘要** | （驗證者待人類填）POC-2 spike 已結案：可推導性語意性質使字面代理失效（精確度 ~33%、召回失敗）→ 已降級為 advisory。收窄後決策＝**行數棘輪（確定性機械 gate）+ 去重 advisory review**；FIRM 僅剩 POC-1 行數 gate 待建（低風險）。 |
+| **驗證摘要** | （驗證者待人類確認）兩個 POC 均已完成：POC-1 行數棘輪 gate 三情境驗證可行（exit-code 確定性）；POC-2 可推導性證實無法便宜機械化 → 去重已降 advisory。收窄後決策＝**行數棘輪（確定性機械 gate）+ 去重 advisory review**，可行性已全數驗證；生產化僅剩工程接線（含 baseline re-freeze）。 |
