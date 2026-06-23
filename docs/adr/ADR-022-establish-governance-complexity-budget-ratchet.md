@@ -41,7 +41,7 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 ### 選項 C：機械棘輪（採用）
 
 - **優點**：複雜度只進不退由 **CI exit-code** 機械封頂；ASP 自己吃自己的狗糧（用機械強制管自己的複雜度）；複用既有 telemetry（rule-hits）與既有獨立評分（reality-checker），不新建層。
-- **缺點**：棘輪可能鎖死正當的複雜度增長（須逃生門）；「可推導性」軸如何機械化是真實難題（見後續追蹤 POC-2）。
+- **缺點**：棘輪可能鎖死正當的複雜度增長（須逃生門）；可推導性軸已由 POC-2 spike 結案為「不可便宜機械化」→ 降為 advisory（機械 gate 僅行數軸）。
 - **風險**：若無差別套用會誤傷鐵則層、或退化成「為填而填」的儀式——須以 ADR-010 摩擦評估收口。
 
 ---
@@ -52,20 +52,20 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 
 | 鏡頭 | 評估 |
 |------|------|
-| **新增元件清單** | (1) 行數棘輪＝**1 個 CI step + 複用既有 `asp-metrics.sh`**；(2) 雙軸 rule-stats＝**改寫既有 `rule-stats.sh`，非新檔**；(3) 獨立評分＝**複用既有 `reality-checker`，非新層**；(4) 逃生門＝**沿用既有 FIRM ADR 認列模式，非新協定** |
+| **新增元件清單** | (1) 行數棘輪＝**1 個 CI step + 複用既有 `asp-metrics.sh`**；(2) 去重 advisory review＝**複用既有 rule-hits telemetry 的非阻擋 review，非新 gate 層**；(3) 獨立評分＝**複用既有 `reality-checker`，非新層**；(4) 逃生門＝**沿用既有 FIRM ADR 認列模式，非新協定** |
 | **與既有層重疊？** | **不重疊**——四元件全部嫁接在既有 telemetry（rule-hits）/ 腳本（asp-metrics）/ 評者（reality-checker）/ ADR 機制上，**無新 orchestration 層**（對照 ADR-010 當初拒絕 UA 的同一判準） |
 | **overhead vs 節省** | overhead ≈ 1 CI step + `rule-stats.sh` 擴充（數十行）；節省＝每 PR **自動**阻擋行數膨脹，取代易漏的人工目視 review。**淨值為正**的關鍵：棘輪本身的行數**計入它自己管的 baseline**（自我約束），不能無限長大 |
-| **結論** | **通過**——不新建層、自我約束、機械判定。**唯一會翻盤的情況**：POC-2「可推導性」若退化成「多 LLM judge 投票」，那才是 ADR-010 警告的過度 orchestration → 屆時降級為純行數軸，不上 judge 迴圈 |
+| **結論** | **通過**——不新建層、自我約束、機械判定。**已驗證的翻盤點**：POC-2 spike 證實「可推導性」無法便宜機械化（語意關係），故**已觸發降級**——去重不上 per-commit judge 迴圈、改 advisory review；機械 gate 只剩確定性的行數軸。 |
 
 ---
 
 ## 決策（Decision）
 
-採用 **選項 C**：建立**治理複雜度預算棘輪**，三個機械元件：
+採用 **選項 C（POC-2 spike 後收窄）**：建立**治理複雜度預算棘輪**——**一個機械 gate + 一個 advisory review**：
 
-1. **行數棘輪（line-count ceiling）**：`profiles.total_lines`（`.asp-metrics-baseline.json` 已凍結 5177）設為**只進不退硬上限**。任何使治理產物總行數超過當前 baseline 的 PR → CI gate red，除非附一份明確認列複雜度增加理由的 ADR（逃生門，與既有 FIRM ADR → audit 🟡 同構）。
-2. **雙軸 rule-stats**：`rule-stats`（ADR-018）從「命中率」單軸升級為**命中率 × 可推導性**雙軸——零命中＝既有砍除信號；**高命中但可由他條推導**＝去重候選（治理重複的主來源）。
-3. **獨立評分**：複雜度的保留/砍除評分由 `reality-checker` 獨立 read-only subagent 跑，不由提案 PR 的同一 context 自評（職能分離，複用 ADR-005 機制）。
+1. **行數棘輪（機械 gate，POC-1）**：`profiles.total_lines`（`.asp-metrics-baseline.json` 已凍結 5177）設為**只進不退硬上限**。任何使治理產物總行數超過當前 baseline 的 PR → CI gate red，除非附一份明確認列複雜度增加理由的 ADR（逃生門，與既有 FIRM ADR → audit 🟡 同構）。確定性、全自動、exit-code 化。
+2. **去重 advisory review（非機械 gate，由 POC-2 收窄）**：「可推導性/去重」**不做成每-commit 機械閘**——POC-2 spike 證實字面代理無法機械近似可推導性（語意關係，見 `docs/research/2026-06-23-poc2-derivability-spike.md`）。改為**定期 LLM-judge 輔助的 advisory review**（列去重候選給人類判斷，**不阻擋 commit**），避免把非確定性判官偽裝成硬 gate（撞 ADR-020）。
+3. **獨立評分（職能分離）**：advisory review 的去重評分由 `reality-checker` 獨立 read-only subagent 跑，不由提案 PR 的同一 context 自評（複用 ADR-005 機制）。
 
 **豁免（不可省）**：四條鐵則 + Iron Rule A/B/C（registry `exempt: true`）**永不進入棘輪**——鐵則的價值正在於不退場（沿用 ADR-018 既有豁免）。
 
@@ -77,17 +77,17 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 
 **正面影響：**
 - 治理層複雜度由機械 exit-code 封頂，正面回應「治理過載」病徵。
-- 雙軸 rule-stats 把「同一義務三處重述」變成可機械識別的去重候選。
+- 去重 advisory review 把「同一義務多處重述」變成定期可審的候選清單（非機械 gate——POC-2 證實語意去重無法便宜機械化）。
 - ASP 示範「用自己的強制力管自己」——最強的 dogfooding。
 
 **負面影響 / 技術債：**
-- **「可推導性」軸的機械化是未解難題**：如何 exit-code 級判定「規則 X 可由其餘規則推導」？候選方案（LLM judge / 啟發式 / 人工標記）各有成本與不確定性，須 spike（POC-2）。在它落地前，棘輪只有「行數軸」一條腿可全自動。
+- **「可推導性」軸已由 POC-2 spike 結案為「不可便宜機械化」**：字面代理精確度 ~33%、且漏掉「換句話說」的語意重述（見 spike 報告）。故機械 gate 僅行數軸一條腿；去重退為 advisory，是**已知並接受**的降級，非懸而未決的風險。
 - 棘輪逃生門（ADR 認列）若被濫用，會退化成橡皮圖章——須監控豁免頻率。
 - baseline 需隨正當演化更新，更新本身要走治理。
 
 **後續追蹤：**
-- [ ] **POC-1（行數棘輪，全自動可行）**：CI gate 機械化——`total_lines > baseline 且無豁免 ADR → exit 1`。複用 `.asp-metrics-baseline.json` 與既有 `asp-metrics.sh`。
-- [ ] **POC-2（可推導性軸，高不確定）**：spike「如何機械判定可推導性」。先以「同義務字串跨檔重複偵測」當低保真代理（呼應 `feedback_compiled_artifact_scan_blindspot` 的重複病），再評估是否值得上 LLM judge。**若採 LLM judge，其輸出必須轉成 exit-code 機械判定**——否則違反 ADR-020 翻譯規則（LLM 判定義務是治理散文中最先蒸發的）。**這是本 ADR 風險最高的一格，POC 不過則棘輪降級為純行數軸。**
+- [x] **POC-1（行數棘輪）— 已驗證**。探針（`docs/research/2026-06-23-poc1-linecount-ratchet.md` + `poc1-linecount-ratchet-probe.sh`）三情境跑通：真實 PASS(exit0)、合成 violation(exit1)、豁免放行(exit0)。複用 `asp-metrics.sh` 現值 vs `.asp-metrics-baseline.json`。生產化僅剩接 CI step（無技術未知）。附帶 finding：current 3626 << baseline 5177，生產化時應 re-freeze baseline。
+- [x] **POC-2（可推導性軸）— 已完成，結果：負面 → 降級**。spike（`docs/research/2026-06-23-poc2-derivability-spike.md` + `poc2-derivability-probe.py`）證實字面代理無法機械近似可推導性（語意關係：精確度 ~33%、召回失敗）。**已觸發降級**：去重從機械 gate 改為 advisory review，不上 per-commit LLM judge 迴圈（避免撞 ADR-020）。
 - [ ] **逃生門濫用監控**：豁免 ADR 認列次數記錄於既有 telemetry（rule-hits / `.asp-gate-log/`），定期計算豁免率；> 50% 觸發「重新評估條件」重議（量測機制不另建，複用既有記錄）。
 - [ ] 鐵則 / Iron Rule 豁免清單繼承（沿用 rule-stats `exempt: true`）。
 - [ ] 與 P2 拆層的 reality-checker 職能分離硬約束對齊（避免重複造層，ADR-010）。
@@ -99,11 +99,11 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 | 指標 | 目標值 | 驗證方式 | 檢查時間 |
 |------|--------|----------|----------|
 | 行數棘輪生效 | `total_lines > baseline 且無豁免` → CI exit 1 | CI gate + `asp-metrics.sh` | POC-1 完成時 |
-| rule-stats 機器可讀 budget 判定 | 輸出 violation 時 exit≠0（非僅人讀） | `make rule-stats` | 實作完成時 |
-| 去重識別力 | ≥ 1 條「高命中可推導」規則被標為砍除候選 | 雙軸 rule-stats | POC-2 完成時 |
+| 行數 gate 對象明確 | 機械 gate＝`asp-metrics.sh` 算 `total_lines`（**非** rule-stats）；rule-stats 維持 ADR-018 零命中職責不變 | 程式碼審查 | 實作完成時 |
+| 去重 advisory 產出 | 定期 review 列出去重候選清單（非阻擋；交人類判斷） | `make rule-dedup-review` | advisory 機制建好時 |
 | 鐵則零誤傷 | 4 鐵則 + Iron Rule A/B/C 不被棘輪標記 | 豁免清單測試 | 實作完成時 |
 
-> **重新評估條件**：若 POC-2 證實「可推導性」無法以可接受成本機械化 → 棘輪降級為純行數軸（仍有價值），並重議是否值得保留雙軸目標；若行數棘輪的逃生門（ADR 認列）被濫用率 > 50% → 棘輪形同虛設，須重議閘門設計。
+> **重新評估條件**：POC-2「可推導性無法便宜機械化」**已成立並觸發降級**（去重轉 advisory）；剩餘條件——若行數棘輪的逃生門（ADR 認列）被濫用率 > 50% → 棘輪形同虛設，須重議閘門設計。
 
 ---
 
@@ -112,7 +112,7 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 - 取代：（無）
 - 被取代：（無）
 - 參考：
-  - **ADR-018**（rule-hit telemetry / rule-stats）——本棘輪的負向半邊與 telemetry 基礎；**本案 Extends ADR-018**：`rule-stats.sh` exit-code 語意擴充（violation 時 exit≠0，非僅人讀）
+  - **ADR-018**（rule-hit telemetry / rule-stats）——本棘輪的負向半邊與 telemetry 基礎；收窄後**去重 advisory review 複用 ADR-018 rule-hits telemetry**（非改其 exit-code；機械 gate 改由 `asp-metrics.sh` 的行數軸承擔）
   - **ADR-005**（GA 前獨立 Reality-Checker holistic review）——職能分離機制來源
   - **ADR-020**（AI 遺忘為一級威脅、機械化過程義務）——「誠實標註 → 機械判定」翻譯規則的立身依據
   - **ADR-010**（最小採納 UA orchestration）——摩擦評估／拒絕重疊既有層的鐵律，本 ADR 須通過
@@ -128,7 +128,7 @@ nuwa-skill 深層借鏡研究（`docs/research/2026-06-23-nuwa-skill-deep-borrow
 
 | 欄位 | 內容 |
 |------|------|
-| **POC 分支 / 測試結果** | （待 POC-1：行數棘輪 CI gate；POC-2：可推導性軸 spike——最高風險格，須先證可機械化或誠實降級） |
+| **POC 分支 / 測試結果** | **POC-1：已驗證**——`docs/research/2026-06-23-poc1-linecount-ratchet.md`，探針三情境跑通（PASS exit0 / violation exit1 / 豁免 exit0），確定性可行。**POC-2：已完成（負面）**——`docs/research/2026-06-23-poc2-derivability-spike.md`，可推導性不可便宜機械化 → 去重降 advisory（決策已收窄）。 |
 | **驗證日期** | （待填） |
 | **驗證者** | （待填，人類） |
-| **驗證摘要** | （待填）行數棘輪可全自動；雙軸的「可推導性」尚待 spike 證實能以可接受成本機械判定，否則降級為純行數軸 |
+| **驗證摘要** | （驗證者待人類確認）兩個 POC 均已完成：POC-1 行數棘輪 gate 三情境驗證可行（exit-code 確定性）；POC-2 可推導性證實無法便宜機械化 → 去重已降 advisory。收窄後決策＝**行數棘輪（確定性機械 gate）+ 去重 advisory review**，可行性已全數驗證；生產化僅剩工程接線（含 baseline re-freeze）。 |
