@@ -1,5 +1,8 @@
 # AI-SOP-Protocol (ASP)
 
+**讓 AI 自動守規矩，不用每次重講。**
+_Your dev playbook, compiled into guardrails Claude can't forget._
+
 把開發規範寫成機器可讀的約束，讓 Claude 自動遵守——不用每次提醒「記得寫測試」「先建 ADR」「不要亂推版」。
 
 **v5.0.0** · [CHANGELOG](CHANGELOG.md) · [架構文件](docs/architecture.md) · [入門指引](docs/where-to-start.md) · [授權 MIT](LICENSE)
@@ -16,6 +19,14 @@
 | ADR 說好不實作，AI 還是動了 | Draft ADR → `git commit` 動態阻擋 |
 | 推版前忘記掃密碼 | `/asp-ship` 10 步驟含敏感資訊掃描 |
 | 不知道 AI 改了什麼範圍 | SPEC Done When 是二元驗收條件 |
+
+> 看到一堆縮寫（ADR / SPEC / G1-G6 / HITL…）？→ [GLOSSARY.md](GLOSSARY.md) 一頁快查。
+
+---
+
+## ⚡ 快速體驗（5 分鐘）
+
+想先確認 ASP 護欄「真的會動」再決定要不要用？跟著 [docs/quickstart.md](docs/quickstart.md) 走一遍：裝好 → 故意製造一次該被擋的 commit → 親眼看 gate 擋下 → `/asp ship` 後放行。
 
 ---
 

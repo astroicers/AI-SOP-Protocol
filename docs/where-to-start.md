@@ -1,7 +1,7 @@
 # 我該從哪裡開始？
 
-> **這頁回答：「我現在要做 X，該下什麼指令？」**
-> 安裝說明和功能概覽見 [README.md](../README.md)。
+> **這頁回答：「我現在要做 X，該下什麼指令？」**（裝完後的情境查閱）
+> 第一次用、想線性照抄體驗一次 → [docs/quickstart.md](quickstart.md)｜安裝與功能概覽 → [README.md](../README.md)｜術語不熟 → [GLOSSARY.md](../GLOSSARY.md)
 
 ---
 
@@ -238,5 +238,6 @@ make runbook-view SCENARIO=incident-response  # 閱讀特定場景
 | `docs/adr/ADR-002-asp-v4-security-threat-model.md` | 安全威脅模型（Iron Rules 來源） |
 | `docs/security/threat-model-v4.0.md` | STRIDE 威脅分析 + 8 步攻擊鏈 |
 | `~/.claude/asp/templates/example-profile-full.yaml` | 完整 `.ai_profile` schema 範例 |
-| `CONTEXT.md` | 專案領域詞彙表（術語對照） |
+| `GLOSSARY.md` | 一頁術語/縮寫快查表（連回 CONTEXT 深入） |
+| `CONTEXT.md` | 專案領域詞彙表（術語深度定義） |
 | `docs/project-structure.md` | User-level 架構說明（~/.claude/ vs 專案輕量層） |
