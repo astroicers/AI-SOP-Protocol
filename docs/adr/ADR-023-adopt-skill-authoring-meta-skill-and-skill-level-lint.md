@@ -89,7 +89,7 @@ addyosmani 的 CONTRIBUTING 把 skill 品質定為四標準（一手查證見 `.
 ### advisory vs blocking 分界（避免一上線大量 fail）
 
 - **新增/修改的 skill**：R1/R2/R4/R4b **硬 gate**（exit 1 擋 CI），R3/R5/R6 advisory，R7 人審。
-- **既有 15 skill**：**先 advisory**，逐檔補齊後個別轉硬 gate；此漸進策略對齊報告「15 skill 風格漸進收斂」目標。**POC 例外（已實測）**：R1/R2（name/description 存在性）既有 15 skill **15/15 全過** → R1/R2 直接對全體硬 gate、不必 advisory 過渡（避免稀釋硬 gate 訊號）。R4/R4b 實測 4 fail，**其中 1 個為假陰性**（asp-audit 的「維度」步驟未進同義表，POC §2 已揭露）→ **真缺段僅 asp-gate / asp-release / asp-review-checklist 三檔**，advisory 過渡只為此三檔（其餘隨同義表修正即轉硬 gate）。
+- **既有 15 skill**：**先 advisory**，逐檔補齊後個別轉硬 gate；此漸進策略對齊報告「15 skill 風格漸進收斂」目標。**POC 例外（已實測）**：R1/R2（name/description 存在性）既有 15 skill **15/15 全過** → R1/R2 直接對全體硬 gate、不必 advisory 過渡（避免稀釋硬 gate 訊號）。R4/R4b **標題錨定**實測 **真缺段 4 檔**：asp-gate（缺下一步）、asp-plan（缺 Verification 標題）、asp-release（缺適用場景）、asp-review-checklist（缺三段）；advisory 過渡只為此四檔（其餘隨補段即清）。（註：POC spike 的寬鬆邏輯曾低估為 3 檔且含 asp-audit「維度」假陰性；**實作把 R4/R4b/STEP 一律錨定到段落標題**後修正為 4 檔——見 POC 報告 §4.5 與 code-review Finding #1。R6 @300 實測 3 檔：asp-autopilot(829)/asp-gate(419)/asp-ship(306)。）
 - 分界機械化方式：lint 對 `git diff` 觸及的 skill 套硬 gate，對未觸及的既有 skill 套 advisory（**複用既有 diff 偵測，無新元件——此「零成本複用」假設列入 POC 待驗**）。
 
 ### 與上游 CSO 的張力裁決（description 是否可摘要 workflow）
@@ -140,6 +140,8 @@ addyosmani 的 CONTRIBUTING 把 skill 品質定為四標準（一手查證見 `.
 - [ ] `[Accepted 後]` SKILL.md router 補 `asp-skill-author` 一列 + 下一步建議；跑 asp-sync 同步 active（asp-sync 不自我更新）
 - [ ] `[Accepted 後]` 既有 15 skill 逐檔補齊必備段，補齊後個別轉硬 gate
 - [ ] `[Accepted 後]` 鐵則 / Iron Rule 豁免清單繼承（lint 不掃鐵則 exempt 規則）
+- [ ] `[Accepted 後]` R5 advisory（discipline 型 skill 缺 Red Flags 表的提示）——語意判定難，本批延後（R1/R2/R3/R4/R4b/R6 已實作；R7 人審）。見 code-review Finding #3
+- [ ] `[Accepted 後/②]` 既有 R4 真缺段 4 檔逐檔補段（asp-gate 下一步 / asp-plan Verification 標題 / asp-release 適用場景 / asp-review-checklist 三段）；R6 mega-skill 拆小併入 ADR-024
 
 ---
 
