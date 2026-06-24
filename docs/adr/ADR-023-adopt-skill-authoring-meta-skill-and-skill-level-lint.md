@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-23 |
 | **決策者** | ASP framework maintainers（待人類核准） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
+
+> ⬆️ 由 `Draft` 升 `Accepted`：使用者 2026-06-24 透過 `/asp:approve-adr ADR-023` 呼叫、看完本指令摘要的決策（選項 C：`asp-skill-author` meta-skill + skill 級機械化 lint，R1–R7 標硬擋/advisory/人審）與 Verification Evidence（POC 探針 `poc-skill-lint-spike.sh` `exit 0`、baseline `PASS=11 FAIL=4`，承重假設 1/2 已驗，假設 3〔git diff per-skill 偵測〕留實作確認）後明確同意直升（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。直升不跳過實質驗證——POC 證據已齊，僅省 FIRM 中間 label。
 
 ---
 
