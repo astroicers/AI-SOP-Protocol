@@ -51,6 +51,20 @@
 | baseline 11/4（非 A3 的 1/14） | Draft 不寫死 A3 估計值，以本 POC 實測為準（已於 ADR baseline 措辭體現） |
 | 同義表假陰性 | 「同義標題表維護」技術債已列入 ADR 後果段與成功指標重評條件 |
 
+## 4.5 實作後修正（標題錨定，code-review Finding #1）
+
+production lint（`tests/test_skill_lint.sh`）把 R4/R4b/STEP 一律**錨定到段落標題**（`^#+ .*<同義詞>`），修正本 spike 的寬鬆邏輯——spike 的 VERIFY/NEXT 曾匹配正文字詞（「輸出」「參考」），造成「假精確」。錨定 + 依 14 個 asp skill 的**實際標題**校準同義表後：
+
+- **真實 R4 真缺段 = 4 檔**（非 spike 估的 3，多了 asp-plan）：
+  - `asp-gate` 缺「下一步」段標題
+  - `asp-plan` 缺「Verification」段標題（其驗證走 Step 5.5 auto-gate，無顯式標題）
+  - `asp-release` 缺「適用場景」段標題
+  - `asp-review-checklist` 缺三段（適用場景 / Verification / 下一步）
+- 同義表已含「維度」→ `asp-audit` 不再假陰性（§2 盲點已修）。
+- **R6 @300** 實測 3 檔：`asp-autopilot`(829) / `asp-gate`(419) / `asp-ship`(306)，待 ② 拆。
+- R1/R2 既有全 skill 全過 → 直接硬 gate；R3 雙語 advisory（locale-safe 非 ASCII 偵測）；R5 延後。
+- production lint 自帶自我測試（含「正文字詞不算標題」的錨定驗證），`make test` exit 0。
+
 ## 4. 未驗（留待實作/人類）
 
 - **假設 3（git diff per-skill 偵測零成本複用）**：本 POC 未涵蓋（探針掃全目錄、未做 diff 範圍判定）。已列入 ADR-023 POC 計畫假設 3 與成功指標重評條件，待實作階段確認不會暴露成新元件。
