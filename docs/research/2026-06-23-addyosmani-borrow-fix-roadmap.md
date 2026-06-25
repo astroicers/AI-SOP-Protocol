@@ -15,7 +15,7 @@
 | **①** | `asp-skill-author` meta-skill + skill 級品質 lint | **ADR-023 / P1** | 嫁接 ADR-021（已 Accepted）；無上游依賴 | meta-skill（判斷型）+ lint（硬擋/advisory 分級） | **✅ 已實作（PR #51 merged）** |
 | **②** | skill 依生命週期分階 + mega-skill 拆小 | **P1（建議獨立 ADR-024）** | 依賴 ①（lint 為拆出子 skill 的 schema 驗收門檻） | 拆分後每子 skill 過 ① 的 schema lint；R6 行數 advisory 為「該拆」信號 | **✅ ADR-024 Accepted + 分階索引（PR #52）** |
 | **③** | plugin marketplace 為活證（補強 ADR-021） | **ADR-021（強化，非新 ADR）** | 無——是 ADR-021 的現成第三方證據 | 不新增元件（是證據） | **✅ 已補 ADR-021 VE（PR #52, 2026-06-25）** |
-| **④** | scope 紀律量化為機械信號 | **P3 / ADR-025** | 增強 `asp-ship` Step 2（ADR-025 駁回 asp-impact 落點：按需呼叫觸發時機錯）；複用 git diff-stat | advisory 非硬 gate | **✅ ADR-025 Draft + POC（PR #53）** |
+| **④** | scope 紀律量化為機械信號 | **P3 / ADR-025** | 增強 `asp-ship` Step 2（ADR-025 駁回 asp-impact 落點：按需呼叫觸發時機錯）；複用 git diff-stat | advisory 非硬 gate | **✅ ADR-025 Accepted + 實作（asp-ship Step 2, PR #53）** |
 | **⑤** | 規則 provenance（次要真缺口） | **P3 條件式（建議獨立 ADR）** | 接既有 rule-hits telemetry | 條件式 provenance 欄，非新層 | 待起（P3，條件觸發） |
 
 ### 依賴鏈

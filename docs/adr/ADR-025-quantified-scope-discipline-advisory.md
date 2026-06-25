@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-06-25 |
 | **決策者** | ASP framework maintainers（待人類核准） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
+
+> ⬆️ 由 `Draft` 升 `Accepted`：使用者 2026-06-25 明示「幫我 approve adr 25」、看完本指令摘要的決策（選項 B：增強 `asp-ship` Step 2 量化 scope advisory、零新層、advisory 鎖定永不硬 gate）與 Verification Evidence（POC 探針 `exit 0`、SCOPE_DIST total=40/<=8檔=29/>8檔=11/max=142）後明確同意直升（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。直升不跳過實質驗證——POC（分佈校準）已完成，僅省 FIRM 中間 label。
 
 ---
 
