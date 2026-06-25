@@ -45,11 +45,13 @@ make test
 ```bash
 git status
 git diff --stat
+SCOPE_N=$(git diff --cached --name-only | grep -c .)   # ADR-025 ④：staged 改檔數
 ```
 
 **判斷：**
 - 檢查是否有意外的變更（不屬於此次 commit 的檔案）
 - 若有未暫存的相關變更 → 提醒用戶是否要一起加入
+- **scope advisory（ADR-025 ④，借鏡 addyosmani scope discipline）**：`SCOPE_N > 8` → ⚠️ 提示「本次改 ${SCOPE_N} 檔（>8），可能是多個任務，建議評估是否拆分」。**advisory，不阻擋 commit**（ASP 有合法大改，POC max=142；閾值 8 為 ASP 自身分佈校準、可調）。
 - 若有敏感檔案（`.env`, `*.key`, `credentials*`）→ 🔴 **BLOCK**
 
 ---
