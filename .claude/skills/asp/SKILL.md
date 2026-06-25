@@ -77,6 +77,20 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 
 > **注意**：`asp-fact-verify`、`asp-assumption-checkpoint`、`asp-bug-classify`、`asp-change-cascade` 已於 v4.2 移除（邏輯內嵌於 `global_core.md` Profile）。相關行為由 `global_core.md` 的 Fact Verification Gate / 需求變更回溯協議 / Bug 分類章節直接覆蓋。
 
+## 生命週期階段索引（SDLC stage index，ADR-024）
+
+> 借 addyosmani 6 階段，提供「現在在 SDLC 哪一階段、下一步用哪個 skill」的**視圖**。**意圖路由（上方各表）仍為主**；本表純加、不取代。新增 skill 時須於此登記階段（見 `asp-skill-author`）。
+
+| 階段 | Skills |
+|------|--------|
+| **Meta**（跨階段/治理） | `asp`(router) · `asp-skill-author` · `asp-level` · `asp-audit` |
+| **DEFINE**（需求/領域） | `asp-context`（領域詞彙） |
+| **PLAN**（架構/規劃） | `asp-plan`（ADR/SPEC） · `asp-impact`（依賴影響分析） |
+| **BUILD**（實作） | `asp-autopilot`（ROADMAP 執行迴圈） |
+| **VERIFY**（驗證） | `asp-dev-qa-loop` · `asp-reality-check` · `asp-gate`（G1–G6，跨管線） |
+| **REVIEW**（審查） | `asp-review` · `asp-review-checklist` · `asp-external-review`（Layer 3 跨廠商） |
+| **SHIP**（交付） | `asp-ship`（pre-commit） · `asp-release`（版本/CHANGELOG） |
+
 ## 執行後 — 主動提示下一步（v3.5）
 
 完成任一子 skill 後，**主動**在回覆末尾提供「建議的下一步」，協助使用者理解 workflow 的前後關係。**不可**自動執行下一步（違反 HITL 原則），只做提示：

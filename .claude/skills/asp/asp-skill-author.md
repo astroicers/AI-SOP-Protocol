@@ -73,7 +73,8 @@ description: |                   # R2：block scalar、第三人稱、含 Trigge
 
 1. 在 `.claude/skills/asp/SKILL.md`（source copy）的「子 Skill 路由表」新增一列（用戶意圖 / 觸發詞 / 載入的 Skill）。
 2. 視情況在「執行後建議下一步」表補一列（router 原則：只建議不執行）。
-3. `bash ~/.claude/scripts/asp-sync.sh` 同步到 active `~/.claude/skills/asp/`（**asp-sync 不自我更新**，改 asp-sync 本身須另跑 install）。
+3. **登記生命週期階段（ADR-024）**：在 SKILL.md「生命週期階段索引」表把新 skill 歸入對應 SDLC 階段（DEFINE/PLAN/BUILD/VERIFY/REVIEW/SHIP/Meta）。
+4. `bash ~/.claude/scripts/asp-sync.sh` 同步到 active `~/.claude/skills/asp/`（**asp-sync 不自我更新**，改 asp-sync 本身須另跑 install）。
 
 ### Step 7：跑 lint 自驗（吃自己的狗糧）
 

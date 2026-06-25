@@ -114,3 +114,7 @@
 | **驗證日期** | （待填） |
 | **驗證者** | （待填，人類） |
 | **驗證摘要** | （待填）外部 plugin 機制事實已於 FC-004 查證；尚缺 ASP 動態 deny 在 plugin hook 下的端到端 POC |
+
+> **第三方活證補強（借鏡點 ③，2026-06-25）**：[`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills)（同品類 agent 工程紀律 skill 庫，≈65.7K★，MIT）**已實際在官方 Claude Code plugin marketplace 上架運行**，單一 repo 打包 skills + commands + hooks（一手查證見 `.asp-fact-check.md` FC-005：`/plugin marketplace add addyosmani/agent-skills`）。這是「**以官方 marketplace 機制承載同類 skill+command+hook 庫**」可行的**現成第三方活證**，補強本 ADR「低風險、高信心」論斷（源自借鏡報告 §4③ / `docs/research/2026-06-23-addyosmani-borrow-fix-roadmap.md`）。
+>
+> **界定（誠實）**：此為**機制可行性**的活證，**不取代**上方殘留 **POC-1**（ASP 動態 deny 在 plugin hook 下寫 `settings.local.json` 的端到端）與 **POC-2**（`/asp:*` 命名空間遷移盤點）——那兩項是 ASP **專屬強制力**的端到端驗證，addyosmani 未涉。故本補強提升信心、但 ADR-021 仍待 POC-1/POC-2 方升 FIRM。
