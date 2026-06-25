@@ -15,7 +15,7 @@
 | **①** | `asp-skill-author` meta-skill + skill 級品質 lint | **ADR-023 / P1** | 嫁接 ADR-021（已 Accepted）；無上游依賴 | meta-skill（判斷型）+ lint（硬擋/advisory 分級） | **✅ 已實作（PR #51 merged）** |
 | **②** | skill 依生命週期分階 + mega-skill 拆小 | **P1（建議獨立 ADR-024）** | 依賴 ①（lint 為拆出子 skill 的 schema 驗收門檻） | 拆分後每子 skill 過 ① 的 schema lint；R6 行數 advisory 為「該拆」信號 | **✅ ADR-024 Accepted + 分階索引（PR #52）** |
 | **③** | plugin marketplace 為活證（補強 ADR-021） | **ADR-021（強化，非新 ADR）** | 無——是 ADR-021 的現成第三方證據 | 不新增元件（是證據） | **✅ 已補 ADR-021 VE（PR #52, 2026-06-25）** |
-| **④** | scope 紀律量化為機械信號 | **P3（建議獨立 ADR）** | 接既有 `asp-impact`；複用 metrics | advisory 非硬 gate | 待起（P3） |
+| **④** | scope 紀律量化為機械信號 | **P3 / ADR-025** | 增強 `asp-ship` Step 2（ADR-025 駁回 asp-impact 落點：按需呼叫觸發時機錯）；複用 git diff-stat | advisory 非硬 gate | **✅ ADR-025 Draft + POC（PR #53）** |
 | **⑤** | 規則 provenance（次要真缺口） | **P3 條件式（建議獨立 ADR）** | 接既有 rule-hits telemetry | 條件式 provenance 欄，非新層 | 待起（P3，條件觸發） |
 
 ### 依賴鏈
@@ -55,8 +55,8 @@ ADR-021（Accepted，分發）
 
 - **借什麼**：addyosmani「scope 過大即警訊」的精神（具體數字僅見二手、一手未載，見報告 §4 註與 FC-005，故**只借精神不照搬數字**）。
 - **怎麼做**：把 ASP 質性的「輕量改動」升為可偵測信號——`git diff` 檔數/行數超閾值 → 提示「可能是多任務、建議拆」。**advisory 非硬 gate**（避免偽硬 gate 撞 ADR-020）。
-- **改哪些檔**：接既有 `asp-impact`；複用 metrics。與 ① 的 R6 行數 advisory **同源思路、作用對象不同**（① 管單一 skill 體積、④ 管一次 diff 的範圍）。
-- **落點**：P3。獨立 ADR（P3 開時編號），須過 ADR-010 摩擦評估。
+- **改哪些檔**：**增強 `asp-ship` Step 2「確認變更範圍」**（ADR-025；**非** asp-impact——按需呼叫、scope 信號該在 commit 前提醒），複用既有 `git diff --cached --stat`。與 ① 的 R6 行數 advisory **同源思路、作用對象不同**（① 管單一 skill 體積、④ 管一次 staged diff 的範圍）。
+- **落點**：P3 / **ADR-025（Draft + POC）**。閾值 >8 檔（POC 校準），advisory 永不硬 gate（ASP 有合法大 commit，max=142）。
 
 ## ⑤ 規則 provenance（P3 條件式，建議獨立 ADR）
 
