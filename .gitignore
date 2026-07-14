@@ -40,6 +40,11 @@ htmlcov/
 # Session 紀錄（本地）
 docs/session-log.md
 
+# Session 敘事日誌 + marker + note 暫存（SPEC-014 Feature A，本地跨 session 記憶，per-machine）
+.asp-session-journal.jsonl
+.asp-session-marker.json
+.asp-session-notes.tmp
+
 # 安裝備份
 CLAUDE.md.pre-asp
 CLAUDE.md.pre-upgrade

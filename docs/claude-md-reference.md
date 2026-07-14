@@ -9,7 +9,8 @@
 
 | Layer | 機制 | 強制力 |
 |-------|------|--------|
-| L1: SessionStart | `session-audit.sh` → `.asp-session-briefing.json` | 硬（啟動時輸出 BLOCKER） |
+| L1: SessionStart | `session-audit.sh` → `.asp-session-briefing.json`；並讀 `.asp-session-journal.jsonl` 尾 N 筆注入「📓 最近 Session 經驗」，`source=compact` 時另注入「⚠️ Post-Compaction 存活包」（動態義務/ADR/gate/task 重注入，SPEC-014 借鑒 claude-mem lifecycle-hook 記憶模式） | 硬（啟動時輸出 BLOCKER） |
+| L0: SessionEnd | `session-end-journal.sh` → append `.asp-session-journal.jsonl`（本 session 機械事實 commits/files/gates/test + 人工 `make journal-note`；observations only，決策仍走 ADR）供下次 L1 讀回 | 記憶（純副作用，恆 exit 0，不阻擋） |
 | L1.5: PreToolUse | `pretooluse-ship-gate.sh` 攔 `git commit`：無新鮮測試痕跡 → deny（ADR-020 遺忘威脅；escape hatch `ASP_SHIP_OK=1` + fail-open 防死鎖） | 硬（commit 前機械擋） |
 | L2: Dynamic Deny | `Draft` ADR / 測試未過 → 動態阻擋 `git commit`；`FIRM` ADR → 允許但記錄 bypass log | 硬（VSCode deny dialog） |
 | L3: Skill Gates | `asp-ship`(10步，含 Step 9.6 gate-log 後驗) + `asp-gate`(G1-G6) + `asp-plan` Step 5.5 auto-gate（ADR-009 + SPEC-006 已落地：staged ADR/SPEC 機械觸發 G1/G2 subagent，報告存 `.asp-gate-log/`） | 結構化軟性 |

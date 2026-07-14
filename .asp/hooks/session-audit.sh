@@ -29,6 +29,32 @@ command -v jq &>/dev/null || {
     exit 0
 }
 
+# ─── SPEC-014: 解析 SessionStart hook stdin 的 source（startup/resume/clear/compact）───
+# 只在 stdin 非 TTY 時讀（hook / 管線）→ 避免 `make asp-refresh` 在終端機被 cat 卡住；
+# timeout 兜底防 hang；解析失敗視為空（fail-open）。
+SESSION_SOURCE=""
+if [ ! -t 0 ]; then
+    _HOOK_INPUT=$(timeout 1 cat 2>/dev/null || true)
+    [ -n "$_HOOK_INPUT" ] && SESSION_SOURCE=$(printf '%s' "$_HOOK_INPUT" | jq -r '.source // empty' 2>/dev/null || echo "")
+fi
+
+# ─── SPEC-014: session marker（供 SessionEnd 計算本 session 差異）───
+# compact/clear = session 續接 → 不覆寫既有 marker（避免只捕捉半段）；
+# 其餘（startup/resume/空）= 新 session 邊界 → 寫入當前 HEAD。
+JOURNAL_FILE="${PROJECT_DIR}/.asp-session-journal.jsonl"
+MARKER_FILE="${PROJECT_DIR}/.asp-session-marker.json"
+case "$SESSION_SOURCE" in
+    compact|clear) : ;;
+    *)
+        if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+            _MK_HEAD=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
+            _MK_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+            jq -cn --arg h "$_MK_HEAD" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg b "$_MK_BRANCH" \
+                '{head:$h,ts:$ts,branch:$b}' > "$MARKER_FILE" 2>/dev/null || true
+        fi
+        ;;
+esac
+
 # ─── 收集器 ───
 BLOCKERS=()
 WARNINGS=()
@@ -54,7 +80,7 @@ asp_metric() { # $1=rule_id  $2=action(blocker|warn|info|deny-inject)
 # Iron Rule A: Hook Integrity Verification
 # ═══════════════════════════════════════════
 if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
-    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" ".asp/scripts/bypass-hash.sh" ".asp/hooks/pretooluse-ship-gate.sh"; do
+    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" ".asp/scripts/bypass-hash.sh" ".asp/hooks/pretooluse-ship-gate.sh" ".asp/hooks/session-end-journal.sh"; do
         if git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" &>/dev/null 2>&1; then
             CURRENT_HASH=$(sha256sum "${PROJECT_DIR}/${CRITICAL_FILE}" 2>/dev/null | cut -d' ' -f1)
             GIT_HASH=$(git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1)
@@ -391,6 +417,19 @@ if [ -f "$PROJECT_DIR/.asp-autopilot-state.json" ]; then
 fi
 
 # ═══════════════════════════════════════════
+# 8.7 Session 敘事日誌讀回（SPEC-014 Feature A）
+#     讀 .asp-session-journal.jsonl 尾端 N=3 筆，於 §11 注入 stdout →
+#     關掉「session-checkpoint 寫了沒人讀」缺口。observations only（決策走 ADR）。
+# ═══════════════════════════════════════════
+JOURNAL_LINES=()
+if [ -f "$JOURNAL_FILE" ]; then
+    while IFS= read -r _jl; do
+        [ -n "$_jl" ] && JOURNAL_LINES+=("$_jl")
+    done < <(tail -n 3 "$JOURNAL_FILE" 2>/dev/null \
+        | jq -r '"\(.ts) | \(.branch // "-") | \(.files_changed_count // 0)檔 | commits: \(((.commits // [])|join("; ")) as $c | if $c=="" then "-" else $c end) | notes: \(((.notes // [])|join("; ")) as $n | if $n=="" then "-" else $n end)"' 2>/dev/null)
+fi
+
+# ═══════════════════════════════════════════
 # 9. 產生 briefing JSON
 # ═══════════════════════════════════════════
 {
@@ -501,6 +540,22 @@ fi
 
 if [ ${#BLOCKERS[@]} -eq 0 ] && [ ${#WARNINGS[@]} -eq 0 ]; then
     echo "All clear."
+fi
+
+# 📓 最近 Session 經驗（SPEC-014 Feature A）——跨 session 經驗讀回
+if [ ${#JOURNAL_LINES[@]} -gt 0 ]; then
+    echo "### 📓 最近 Session 經驗"
+    for _jl in "${JOURNAL_LINES[@]}"; do echo "- $_jl"; done
+fi
+
+# ⚠️ Post-Compaction 存活包（SPEC-014 Feature B）——僅 compact source 注入動態狀態
+if [ "$SESSION_SOURCE" = "compact" ]; then
+    echo "### ⚠️ Post-Compaction 存活包"
+    echo "- 過程義務速查（壓縮後最先蒸發）：commit 前跑測試/asp-ship｜實作前 ADR 須 Accepted/FIRM｜bug 修復後全專案 grep 同類｜外部事實查證記 .asp-fact-check.md｜輕量改動仍需獨立審查"
+    [ ${#DRAFT_ADRS[@]} -gt 0 ] && echo "- ⚠️ Draft ADR（禁止實作）：${DRAFT_ADRS[*]}"
+    [ ${#FIRM_ADRS[@]} -gt 0 ]  && echo "- FIRM ADR（可 commit，需驗證證據）：${FIRM_ADRS[*]}"
+    [ "$AUTOPILOT_STATE_EXISTS" = "true" ] && echo "- 未完成 autopilot：跑 /asp-autopilot 續接（重讀檔案系統，不信任壓縮前 context）"
+    [ ${#JOURNAL_LINES[@]} -gt 0 ] && echo "- 最近經驗：${JOURNAL_LINES[$(( ${#JOURNAL_LINES[@]} - 1 ))]}"
 fi
 
 echo "---"

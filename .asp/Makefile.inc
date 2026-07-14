@@ -14,7 +14,7 @@ ASP_TYPE := $(shell grep '^type:' .ai_profile 2>/dev/null | awk '{print $$2}')
         spec-new spec-list \
         postmortem-new postmortem-list \
         agent-done \
-        session-checkpoint session-log \
+        session-checkpoint session-log journal-note journal \
         guardrail-log guardrail-reset \
         audit-health audit-quick doc-audit tech-debt-list \
         task-start \
@@ -48,6 +48,7 @@ endif
 	@echo "🤖 Agent v3:    agent-handoff-list | agent-tracks | agent-escalation-log"
 	@echo "🤖 Agent Init:  audit-baseline-init"
 	@echo "💾 Session:     session-checkpoint NEXT=... | session-log"
+	@echo "📓 Journal:     journal-note NOTE=... | journal"
 	@echo "🛡  Guardrail:   guardrail-log | guardrail-reset"
 	@echo "🏥 Audit:       audit-health | audit-quick | doc-audit | tech-debt-list"
 	@echo "🔒 Enforce:     asp-unlock-commit | asp-refresh | asp-enforcement-status"
@@ -1120,3 +1121,11 @@ daily-audit: ## Generate daily health report to .asp-daily-report.md (P3)
 #---------------------------------------------------------------------------
 -include experimental/multi-agent/Makefile.inc
 -include showcase/Makefile.inc
+
+journal-note:
+	@if [ -z "$(NOTE)" ]; then echo "使用方式：make journal-note NOTE=「學到什麼」"; exit 1; fi
+	@echo "$(NOTE)" >> .asp-session-notes.tmp
+	@echo "📓 已暫存 note（SessionEnd 會收斂進 .asp-session-journal.jsonl）"
+
+journal:
+	@tail -n 20 .asp-session-journal.jsonl 2>/dev/null || echo "(無 journal 紀錄)"
