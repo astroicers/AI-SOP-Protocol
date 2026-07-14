@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-07-11 |
 | **決策者** | ASP framework maintainers（待人類核准） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
+
+> ⬆️ 由 `Draft` 直升 `Accepted`：使用者 2026-07-14 透過 `/asp:approve-adr ADR-026` 呼叫、看完本指令摘要的決策（選項 B：借 claude-mem 的 lifecycle-hook 記憶模式、純 bash/jq 自製、拒絕 Docker/pgvector/MCP/外部 embedding）與 Verification Evidence（升級當下 POC 欄位全為「待填」——即**無**經驗性驗證，直升同時跳過 FIRM 與 POC）後，明確回覆「確認直升」同意（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。信任依據為設計論證本身；經驗性驗證留待 Accepted 後的 TDD（先寫失敗測試）補上。
 
 ---
 
