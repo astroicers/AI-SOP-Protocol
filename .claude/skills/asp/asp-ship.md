@@ -228,7 +228,7 @@ done <<< "$adr_specs"
 make asp-bypass-record SKILL=asp-ship STEP=StepN REASON="使用者說明或 trivial 理由"
 ```
 
-此記錄寫入 `.asp-bypass-log.json`（append-only）。`make asp-bypass-review` 可檢視歷史。若 3 次以上同一 step 被略過 → 下次 `asp-audit` 會觸發 blocker。
+此記錄寫入 `.asp-bypass-log.ndjson`（append-only）。`make asp-bypass-review` 可檢視歷史。若 3 次以上同一 step 被略過 → 下次 `asp-audit` 會觸發 blocker。
 
 ---
 
@@ -282,7 +282,7 @@ Step 10 記錄結果       ✅ .asp-test-result.json 已更新
 
 ## Common Rationalizations（AI 繞過時必讀）
 
-> **執行此 skill 時，AI 必須先檢視此表。** 若使用者或 AI 自己提出下列藉口，引用對應反駁，不可直接照辦。任何 skip 都必須記錄到 `.asp-bypass-log.json`（由 Step 10 處理）。
+> **執行此 skill 時，AI 必須先檢視此表。** 若使用者或 AI 自己提出下列藉口，引用對應反駁，不可直接照辦。任何 skip 都必須記錄到 `.asp-bypass-log.ndjson`（由 Step 10 處理）。
 
 | 藉口 | 反駁 |
 |------|------|
@@ -293,7 +293,7 @@ Step 10 記錄結果       ✅ .asp-test-result.json 已更新
 | 「Draft ADR 還在討論，先把對應代碼 push 上去」 | 🔴 鐵則違反。Draft ADR 對應的生產代碼是專案憲法禁止項，不論時間壓力。解除方式：完成 ADR 審核或 `make asp-unlock-commit`（需人類批准）。 |
 | 「ADR 是 FIRM，可以合法 commit」 | ✅ 正確。FIRM + Verification Evidence = 允許 commit，但需在 bypass log 記錄，並在下次 session 前升級至 Accepted。 |
 | 「硬編碼 API key 只是暫時本地測試」 | Step 9 一律 BLOCK。即使只是暫時，git 歷史會永久保留。改用環境變數或 `.env`（並確認在 `.gitignore`）。 |
-| 「SPEC Traceability 之後再補」 | Step 5 允許 WARN-GO 但會進入 `.asp-bypass-log.json`。連續 3 次以上會在下次 audit 觸發 blocker。 |
+| 「SPEC Traceability 之後再補」 | Step 5 允許 WARN-GO 但會進入 `.asp-bypass-log.ndjson`。連續 3 次以上會在下次 audit 觸發 blocker。 |
 | 「Session briefing 不存在，直接開始 commit」 | Step 0 BLOCK。briefing 不存在代表 SessionStart hook 未執行或被跳過，這時你不知道有哪些動態 deny。先 `make asp-refresh`。 |
 
 ## 快速修復指引
