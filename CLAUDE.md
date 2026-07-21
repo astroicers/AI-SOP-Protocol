@@ -75,7 +75,9 @@
 
 預設行為完整清單：`~/.claude/asp/profiles/global_core.md`「預設行為」section
 
-**技術執行層**：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入）｜Hook 設定：`.claude/settings.json`
+**技術執行層**：`Bash(*)` allow-all + deny 黑名單（`~/.claude/asp/hooks/denied-commands.json` + session-audit.sh 動態注入）｜Hook 設定：`.claude/settings.json`（SessionStart：clean-allow-list + session-audit｜PreToolUse：ship-gate｜SessionEnd：session-end-journal 記錄跨 session 經驗，SPEC-014）
+
+**跨 session 記憶（SPEC-014）**：SessionEnd 自動把本 session 機械事實 + `make journal-note` 追加到 `.asp-session-journal.jsonl`（本地、observations only、決策仍走 ADR）；下次 SessionStart 讀回注入「📓 最近 Session 經驗」，compact 後另注入「⚠️ Post-Compaction 存活包」。
 
 ---
 
