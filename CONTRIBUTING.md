@@ -63,6 +63,16 @@ Layer 6: 選配（rag/guardrail/design/coding_style/openapi/frontend_quality） 
    - 升級邏輯必須保留使用者既有設定
    - 新增欄位必須在升級時自動補充到既有 `.ai_profile`
 
+### 複雜度預算（ADR-022）
+
+治理產物（`.asp/profiles/`、skills、levels）受**複雜度預算棘輪**約束，避免治理層無限自我增生（治理劇場）。提交涉及治理面的 PR 前：
+
+1. **先問**：新增任何一層強制前，先問「能不能用**簡化需求**取代？」——這是複雜度預算的核心啟發式。
+2. **量測**：`make asp-metrics-compare`（對照已 commit 的 `.asp-metrics-baseline.json`）。若你的 PR 使 `profiles.total_lines` / `skills.total_lines` 等**超過當前 baseline**，代表新增了治理複雜度。
+3. **超標 → 附理由**：超過 baseline 的 PR 必須附一份**明確認列複雜度增加理由的 ADR**（逃生門，與 `FIRM` ADR → audit 🟡 同構）。
+4. **豁免**：四條鐵則 + Iron Rule A/B/C（registry `exempt: true`）**永不進入棘輪**——鐵則的價值正在於不退場。
+5. **去重**：可推導性/去重**不做每-commit 機械閘**（語意判斷無法機械近似，POC-2）；改由 `reality-checker` 定期 advisory review 列候選給人類判斷，**不阻擋 commit**。
+
 ---
 
 ## Commit 慣例
