@@ -92,7 +92,7 @@ ASP v5 採用 **3 級成熟度模型**（ADR-014：v4 的 L0-L5 六級收斂為�
 
 ```yaml
 # 若 check 是 "true"（soft check）
-# AI 需要讀取相關檔案（如 .asp-bypass-log.json、commit history）並判斷
+# AI 需要讀取相關檔案（如 .asp-bypass-log.ndjson、commit history）並判斷
 ```
 
 ---
@@ -153,7 +153,7 @@ Next Level (autonomous) 會新增：
 | 藉口 | 反駁 |
 |------|------|
 | 「graduation item 有點麻煩，直接跳級」 | 不可。每級的設計假設前一級已經穩定。跳級 = 基礎不穩導致的 cascading 問題。 |
-| 「使用者說要升到 autonomous，直接改 `.ai_profile` 就好」 | 必須先檢查前置等級的 graduation_checklist。若未通過，向使用者說明缺項，讓使用者決定是否強制升級。強制升級必須寫入 `.asp-bypass-log.json`。 |
+| 「使用者說要升到 autonomous，直接改 `.ai_profile` 就好」 | 必須先檢查前置等級的 graduation_checklist。若未通過，向使用者說明缺項，讓使用者決定是否強制升級。強制升級必須寫入 `.asp-bypass-log.ndjson`。 |
 | 「legacy 專案沒有 `level` 欄位，預設就算 autonomous」 | 不可。無 `level` 欄位時用「Level 推斷規則」保守估計。寧可推斷低也不要誤判高。 |
 | 「數字等級還能用，不用提醒使用者改」 | 能用是過渡相容（ADR-014），不是長期支援。每次遇到數字值都要提示更新為名稱值，並說明 v6 移除。 |
 | 「soft check (`check: "true"`) 直接回傳通過」 | Soft check 代表需要 AI 實際檢視專案狀態（例如讀 bypass log、commit history）並**說明判斷依據**。空白通過 = 無效審核。 |
@@ -166,5 +166,5 @@ Next Level (autonomous) 會新增：
 - `.asp/levels/loose.yaml` / `standard.yaml` / `autonomous.yaml` — 等級定義（v4 的 level-0~5.yaml 已歸檔 `docs/archive/levels/`）
 - `.asp/scripts/level-resolve.sh` — 數字→名稱中央映射（deprecation 提示）
 - `.ai_profile` — 使用者當前等級與啟用設定
-- `.asp-bypass-log.json` — 強制升級記錄
+- `.asp-bypass-log.ndjson` — 強制升級記錄
 - `Makefile` → `make asp-level-check`、`make asp-level-upgrade`、`make asp-level-list`

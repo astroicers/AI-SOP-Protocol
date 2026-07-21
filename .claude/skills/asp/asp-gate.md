@@ -343,7 +343,7 @@ remediation: 確認 Done When 條件對應的測試案例確實先 FAIL，再實
 make asp-bypass-record SKILL=asp-gate STEP=<GX_name> REASON="<skipped_reason>"
 ```
 
-此指令將事件寫入 `.asp-bypass-log.json`（append-only），供後續 `make asp-bypass-review` 檢視。
+此指令將事件寫入 `.asp-bypass-log.ndjson`（append-only），供後續 `make asp-bypass-review` 檢視。
 
 ### 顯示模式
 

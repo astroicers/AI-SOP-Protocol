@@ -32,7 +32,7 @@ graduation_checklist:
     check: "make lint >/dev/null 2>&1"
   - id: no-hardcoded-secrets
     description: "近 30 次 commit 中無被 asp-ship Step 9 攔截的硬編碼密碼事件"
-    check: "! grep -l 'BLOCK.*password=\\|BLOCK.*api_key=' .asp-bypass-log.json 2>/dev/null"
+    check: "! grep -l 'BLOCK.*password=\\|BLOCK.*api_key=' .asp-bypass-log.ndjson 2>/dev/null"
   - id: spec-has-done-when
     description: "所有 SPEC 的 Done When 欄位均已填寫（可二元測試）"
     check: "! grep -L 'Done When' docs/specs/SPEC-*.md 2>/dev/null"
