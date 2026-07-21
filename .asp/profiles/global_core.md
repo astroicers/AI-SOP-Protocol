@@ -36,6 +36,15 @@
 | 「使用者說的 file.txt 一定是在當前目錄」 | 使用者的「當前目錄」可能與你的 cwd 不同。先 `pwd` 或讀取 `<env>` 區塊的 working directory |
 | 「relative path 比較短，省事」 | 跨 root 操作時，相對路徑是 bug 溫床。絕對路徑冗長但可審計 |
 
+### 多 session 並行 → 每 session 專屬 git worktree（ADR-027，advisory）
+
+> 在同一 repo **並行開多個 Claude Code session** 時，共用單一工作樹會踩 git 的 HEAD / index / working-tree 競態（commit 落錯分支、HEAD 被別的 session 切走）。「開隔離分支 + commit 前 git status」只是機率性防禦，覆蓋不了 session 生命週期內任意時刻的互踩。
+
+- **每個並行 session 開專屬 worktree**：認領一個 GitHub **issue** → `git worktree add ../<repo>-wt-<topic> origin/main`（或請使用者 **EnterWorktree**）→ 專屬 **branch** → 收尾開專屬 **PR**；**主工作樹留給人類**。worktree 間 HEAD/index 完全獨立 → 競態結構性消失；GitHub **issue/PR** 為跨 session 協調基座。
+- **生命週期紀律**：從 `origin/main` 建、合併後 `git worktree remove` + 刪分支，避免殭屍 worktree。
+- **範圍**：僅在**多 session 並行**時需要；單一 session 無競態、不必付 worktree 成本。
+- **性質**：advisory（文件約定）——不硬擋、不阻斷單一 session 或不支援 worktree 的環境。L2 `session-audit` 主動偵測（reflog/worktree WARNING）為後續 follow-up。
+
 ---
 
 ## CONTEXT.md 自動讀取（Session 啟動）
