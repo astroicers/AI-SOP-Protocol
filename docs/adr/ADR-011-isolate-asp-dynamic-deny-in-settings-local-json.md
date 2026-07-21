@@ -76,7 +76,7 @@ ASP 只管理 gitignored 的 `settings.local.json`，把動態 deny 全部寫在
 - [x] 人類審核本 ADR → **astroicers 於 2026-06-08 核准升 `Accepted`**。
 - [x] 實作 settings.local.json 遷移（TDD）：session-audit Section 10 改寫 `settings.local.json`、永不觸碰 tracked `settings.json`；`make asp-unlock-commit` 同步清兩檔。
 - [x] 退役 Section 8.5 orphan WARNING（tracked/gitignored 分裂的根因已消除——deny 不再進 tracked 檔）。
-- [ ] POC：實機確認「Draft 期間注入 settings.local.json 的 deny 確實擋下 git commit」（FC-001 已查證 deny-first/scope-merge 行為）。
+- [x] POC：實機確認「Draft 期間注入 settings.local.json 的 deny 確實擋下 git commit」（FC-001 已查證 deny-first/scope-merge 行為）。→ **2026-07-22 完成，見下方 Verification Evidence（#18）**。
 
 ---
 
@@ -101,13 +101,13 @@ ASP 只管理 gitignored 的 `settings.local.json`，把動態 deny 全部寫在
 
 ---
 
-## Verification Evidence（升級至 FIRM 時必填）
+## Verification Evidence
 
-> 填寫後由人類將狀態改為 `FIRM`，允許對應生產代碼 commit（audit-health 輸出 YELLOW FLAG）。
+> 本 ADR 已於 2026-06-08 由人類直升 `Accepted`（見上方決策）；下表為 #18 追補的落地實證，非 FIRM 升級用途。
 
 | 欄位 | 內容 |
 |------|------|
-| **POC 分支 / 測試結果** | （待 POC：settings.local.json 注入 deny → 實測 git commit 被擋 + 換機自清） |
-| **驗證日期** | （待填） |
-| **驗證者** | astroicers（待人類覆核） |
-| **驗證摘要** | 外部事實 FC-001 已驗證（deny-first / scope-merge / gitignored）；落地行為待 POC。 |
+| **POC 分支 / 測試結果** | `asp/close-18-adr011-poc`（#18）。POC 於 throwaway `CLAUDE_PROJECT_DIR` 執行（不動真 repo）：**Leg 1**（Draft ADR 存在）→ `session-audit.sh` 印 `A3.1 鐵則: ADR Draft 存在 — git commit 已被動態阻擋`、`.claude/settings.local.json` 注入 `Bash(git commit *)` + `Bash(git commit)`、sidecar `.asp-managed-deny.json` 記錄之、tracked `settings.json` 的 sha256 **不變**；**Leg 2**（Draft → Accepted 重跑）→ deny 自清為 `[]`、`settings.json` sha256 仍 **不變**。單測 `tests/test_managed_deny_reconcile.sh` **10/10**、`make test` **49 bash + 16 pytest** 全綠。**Live runtime**：本 session 的 PreToolUse commit-gate 實際 deny 了一個內含 `git commit` 字串的指令（真實執行期阻擋，非模擬）。 |
+| **驗證日期** | 2026-07-22 |
+| **驗證者** | Claude Code（POC 執行 + 證據蒐集）；astroicers 待覆核 |
+| **驗證摘要** | ADR-011 的三大殘留全數落地驗證：(1) tracked `settings.json` 零改動；(2) Draft 期間 deny 生效、`git commit` 被擋；(3) Draft 解除後 deny 自清、無殘留；(4) 使用者同字串 deny 不被誤刪（T6）。外部事實 FC-001（deny-first／scope-merge／gitignored）先前已查證。**#18 POC 完成。** |
