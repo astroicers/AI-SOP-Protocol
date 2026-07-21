@@ -1,17 +1,17 @@
-<!-- Last Updated: 2026-07-22 | Status: Draft | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-07-22 | Status: Accepted | Audience: ASP framework maintainers -->
 # [ADR-027]: GitHub-native 多 session 並行開發 — per-session worktree 隔離 + issue/PR 協調基座
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-07-22 |
-| **決策者** | ASP framework maintainers（待人類核准） |
+| **決策者** | ASP framework maintainers（astroicers 已核准 2026-07-22） |
 | **觸發事件** | issue #56 — eks-infra 單日 3 起多 session 共用工作樹競態事故 |
 | **關聯** | #56；SPEC-004（multi-agent worktree isolation，experimental 凍結）；ADR-017（core / experimental / showcase 分離）；使用者方向：開發環境全 GitHub-centric、大量沿用 issue/PR |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
 >
-> **本 ADR 維持 `Draft`。依鐵則「ADR 未定案禁止實作」——人類核准（`/asp:approve-adr ADR-027`）並拍板下方**設計決策點（DP1–DP4）**前，不得修改 `CLAUDE.md` / `global_core.md` / `session-audit.sh`（後者為 Iron Rule A 雜湊保護檔）。**
+> ⬆️ 由 `Draft` 升 `Accepted`：使用者 2026-07-22 透過 `/asp:approve-adr ADR-027` 呼叫、看完本指令摘要的決策與 Verification Evidence（全空、POC 待補）後明確同意 **Draft 直升**（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。**直升取捨**：本 ADR 本輪只落地 **L1 advisory 純文件約定**（風險極低、不需 POC）；POC 綁定的 **L2 `session-audit` 偵測**另立 follow-up、待實作時補 Verification Evidence。**DP 拍板**：DP1＝落 `global_core.md` 預設行為 + `CLAUDE.md` 速查一行；DP2＝advisory-only（暫不做 L2 WARNING）；DP3＝僅偵測到多 session 時建議；DP4＝維持凍結 SPEC-004。
 
 ---
 
