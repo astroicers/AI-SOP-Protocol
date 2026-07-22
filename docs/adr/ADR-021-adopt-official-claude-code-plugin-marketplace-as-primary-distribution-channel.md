@@ -113,7 +113,7 @@
 | **POC 分支 / 測試結果** | `asp/adr-021-poc`（#41 主線）。**POC-1**：FC-006（官方文件確認 plugin hook 得 `CLAUDE_PROJECT_DIR`、不沙箱、可寫檔）+ 本機模擬 `docs/research/poc1-plugin/simulate-plugin-hook.sh` **PASS**（plugin-bundled `session-audit.sh` 寫 deny 入專案 `settings.local.json`、tracked `settings.json` sha 不變）→ `docs/research/2026-07-22-poc1-plugin-hook-settings-local.md`。**POC-2**：`docs/research/2026-07-22-poc2-namespace-migration.md`。 |
 | **驗證日期** | 2026-07-22 |
 | **驗證者** | Claude Code（POC 執行 + FC-006 查證）；astroicers 待覆核（含 POC-1 真 `/plugin install` 端到端定論步） |
-| **驗證摘要** | 兩項 POC 完成：POC-1 證實「plugin hook 寫 settings.local.json 承載 L2 deny」＝文件層級 YES + 本機模擬 PASS、**ASP hook 無需修改**；POC-2 定出**零重命名**遷移路徑（commands 零變動、skills 保留前綴）。ADR-021 核心可行性風險（FC-004 殘留 #1）已消解，#41 (b) marketplace + (c) 測試精簡的前置解除。殘留：POC-1 真 `/plugin install` 端到端由人類跑一次確認。 |
+| **驗證摘要** | 兩項 POC 完成：POC-1 證實「plugin hook 寫 settings.local.json 承載 L2 deny」＝文件層級 YES + 本機模擬 PASS + manifests jq-validated、**ASP hook 無需修改**；POC-2 定出**零重命名**遷移路徑（commands 零變動、skills 保留前綴）。ADR-021 核心可行性風險（FC-004 殘留 #1）已消解，#41 (b) marketplace + (c) 測試精簡的前置解除。**誠實邊界**：POC-1 真 `/plugin install` loader 實跑**無法在本 session 環境跑**（此環境無 `/plugin` 指令），deferred 至互動式 Claude Code 終端；該環節為 FC-006 官方文件明載行為，屬「確認」非「賭注」。 |
 
 > **第三方活證補強（借鏡點 ③，2026-06-25）**：[`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills)（同品類 agent 工程紀律 skill 庫，≈65.7K★，MIT）**已實際在官方 Claude Code plugin marketplace 上架運行**，單一 repo 打包 skills + commands + hooks（一手查證見 `.asp-fact-check.md` FC-005：`/plugin marketplace add addyosmani/agent-skills`）。這是「**以官方 marketplace 機制承載同類 skill+command+hook 庫**」可行的**現成第三方活證**，補強本 ADR「低風險、高信心」論斷（源自借鏡報告 §4③ / `docs/research/2026-06-23-addyosmani-borrow-fix-roadmap.md`）。
 >

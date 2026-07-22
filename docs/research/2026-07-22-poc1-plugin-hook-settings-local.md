@@ -46,9 +46,15 @@ ADR-021 把 ASP 改封裝為官方 Claude Code plugin。ASP 的 L2 強制力靠 
 ```
 > 因 FC-006 已在文件層級確認機制、本機模擬亦 PASS，此步屬「**確認**」而非「賭注」。
 
+### 環境註記（2026-07-22，誠實邊界）
+本 session 的執行環境**無 `/plugin` 指令**（實測回「`/plugin` isn't available in this environment」），故真 `/plugin install` 端到端**無法在此環境跑**，移至使用者的**互動式 Claude Code 終端**執行。作為替代的可就地驗證：
+- **manifests 已 jq 驗為合法 JSON + schema-sane**：`marketplace.json`（name/owner/plugins、source `./asp-hook-poc`、`strict:false`）、`hooks.json`（SessionStart×2 + PreToolUse `Bash`），且 hooks.json 引用的 3 支腳本**皆存在**。→ 封裝結構正確，互動終端安裝即可用。
+- 尚未經驗證的**唯一**環節＝Claude Code plugin loader 是否確實解析 hooks.json 並設 `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`——此為 FC-006 官方文件明載行為，僅缺本地實跑。
+
 ## 結論
 
-- **POC-1 = PASS（文件確認 + 本機模擬）**：plugin 承載的 hook 能把 ASP L2 deny 寫進專案 `settings.local.json`、不碰 tracked `settings.json`。
+- **POC-1 = PASS（文件 FC-006 + 本機模擬 + manifest 驗證）**：plugin 承載的 hook 能把 ASP L2 deny 寫進專案 `settings.local.json`、不碰 tracked `settings.json`。
+- **loader 實跑（真 `/plugin install`）＝唯一 deferred 環節**，因本環境無 `/plugin`；移至互動式 CC 終端，屬文件已保證的「確認」。
 - **ASP hook 無需修改**即可在 plugin 下運作（`CLAUDE_PROJECT_DIR` 有保證）。
 - **次要 robustness 觀察（非阻擋，實作輪可選）**：`session-audit.sh:18` 只有 `${CLAUDE_PROJECT_DIR:-.}`，而 `pretooluse-ship-gate.sh:25` 已有 stdin `.cwd` fallback；可補上對稱 fallback 以防未來 env 不保證的邊界（動 Iron-Rule-A 保護檔，走 hash 更新流程）。
 
