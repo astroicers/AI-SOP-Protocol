@@ -22,7 +22,39 @@ COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null) 
 # ── 只攔「指令位置」的 git commit（行首或 ;/&&/| 之後），避免字串內誤判 ──
 grep -qE '(^|[;&|]+[[:space:]]*)git[[:space:]]+commit' <<<"$COMMAND" || exit 0
 
-PROJ="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$INPUT" | jq -r '.cwd // "."' 2>/dev/null)}"
+# ── 解析 commit 實際所在的 git worktree 頂層（#72）──
+# worktree session 下 CLAUDE_PROJECT_DIR 常指向主工作樹 → 檢查錯 repo 的 trace/index
+# （誤擋或恆放行）。修法：CLAUDE_PROJECT_DIR 仍是強信任錨；**僅當** cwd 是「與其同一
+# superproject」的 worktree（絕對 git-common-dir 相等）才改用 cwd 的 worktree 頂層——
+# 這杜絕 cd 進無關 repo 放 planted-trace 的無聲繞過（安全審查 #1）。未設 CLAUDE_PROJECT_DIR
+# （非標準環境）才退回 cwd 的 git 頂層再退回 cwd。
+# 信任假設：本 hook 進程的環境未被 ambient 設 GIT_DIR/GIT_COMMON_DIR/GIT_WORK_TREE——
+# 若被設，rev-parse 解析會被導向，可繞過 superproject 血緣比對。Claude Code 的 Bash 工具
+# 每次呼叫的 env 不跨呼叫留存（指令字串只被本 hook 當字串讀、不執行）→ 單次 commit 無法注入；
+# 屬既有威脅類別（等同能改 hook 本身，已由 Iron Rule A 另行涵蓋）。
+_abs_common_dir(){ # $1=dir → 絕對 git-common-dir（失敗印空）
+  local d; d="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)" || return 0
+  [ -n "$d" ] || return 0
+  case "$d" in
+    /*) printf '%s\n' "$d" ;;
+    *)  ( cd "$1" 2>/dev/null && cd "$d" 2>/dev/null && pwd ) ;;
+  esac
+}
+_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // "."' 2>/dev/null)"
+_CPD="${CLAUDE_PROJECT_DIR:-}"
+if [ -n "$_CPD" ]; then
+  PROJ="$_CPD"
+  _CWD_TOP="$(git -C "$_CWD" rev-parse --show-toplevel 2>/dev/null)"
+  if [ -n "$_CWD_TOP" ] && [ "$_CWD_TOP" != "$_CPD" ]; then
+    _cwd_common="$(_abs_common_dir "$_CWD")"
+    if [ -n "$_cwd_common" ] && [ "$_cwd_common" = "$(_abs_common_dir "$_CPD")" ]; then
+      PROJ="$_CWD_TOP"              # cwd 確為同 superproject 的 worktree → 用它
+    fi
+  fi
+else
+  PROJ="$(git -C "$_CWD" rev-parse --show-toplevel 2>/dev/null)"
+  [ -n "$PROJ" ] || PROJ="$_CWD"
+fi
 METRICS_FILE="${ASP_METRICS_FILE:-$HOME/.claude/asp/metrics/rule-hits.jsonl}"
 
 write_metric(){ # $1=action(pass|block|bypass)
@@ -40,7 +72,10 @@ fi
 
 # ── 測試痕跡新鮮度判定 ──
 TR="$PROJ/.asp-test-result.json"
-IDX="$PROJ/.git/index"
+# 解析真實 git index：linked worktree 的 .git 是檔案、index 在 .git/worktrees/<n>/index，
+# "$PROJ/.git/index" 會找不到（#72）→ 誤落 else fresh=1 恆放行。非 git → 退回舊路徑。
+_GITDIR="$(git -C "$PROJ" rev-parse --absolute-git-dir 2>/dev/null)"
+IDX="${_GITDIR:-$PROJ/.git}/index"
 fresh=0
 if [ -f "$TR" ] && [ "$(jq -r '.passed // false' "$TR" 2>/dev/null)" = "true" ]; then
   if [ -f "$IDX" ]; then
@@ -49,9 +84,9 @@ if [ -f "$TR" ] && [ "$(jq -r '.passed // false' "$TR" 2>/dev/null)" = "true" ];
     elif [ ! "$IDX" -nt "$TR" ]; then
       fresh=1                       # test-result 不舊於 index（= staging 後跑過測試）
     fi
-  else
-    fresh=1                         # 無 staged → passed 即放行
-  fi
+  elif [ -n "$_GITDIR" ] || [ -d "$PROJ/.git" ]; then
+    fresh=1                         # 確認是 repo（git 可解析／.git 為目錄）但無 index = 真無 staged → passed 放行
+  fi                                # .git 為檔案卻無法解析 index（損壞/relocated worktree）→ 不放行、保守擋（fail-closed，安全審查 #2）
 fi
 
 if [ "$fresh" = 1 ]; then
