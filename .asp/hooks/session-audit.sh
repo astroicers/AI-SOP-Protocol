@@ -70,6 +70,25 @@ if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
 fi
 
 # ═══════════════════════════════════════════
+# A19.1: 多 session worktree 競態偵測（ADR-027 L2，advisory WARNING）
+#   主工作樹（.git 為目錄）+ 存在其他 linked worktree（worktree list > 1）→ 可能多 session
+#   共用此工作樹，有 HEAD/commit 落錯分支競態（#56 事故實錄）。純 advisory、不阻擋 session。
+#   linked worktree（.git 為檔案）＝已隔離 → 不警告；無其他 worktree（單一）→ 不警告。
+# ═══════════════════════════════════════════
+if [ -d "${PROJECT_DIR}/.git" ] && git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
+    # --porcelain + 濾掉 prunable（殭屍）worktree，只算真正「活躍」的其他 worktree，
+    # 避免對已合併未清理的 worktree 每次 session cry-wolf（review 5b）。
+    _WT_PORC=$(git -C "${PROJECT_DIR}" worktree list --porcelain 2>/dev/null)
+    WT_TOTAL=$(printf '%s\n' "$_WT_PORC" | grep -c '^worktree ' || true)
+    WT_PRUNABLE=$(printf '%s\n' "$_WT_PORC" | grep -c '^prunable ' || true)
+    WT_ACTIVE=$(( ${WT_TOTAL:-0} - ${WT_PRUNABLE:-0} ))
+    if [ "${WT_ACTIVE:-0}" -gt 1 ]; then
+        WARNINGS+=("A19.1: 你在主工作樹，且存在其他活躍 git worktree（共 ${WT_ACTIVE}）——多 session 並行同一 repo 有 HEAD/commit 落錯分支競態（#56）。建議每 session 開專屬 worktree（ADR-027 L1）；合併後 git worktree remove 清理殭屍 worktree。")
+        asp_metric "AUDIT-A19.1" "warn"
+    fi
+fi
+
+# ═══════════════════════════════════════════
 # Iron Rule B: Append-Only Bypass Log Integrity
 # ═══════════════════════════════════════════
 NDJSON_LOG="${PROJECT_DIR}/.asp-bypass-log.ndjson"
