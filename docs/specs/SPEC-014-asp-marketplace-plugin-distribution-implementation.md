@@ -138,15 +138,15 @@ Feature: ASP marketplace plugin 強制力等價（enforcement-first）
 
 ## ✅ 驗收標準（Done When）
 
-- [ ] `.claude-plugin/marketplace.json` + `hooks/hooks.json` 存在、`jq` 合法、schema 正確（`source:"./"`、`strict:false`、hooks 映射）、引用腳本皆存在。
-- [ ] **2a（CI-gateable，harness）**：擴充 plugin-layout harness——以 plugin env（`CLAUDE_PLUGIN_ROOT`+`CLAUDE_PROJECT_DIR`）跑承載腳本 → Draft→`settings.local.json` 注入 deny、tracked `settings.json` sha 不變、Draft 解除自清。`make test` 可驗。
+- [x] `.claude-plugin/marketplace.json` + `hooks/hooks.json` 存在、`jq` 合法、schema 正確（`source:"./"`、`strict:false`、hooks 映射）、引用腳本皆存在。（`claude plugin validate` 亦 PASS，2026-07-22）
+- [x] **2a（CI-gateable，harness）**：`tests/test_plugin_env_harness.sh` 以 plugin env 跑承載腳本 → Draft→`settings.local.json` 注入 deny、tracked `settings.json` sha 不變、Draft 解除自清。`make test` 綠。
 - [ ] **2b（human-only，非自動閘範圍）**：互動終端 `/plugin marketplace add ./…` + `/plugin install` 實測 Draft→commit 被擋——**明確排除於 G4/G5 自動閘**，追蹤為人類 sign-off（比照 ADR-021 POC-1「astroicers 待覆核」）。
 - [~] **共存冪等**：S5 harness 通過（installer settings.json + plugin hooks.json 同專案，每 event 僅生效一次）。→ **延後至 follow-up #65（Slice 2），人類 2026-07-22 核准的 scope cut**：sentinel 需動 3 支 hook（其 2 為 Iron-Rule-A 保護檔）、且 double-fire 傷害僅限 telemetry 重複寫（非 correctness）；Slice 1 先出 manifests + 2a 行為 harness。過渡期 known-limitation 已記於 README。
-- [ ] **P2 回歸**：非 plugin 下 `make test` 綠、三 hook 行為逐位元不變。
-- [ ] Iron Rule A CRITICAL_FILE 在 plugin 下 inert 已於 SPEC/程式碼註解**明載為刻意** + 理由（plugin loader git-SHA 承載）；**未**改 `session-audit.sh` 的 Iron Rule A 邏輯。（Iron Rule B bypass-hash plugin-root 段為可選、若動 `session-audit.sh` 須人類核准。）
-- [ ] `experimental/`、`showcase/` **不在** plugin 封裝。
-- [ ] README/quickstart 有雙路徑契約（`/plugin` 預設、installer 進階/離線）。
-- [ ] **無測試被退役**；`make test` 綠。`make lint` 無 error。
+- [x] **P2 回歸**：非 plugin 下 `make test` 綠（51 bash + 16 pytest）、三 hook 行為逐位元不變（audit Iron-Rule-A 維度確認 4 CRITICAL_FILE 皆 == HEAD、本 session 零改動）。
+- [x] Iron Rule A CRITICAL_FILE 在 plugin 下 inert 已於 SPEC E3 **明載為刻意** + 理由（plugin loader git-SHA 承載）；**未**改 `session-audit.sh` 的 Iron Rule A 邏輯。（Iron Rule B bypass-hash plugin-root 段為可選、若動 `session-audit.sh` 須人類核准。）
+- [x] `experimental/`、`showcase/` **不映射、不載入**（`source:'./'` 仍實體 clone，但未映射＝inert；ADR-017 的分離活躍面由 installer 承載。物理排除為可選 follow-up——plugin 橫跨多 top-level 目錄、無 source-level ignore 機制，成本非平凡）。
+- [x] README 有雙路徑契約（方式 A `/plugin` 預設、方式 B installer 進階/離線）+ enforcement-first 誠實界定 + #65 known-limitation 註。
+- [x] **無測試被退役**（audit 測試完整性維度確認 5 支 sync/installer + ADR-011 測試全留）；`make test` 綠、`make lint` 無 error。
 
 ---
 
@@ -165,11 +165,13 @@ Feature: ASP marketplace plugin 強制力等價（enforcement-first）
 
 ## 🔗 追溯性（Traceability）
 
-<!-- 實作完成後回填 -->
+<!-- Slice 1 已回填（2026-07-22，PR #66 merged）；sentinel（S5）實作見 #65 -->
 
 | 實作檔案 | 測試檔案 | 最後驗證日期 |
 |----------|----------|-------------|
-| （實作時填入：`.claude-plugin/marketplace.json`、`hooks/hooks.json`、三 hook 若加 sentinel） | （實作時填入：plugin-layout harness + 共存 harness） | YYYY-MM-DD |
+| `.claude-plugin/marketplace.json`、`hooks/hooks.json`（Slice 1；核心 deny+閘無需改 hook 腳本） | `tests/test_plugin_manifest.sh`、`tests/test_plugin_env_harness.sh` | 2026-07-22 |
+| 共存 sentinel（動 3 hook，Iron-Rule-A） | 共存 S5 harness | 待 #65（Slice 2） |
+| 完整 profile-standalone（asp-compile `--asp-root` + CLAUDE.md 路徑） | — | 待 follow-up（見範圍界定） |
 
 ---
 

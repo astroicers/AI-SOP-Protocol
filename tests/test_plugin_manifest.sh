@@ -5,7 +5,7 @@
 # 驗證 repo-root 的 .claude-plugin/marketplace.json + hooks/hooks.json 讓 ASP 可經
 # /plugin marketplace add 安裝、且承載現行三 hook（session-audit / ship-gate /
 # clean-allow-list）。核心強制力 POC-1 已證零 .asp/ 依賴；本測試只驗封裝正確性
-# （well-formed + schema + 引用腳本存在 + experimental/showcase 不入包）。
+# （well-formed + schema + 引用腳本存在 + experimental/showcase 不映射=不載入）。
 #
 # 對應 SPEC-014 Done-When #1 與 CI-gateable 部分；真 /plugin install 端到端為 human-only（2b）。
 
@@ -39,9 +39,9 @@ ENTRY=$(jq -c '.plugins[] | select(.name=="asp")' "$MKT" 2>/dev/null)
 jq -e '.skills | index("./.claude/skills/asp")' <<<"$ENTRY" >/dev/null 2>&1 && pass "asp.skills 映射 ./.claude/skills/asp" || fail "asp.skills 未映射 ./.claude/skills/asp"
 jq -e '.commands | index("./.claude/commands/asp")' <<<"$ENTRY" >/dev/null 2>&1 && pass "asp.commands 映射 ./.claude/commands/asp" || fail "asp.commands 未映射 ./.claude/commands/asp"
 
-# ADR-017：experimental / showcase 不入包
+# ADR-017：experimental / showcase 不映射（source:'./' 仍實體 clone，但未映射=不載入=inert）
 PATHS=$(jq -r '.plugins[] | (.skills // [], .commands // [], .agents // [], .hooks // "") | tostring' "$MKT" 2>/dev/null)
-if grep -qE 'experimental|showcase' <<<"$PATHS"; then fail "marketplace 映射了 experimental/showcase（違反 ADR-017）"; else pass "experimental/showcase 不在 plugin 封裝（ADR-017）"; fi
+if grep -qE 'experimental|showcase' <<<"$PATHS"; then fail "marketplace 映射了 experimental/showcase（違反 ADR-017）"; else pass "experimental/showcase 未映射（source:'./' 仍實體 clone，但不映射=不載入；ADR-017）"; fi
 
 echo "── hooks/hooks.json ──"
 if [ -f "$HOOKS" ] && jq -e . "$HOOKS" >/dev/null 2>&1; then
