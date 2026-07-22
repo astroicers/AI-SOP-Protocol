@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-07-22 |
 | **決策者** | ASP framework maintainers（待人類核准） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
+
+> ⬆️ 由 `Draft` 升 `Accepted`：使用者 2026-07-22 透過 `/asp:approve-adr 028` 呼叫、看完本指令摘要的決策（選項 B：pi 作為受支援替代 harness、經薄 adapter、Claude Code 維持 primary、實作延至 `asp-pi-adapter` SPEC）與 Verification Evidence（四欄留白、POC 明確延後）後明確同意直升（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。⚠️ 本 ADR 為評估型：直升＝接受「無 POC 佐證即定案方向」；Accepted 的是**方向**，實作仍待 `asp-pi-adapter` SPEC（Draft→Accepted 不解除「無 SPEC 前禁止實作」）。
 
 ---
 
@@ -26,14 +28,14 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 
 | ASP 層（實作檔） | Claude Code primitive | pi 支援 | pi 機制 / 移植做法 |
 |---|---|---|---|
-| **L1 SessionStart**（`.asp/hooks/session-audit.sh` → `.asp-session-briefing.json` + stdout 注入 context） | SessionStart hook；stdout 餵入 model context；`$CLAUDE_PROJECT_DIR` | **native** | `pi.on("session_start")` / `before_agent_start`（文件：「Can inject a message and/or modify the system prompt」）；bash 分析主體可留用，由擴充呼叫並把輸出以 system-prompt/persistent message 注入 |
+| **L1 SessionStart**（`.asp/hooks/session-audit.sh` → `.asp-session-briefing.json` + stdout 注入 context） | SessionStart hook（每 session 一次）；stdout 餵入 model context；`$CLAUDE_PROJECT_DIR` | **native 事件、須手寫首輪 gate** | ⚠️ 無「每 session 一次且可注入」的單一事件：`session_start` 每 session 觸發但**只重建 in-memory state、不注入**；`before_agent_start` 可注入 system-prompt/message 但**每 turn 觸發**（官方 one-time 建議 async factory）。→ 用 `before_agent_start` + 首輪去重 gate（或 async factory 算 briefing）注入；bash 分析主體可留用、由擴充呼叫 |
 | **L1.5 PreToolUse**（`.asp/hooks/pretooluse-ship-gate.sh` 回 `permissionDecision:"deny"`）+ **L2 Dynamic Deny**（`.asp/hooks/denied-commands.json` + session-audit 注入 `settings.local.json`，ADR-011） | PreToolUse `hookSpecificOutput.permissionDecision`；`permissions.allow/deny` 的 `Bash(...)` 模型；gitignored local scope | **native**（機制）／但**無宣告式 deny-list config** | `pi.on("tool_call")` 回 `{block:true, reason}`（官方 `examples/extensions/permission-gate.ts` 已示範擋 `rm -rf`）；deny 邏輯改寫為 TS handler（可讀外部檔/shell out 模擬動態注入）；須裝為 global/CLI 擴充避開 project-trust 才恆生效；headless 無 confirm UI → 命中預設 block |
 | **L3 Skill Gates**（`.claude/skills/asp/` 16 檔；`.claude/commands/asp/` 3 檔 → `/asp:*`） | Skill 工具依 description 自動載入；`commands/<ns>/*.md` → `/ns:name`；`$ARGUMENTS` | **native** | 同一套 Agent Skills `SKILL.md` 規格（name≤64／description≤1024／progressive disclosure；pi 為 lenient 相容實作）→ `~/.pi/agent/skills/` 或共用 `~/.agents/skills/`；命令 → prompt templates（`.pi/prompts/`）。摩擦：叫用變 `/skill:asp-plan`；prompt 目錄**非遞迴**（`/asp:*` 命名空間需壓平）；ASP 用 `$ARGUMENTS` 可原樣（pi `$N` 為 1-based） |
 | **L4 Subagent QA**（`.claude/agents/` reality-checker／security-auditor／test-engineer，唯讀；Agent/Task tool `subagent_type`） | 原生 subagent + Task tool；in-process 唯讀隔離 | **partial** | pi 明列「No sub-agents」為**非目標**；但有**官方範例擴充** `examples/extensions/subagent/`（markdown+YAML frontmatter、`~/.pi/agent/agents/*.md`、子行程隔離、parallel max 8／4-concurrent、`tools` frontmatter + SDK `createReadOnlyTools()` 做唯讀），或裝現成套件（`@vigolium/piolium` = security-auditor 對應、`@tintinweb/pi-subagents`）。差異：無 first-class Task API（須組裝/安裝）、隔離為**子行程級**非 in-process |
 | **Profile/編譯**（`.asp/scripts/asp-compile.sh` → `.asp-compiled-profile.md`，mtime 重編，ADR-016） | SessionStart 觸發重編；CLAUDE.md 映射載入 artifact | **native**（config）＋一處非原生 | 憲法/profile → `SYSTEM.md`／`APPEND_SYSTEM.md`／`AGENTS.md`（**pi 本就讀 `CLAUDE.md`**，現有 ASP CLAUDE.md 可原樣載入）；~30 生命週期事件。**非原生**：compiled-artifact + mtime 重編（改由擴充在 `session_start` 重算/自管 cache——影響小） |
 | **合規 auth** | API key 或訂閱 OAuth | **native** | `ANTHROPIC_API_KEY`／`auth.json`／`--api-key`，與 `/login` OAuth 獨立；多供應商（OpenAI/Gemini/Bedrock/Vertex/Ollama via `models.json`）原生。**須營運上釘死 API-key、禁 `/login`** 以守住合規前提（見 FC-008） |
 
-**判定**：技術可行、屬「中等 adapter 工作量」，**非 drop-in**。SOP 內容（16 skill 本體、`asp-compile.sh`、`denied-commands.json` 資料、profile/level `.yaml`/`.md`、QA 檢查清單）幾乎原樣可攜；真正需重建的 enforcement = ~2 個 pi 擴充（session_start briefing 注入 + tool_call deny gate）+ 採用 subagent 範例擴充補 L4 + 壓平 slash 命名空間 + 憲法進 SYSTEM.md。需寫新程式碼的層分兩類：**(a) 完全無 native primitive、須另建的＝L4**（pi 明列 sub-agents 為非目標，須靠官方範例擴充/社群套件另建）；**(b) 有 native 攔截 primitive、但 deny 邏輯須手寫 TS handler（無宣告式 deny-list 可原樣搬）＝L1.5/L2**；其餘（L1 SessionStart、L3 Skill/Command、Profile-config、auth）為近原生的**薄綁定**。pi 的擴充 API（型別化 TS 事件、~30 生命週期事件、可改 system prompt / 註冊 tool/command / 擋 tool call）在表達力上其實**比 Claude Code shell hook 更豐富**。
+**判定**：技術可行、屬「中等 adapter 工作量」，**非 drop-in**。SOP 內容（16 skill 本體、`asp-compile.sh`、`denied-commands.json` 資料、profile/level `.yaml`/`.md`、QA 檢查清單）幾乎原樣可攜；真正需重建的 enforcement = ~2–3 個 pi 擴充（briefing 注入[`before_agent_start`+首輪去重] + tool_call deny gate + L4 dispatch）+ 採用 subagent 範例擴充補 L4 + 壓平 slash 命名空間 + 憲法進 SYSTEM.md。需寫新程式碼的層分兩類：**(a) 完全無 native primitive、須另建的＝L4**（pi 明列 sub-agents 為非目標，須靠官方範例擴充/社群套件另建）；**(b) 有 native primitive、但須手寫 handler 邏輯＝L1、L1.5、L2**——L1 SessionStart 因無「每 session 一次且可注入」的單一事件，須 `before_agent_start`(per-turn) + 首輪去重 gate（`session_start` 只重建 state、不注入）；L1.5/L2 的 deny 須手寫 TS handler（無宣告式 deny-list 可原樣搬）；其餘（L3 Skill/Command、Profile-config、auth）為近原生的**薄綁定**。pi 的擴充 API（型別化 TS 事件、~30 生命週期事件、可改 system prompt / 註冊 tool/command / 擋 tool call）在表達力上其實**比 Claude Code shell hook 更豐富**。
 
 ---
 
@@ -83,7 +85,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 - 放棄 compiled-profile 的 mtime 快取最佳化（改由擴充重算，影響小）。
 
 **後續追蹤：**
-- [ ] 若核准 → 開 `asp-pi-adapter` SPEC：定義 ~2 擴充（session_start briefing 注入、tool_call deny gate）+ L4 範例擴充選型 + slash 命名空間壓平方案。
+- [ ] 若核准 → 開 `asp-pi-adapter` SPEC：定義 ~2–3 擴充（briefing 注入[`before_agent_start`+首輪去重]、tool_call deny gate、L4 dispatch）+ L4 範例擴充選型 + slash 命名空間壓平方案。
 - [ ] POC：pi tool_call deny 擋下等同 `denied-commands.json` 的 12 條破壞性操作。
 - [ ] 釘死 API-key 路線的營運護欄（provision `ANTHROPIC_API_KEY`、禁 `/login`）。
 
@@ -95,8 +97,8 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 |------|--------|----------|----------|
 | 可原樣移植的 SOP 內容 | 多數工具中立（skills/profiles/compiler/checklists/deny 資料） | 逐項清點檔案（skill 16 + command 3 + profile/level/config + compiler 腳本） | 待 `asp-pi-adapter` SPEC 實測百分比（本 ADR 僅質性判定，未加總比例） |
 | 完全無 native primitive、須另建的層數 | 1（僅 L4；pi 明列 sub-agents 為非目標） | 對應表 | 本 ADR（已達） |
-| 有 native primitive 但須手寫 handler 邏輯的層數 | 2（L1.5/L2 的 deny handler；Profile 的 mtime 快取為次要） | 對應表 | 本 ADR（已達） |
-| adapter 所需新增 pi 擴充檔數 | ≤3（session_start 注入 + tool_call deny + L4 dispatch） | adapter SPEC POC 計數 | `asp-pi-adapter` SPEC |
+| 有 native primitive 但須手寫 handler 邏輯的層數 | 3（L1 的 `before_agent_start`+首輪 gate；L1.5/L2 的 deny handler；Profile mtime 快取為次要） | 對應表 | 本 ADR（已達） |
+| adapter 所需新增 pi 擴充檔數 | ≤3（briefing 注入[含首輪去重] + tool_call deny + L4 dispatch） | adapter SPEC POC 計數 | `asp-pi-adapter` SPEC |
 | enforcement 等價性（破壞性操作阻擋） | pi tool_call deny 擋下 `denied-commands.json` 全 12 條 | POC 實測 | `asp-pi-adapter` SPEC POC |
 
 **重新評估條件**：pi 擴充事件模型／skill/agent 規格／auth 路線變更（FC-007 失效），或 Anthropic 條款/Agent SDK 額度政策變更（FC-008 失效）時，須重審本 ADR。
@@ -121,7 +123,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 
 | 欄位 | 內容 |
 |------|------|
-| POC 分支／測試結果 | （待人類核准後，於 `asp-pi-adapter` SPEC 補：pi tool_call deny 擋 12 條 POC、session_start 注入 POC） |
+| POC 分支／測試結果 | （待人類核准後，於 `asp-pi-adapter` SPEC 補：pi tool_call deny 擋 12 條 POC、briefing 注入[`before_agent_start`+首輪 gate] POC） |
 | 驗證日期 | — |
 | 驗證者 | — |
 | 驗證摘要 | — |
