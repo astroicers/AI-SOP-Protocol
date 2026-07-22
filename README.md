@@ -32,9 +32,24 @@ _Your dev playbook, compiled into guardrails Claude can't forget._
 
 ## 安裝
 
-ASP 分兩層：**User-level**（所有專案共用，裝一次）和 **Project-level**（每個專案的設定，輕量）。
+ASP 分兩層：**User-level**（所有專案共用，裝一次）和 **Project-level**（每個專案的設定，輕量）。兩種安裝路徑（ADR-021 dual-path，過渡期並存）：
 
-### Step 1 — User-level 核心（每台電腦一次）
+### 方式 A — Plugin marketplace（推薦，一步；ADR-021 / SPEC-014）
+
+在**互動式 Claude Code 終端**：
+```
+/plugin marketplace add astroicers/AI-SOP-Protocol
+/plugin install asp@asp-marketplace
+```
+一步裝起 ASP 的 **skills + `/asp:*` commands + 強制力 hooks**（SessionStart 審計 + PreToolUse commit 閘），並隨 repo commit 自動更新。
+
+> **enforcement-first 範圍（誠實界定）**：plugin 目前提供 skills / commands / 強制力護欄；**profile 驅動的 session 載入**（`.ai_profile` → 編譯 profile）仍依賴方式 B installer 的 `~/.claude/asp`（SPEC-014 enforcement-first，dual-path 過渡；完整 standalone 為 follow-up）。要完整體驗請一併走方式 B。
+>
+> ⚠️ **已知限制（過渡期，[#65](https://github.com/astroicers/AI-SOP-Protocol/issues/65) 修）**：同時裝方式 A（plugin）＋方式 B（installer）時，SessionStart / PreToolUse 的 ASP hooks 會**各觸發一次**（兩路徑各佈線一組），造成 `rule-hits.jsonl` 遙測**重複計數**（強制力本身冪等、commit 擋放行為正確，不受影響）。共存冪等 sentinel 由 #65 補上。若只想要護欄、暫不需 profile 驅動行為，可**只裝方式 A**。
+
+### 方式 B — 自製 installer（完整 / 離線 / 進階）
+
+#### Step 1 — User-level 核心（每台電腦一次）
 
 **macOS / Linux / WSL2**
 ```bash
@@ -52,7 +67,7 @@ irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scrip
 
 安裝後：`~/.claude/asp/`（profiles/hooks）和 `~/.claude/skills/asp/`（15 個 skills）即可用於所有專案。
 
-### Step 2 — Project-level 設定（每個專案一次，在專案根目錄執行）
+#### Step 2 — Project-level 設定（每個專案一次，在專案根目錄執行）
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scripts/install.sh)

@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/.asp/hooks/clean-allow-list.sh\"" },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/.asp/hooks/session-audit.sh\"" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/.asp/hooks/pretooluse-ship-gate.sh\"" }
+        ]
+      }
+    ]
+  }
+}

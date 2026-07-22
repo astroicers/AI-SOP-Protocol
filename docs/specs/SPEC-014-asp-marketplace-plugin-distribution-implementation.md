@@ -141,7 +141,7 @@ Feature: ASP marketplace plugin 強制力等價（enforcement-first）
 - [ ] `.claude-plugin/marketplace.json` + `hooks/hooks.json` 存在、`jq` 合法、schema 正確（`source:"./"`、`strict:false`、hooks 映射）、引用腳本皆存在。
 - [ ] **2a（CI-gateable，harness）**：擴充 plugin-layout harness——以 plugin env（`CLAUDE_PLUGIN_ROOT`+`CLAUDE_PROJECT_DIR`）跑承載腳本 → Draft→`settings.local.json` 注入 deny、tracked `settings.json` sha 不變、Draft 解除自清。`make test` 可驗。
 - [ ] **2b（human-only，非自動閘範圍）**：互動終端 `/plugin marketplace add ./…` + `/plugin install` 實測 Draft→commit 被擋——**明確排除於 G4/G5 自動閘**，追蹤為人類 sign-off（比照 ADR-021 POC-1「astroicers 待覆核」）。
-- [ ] **共存冪等**：S5 harness 通過（installer settings.json + plugin hooks.json 同專案，每 event 僅生效一次）。
+- [~] **共存冪等**：S5 harness 通過（installer settings.json + plugin hooks.json 同專案，每 event 僅生效一次）。→ **延後至 follow-up #65（Slice 2），人類 2026-07-22 核准的 scope cut**：sentinel 需動 3 支 hook（其 2 為 Iron-Rule-A 保護檔）、且 double-fire 傷害僅限 telemetry 重複寫（非 correctness）；Slice 1 先出 manifests + 2a 行為 harness。過渡期 known-limitation 已記於 README。
 - [ ] **P2 回歸**：非 plugin 下 `make test` 綠、三 hook 行為逐位元不變。
 - [ ] Iron Rule A CRITICAL_FILE 在 plugin 下 inert 已於 SPEC/程式碼註解**明載為刻意** + 理由（plugin loader git-SHA 承載）；**未**改 `session-audit.sh` 的 Iron Rule A 邏輯。（Iron Rule B bypass-hash plugin-root 段為可選、若動 `session-audit.sh` 須人類核准。）
 - [ ] `experimental/`、`showcase/` **不在** plugin 封裝。
