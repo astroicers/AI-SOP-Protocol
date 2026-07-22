@@ -71,9 +71,9 @@
 - 過渡期 marketplace + installer 雙路徑並存，維護面短期變大。
 
 **後續追蹤：**
-- [ ] **POC-1**：證實 plugin hook 能動態寫 `settings.local.json`（FC-004 殘留 1，承載 ASP L2）。
-- [ ] **POC-2**：命名空間遷移盤點——列出所有受影響的呼叫名與 docs，給遷移/相容方案。
-- [ ] 與 ADR-017 對齊 plugin 封裝邊界。**初步框（待 POC 確認，非定案）**：core plugin 含 daily-driver 強制力（`.asp/hooks/` 的 session-audit + ship-gate）+ skills + commands；experimental 多代理與 showcase（telemetry / RAG / ai-performance）維持獨立、**不入** core plugin（呼應 ADR-017 分層）；自製 installer 的「進階/離線」路徑承載 plugin 機制未涵蓋的部分。
+- [x] **POC-1**（2026-07-22）：證實 plugin hook 能動態寫 `settings.local.json`（FC-004 殘留 1，承載 ASP L2）。→ **FC-006 官方文件確認 + 本機模擬 PASS**，`docs/research/2026-07-22-poc1-plugin-hook-settings-local.md`；**ASP hook 無需修改**。
+- [x] **POC-2**（2026-07-22）：命名空間遷移盤點——列出所有受影響的呼叫名與 docs，給遷移/相容方案。→ `docs/research/2026-07-22-poc2-namespace-migration.md`（commands 零變動；skills 建議保留前綴 `asp:asp-*` 免 56–74 檔波及）。
+- [x] 與 ADR-017 對齊 plugin 封裝邊界（POC-2 §「與 ADR-017 分層對齊」確認）：core plugin 含 daily-driver 強制力（`.asp/hooks/` 的 session-audit + ship-gate）+ skills + commands；experimental 多代理與 showcase（telemetry / RAG / ai-performance）維持獨立、**不入** core plugin；自製 installer 的「進階/離線」路徑承載 plugin 機制未涵蓋的部分。
 - [ ] 過渡期文件契約：「marketplace = 預設、installer = 進階/離線」。
 
 ---
@@ -110,10 +110,10 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **POC 分支 / 測試結果** | （待 POC-1：plugin hook 寫 settings.local.json 實證；POC-2：命名空間遷移盤點） |
-| **驗證日期** | （待填） |
-| **驗證者** | （待填，人類） |
-| **驗證摘要** | （待填）外部 plugin 機制事實已於 FC-004 查證；尚缺 ASP 動態 deny 在 plugin hook 下的端到端 POC |
+| **POC 分支 / 測試結果** | `asp/adr-021-poc`（#41 主線）。**POC-1**：FC-006（官方文件確認 plugin hook 得 `CLAUDE_PROJECT_DIR`、不沙箱、可寫檔）+ 本機模擬 `docs/research/poc1-plugin/simulate-plugin-hook.sh` **PASS**（plugin-bundled `session-audit.sh` 寫 deny 入專案 `settings.local.json`、tracked `settings.json` sha 不變）→ `docs/research/2026-07-22-poc1-plugin-hook-settings-local.md`。**POC-2**：`docs/research/2026-07-22-poc2-namespace-migration.md`。 |
+| **驗證日期** | 2026-07-22 |
+| **驗證者** | Claude Code（POC 執行 + FC-006 查證）；astroicers 待覆核（含 POC-1 真 `/plugin install` 端到端定論步） |
+| **驗證摘要** | 兩項 POC 完成：POC-1 證實「plugin hook 寫 settings.local.json 承載 L2 deny」＝文件層級 YES + 本機模擬 PASS、**ASP hook 無需修改**；POC-2 定出**零重命名**遷移路徑（commands 零變動、skills 保留前綴）。ADR-021 核心可行性風險（FC-004 殘留 #1）已消解，#41 (b) marketplace + (c) 測試精簡的前置解除。殘留：POC-1 真 `/plugin install` 端到端由人類跑一次確認。 |
 
 > **第三方活證補強（借鏡點 ③，2026-06-25）**：[`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills)（同品類 agent 工程紀律 skill 庫，≈65.7K★，MIT）**已實際在官方 Claude Code plugin marketplace 上架運行**，單一 repo 打包 skills + commands + hooks（一手查證見 `.asp-fact-check.md` FC-005：`/plugin marketplace add addyosmani/agent-skills`）。這是「**以官方 marketplace 機制承載同類 skill+command+hook 庫**」可行的**現成第三方活證**，補強本 ADR「低風險、高信心」論斷（源自借鏡報告 §4③ / `docs/research/2026-06-23-addyosmani-borrow-fix-roadmap.md`）。
 >

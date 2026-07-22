@@ -1,0 +1,13 @@
+{
+  "name": "asp-poc-marketplace",
+  "owner": { "name": "astroicers" },
+  "description": "ADR-021 POC-1 — verify a Claude Code plugin hook can dynamically write settings.local.json (carrying ASP's L2 dynamic deny).",
+  "plugins": [
+    {
+      "name": "asp-hook-poc",
+      "source": "./asp-hook-poc",
+      "description": "Bundles the REAL ASP hooks (SessionStart=clean-allow-list+session-audit, PreToolUse(Bash)=ship-gate) to prove plugin-invoked enforcement equals the current .claude/settings.json wiring. strict:false = no plugin.json needed.",
+      "strict": false
+    }
+  ]
+}
