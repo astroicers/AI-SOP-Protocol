@@ -1,13 +1,16 @@
 {
   "name": "asp-marketplace",
   "owner": { "name": "astroicers" },
+  "metadata": {
+    "description": "AI-SOP-Protocol (ASP) — 把開發規範固化成 Claude Code 護欄的 plugin marketplace（ADR-021 / SPEC-014，enforcement-first）。"
+  },
   "description": "AI-SOP-Protocol (ASP) — 把開發規範固化成 Claude Code 護欄的 plugin marketplace（ADR-021 / SPEC-014，enforcement-first）。",
   "plugins": [
     {
       "name": "asp",
       "source": "./",
       "strict": false,
-      "description": "ASP core 強制力：SessionStart 審計（Draft-ADR→settings.local.json deny 注入）+ PreToolUse commit 閘，外加 15 個 asp-* skills 與 3 個 /asp:* commands。enforcement-first（SPEC-014）：核心 deny+閘零 .asp/ 依賴（POC-1 證）；profile/level 內容於 dual-path 期間仍由 installer 提供。experimental/showcase 依 ADR-017 不入包。",
+      "description": "ASP core 強制力：SessionStart 審計（Draft-ADR→settings.local.json deny 注入）+ PreToolUse commit 閘，外加 15 個 asp-* skills 與 3 個 /asp:* commands。enforcement-first（SPEC-014）：核心 deny+閘零 .asp/ 『資源』依賴（腳本 plugin-bundled，僅讀 docs/adr、寫 settings.local.json；POC-1 證）；profile/level 內容於 dual-path 期間仍由 installer 提供。experimental/showcase 依 ADR-017 不映射、不載入（實體隨 source:'./' 一併 clone 但 inert）。",
       "hooks": "./hooks/hooks.json",
       "skills": ["./.claude/skills/asp"],
       "commands": ["./.claude/commands/asp"]
