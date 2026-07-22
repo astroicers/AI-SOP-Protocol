@@ -86,6 +86,8 @@
 | 強制力等價 | SessionStart 審計 + PreToolUse commit 閘在 plugin 安裝下行為等同現狀 | `tests/test_pretooluse_ship_gate.sh` + session-audit 實測 | POC-1 完成時 |
 | sync 漂移測試淨減 | ≥ 3 個 sync-drift 測試退役且無回歸 | `make test` 綠 + 測試清單 diff | 實作完成時 |
 
+> **⚠️ 澄清（SPEC-014 E5，2026-07-22，不動本決策）**：上表「sync 漂移測試淨減 ≥3」metric 隱含**選項 B（移除 installer）**的前提。本 ADR 採**選項 C（installer 保留為進階/離線）**，實作盤點（SPEC-014）確認：`test_asp_commands_sync`/`test_asp_sync_downgrade`/`test_asp_sync_metrics`/`test_install_downgrade` 仍守**仍出貨的 installer 路徑**，`test_managed_deny_reconcile` 守的是**核心 ADR-011 deny reconcile（非 sync）**——退役任一皆掉真實覆蓋。故 **marketplace-additive 遷移本身不退役任何測試**；此 metric **defer** 到 installer 真被移除時（屆時另走 ADR）。決策（選項 C）不變，僅澄清此 consequence。
+
 > **重新評估條件**：若 POC-1（hook 寫 settings.local.json）不可行，或官方變更 plugin hook 事件集合 / marketplace schema（FC-004 再驗證條件觸發）→ 退回選項 A 或重議。
 
 ---
