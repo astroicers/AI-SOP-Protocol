@@ -45,7 +45,7 @@ ASP 分兩層：**User-level**（所有專案共用，裝一次）和 **Project-
 
 > **enforcement-first 範圍（誠實界定）**：plugin 目前提供 skills / commands / 強制力護欄；**profile 驅動的 session 載入**（`.ai_profile` → 編譯 profile）仍依賴方式 B installer 的 `~/.claude/asp`（SPEC-014 enforcement-first，dual-path 過渡；完整 standalone 為 follow-up）。要完整體驗請一併走方式 B。
 >
-> ⚠️ **已知限制（過渡期，[#65](https://github.com/astroicers/AI-SOP-Protocol/issues/65) 修）**：同時裝方式 A（plugin）＋方式 B（installer）時，SessionStart / PreToolUse 的 ASP hooks 會**各觸發一次**（兩路徑各佈線一組），造成 `rule-hits.jsonl` 遙測**重複計數**（強制力本身冪等、commit 擋放行為正確，不受影響）。共存冪等 sentinel 由 #65 補上。若只想要護欄、暫不需 profile 驅動行為，可**只裝方式 A**。
+> ⚠️ **已知限制（低傷害，[#65](https://github.com/astroicers/AI-SOP-Protocol/issues/65) 記錄理由）**：同時裝方式 A（plugin）＋方式 B（installer）時，ASP hooks 會**各觸發一次**，造成 `rule-hits.jsonl` 遙測**重複計數**（強制力冪等、commit 擋放正確，不受影響；`SHIP-GATE` 高頻規則雙計對 rule-stats 無害，僅稀見 session-start 規則微偏）。**避免方式：只裝一種路徑（方式 A 或 B，勿並存）**——只要護欄用 A、要完整 profile 驅動行為用 B。共存冪等 sentinel 因須碰 L2 強制核心、傷害低，暫不修（詳 #65）。
 
 ### 方式 B — 自製 installer（完整 / 離線 / 進階）
 
