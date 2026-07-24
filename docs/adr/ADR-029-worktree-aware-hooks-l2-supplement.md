@@ -1,16 +1,18 @@
-<!-- Last Updated: 2026-07-24 | Status: Draft | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-07-24 | Status: Accepted | Audience: ASP framework maintainers -->
 # [ADR-029]: ADR-027 L2 補篇 — ASP hooks 的 worktree 感知（不弱化 repo-wide 治理）
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-07-24 |
-| **決策者** | ASP framework maintainers（待 astroicers 核准） |
+| **決策者** | ASP framework maintainers（astroicers 已核准 2026-07-24） |
 | **觸發事件** | #73 — worktree session 下 hook 讀主工作樹狀態致跨 session 誤 BLOCKER；#72（ship-gate 已修，PR #74）的姊妹面向 |
 | **關聯** | ADR-027（GitHub-native worktree 隔離，本篇為其 L2 補篇）；#72（PR #74，PreToolUse 已解）；#73；#56（競態事故源）；ADR-012（inbox canonical-on-main）；ADR-018（Iron Rule A/B）；FC-006/FC-007（`.asp-fact-check.md`） |
 
 > **狀態說明：** `Draft`（初稿，**禁止實作生產碼**）→ `FIRM`（先跑 §5 定論實驗 + POC）→ `Accepted`（人類審核）。
 > 本 ADR 為**設計/分流決策**，不含生產碼。實作待人類核准後另立 SPEC。
+>
+> ⬆️ 由 `Draft` 升 `Accepted`：使用者 2026-07-24 透過 `/asp:approve-adr ADR-029` 呼叫，看完本指令摘要的**決策分流**（🟢/🟡/🔴/⚪ + 「永不全域改寫 file-global `PROJECT_DIR`」鐵律 + MUST-keep 三錨清單）與 **Verification Evidence 現況（步驟 0 定論實驗 + POC 共 6 項全未勾）** 後明確同意 **Draft 直升**（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。**直升取捨**：本 ADR 為設計/分流決策，其骨架（分流矩陣、鐵律、MUST-keep 三錨）不依賴步驟 0 結果；**實作驗證（步驟 0 + POC）已 gate 於後續 SPEC、非本次 Accept 範圍**。SessionStart 相關項的 🟢/🔴 歸屬待步驟 0 實證後於 SPEC 定案。
 
 ---
 
