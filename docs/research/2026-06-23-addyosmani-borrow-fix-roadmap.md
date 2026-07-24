@@ -16,7 +16,7 @@
 | **②** | skill 依生命週期分階 + mega-skill 拆小 | **P1（建議獨立 ADR-024）** | 依賴 ①（lint 為拆出子 skill 的 schema 驗收門檻） | 拆分後每子 skill 過 ① 的 schema lint；R6 行數 advisory 為「該拆」信號 | **✅ ADR-024 Accepted + 分階索引（PR #52）** |
 | **③** | plugin marketplace 為活證（補強 ADR-021） | **ADR-021（強化，非新 ADR）** | 無——是 ADR-021 的現成第三方證據 | 不新增元件（是證據） | **✅ 已補 ADR-021 VE（PR #52, 2026-06-25）** |
 | **④** | scope 紀律量化為機械信號 | **P3 / ADR-025** | 增強 `asp-ship` Step 2（ADR-025 駁回 asp-impact 落點：按需呼叫觸發時機錯）；複用 git diff-stat | advisory 非硬 gate | **✅ ADR-025 Accepted + 實作（asp-ship Step 2, PR #53）** |
-| **⑤** | 規則 provenance（次要真缺口） | **P3 條件式（建議獨立 ADR）** | 接既有 rule-hits telemetry | 條件式 provenance 欄，非新層 | 待起（P3，條件觸發） |
+| **⑤** | 規則 provenance（次要真缺口） | **P3 條件式（建議獨立 ADR）** | provenance 已存在於 rule-registry `source:` 欄 | 條件式 provenance 欄，非新層 | **🚫 不做（已滿足：source 欄 100% 覆蓋，重評 2026-06-25）** |
 
 ### 依賴鏈
 
@@ -64,6 +64,7 @@ ADR-021（Accepted，分發）
 - **怎麼做**：規則可選加「來源/why」欄（引 STRIDE/既有 ADR），附加於既有 `rule-hits` telemetry（`~/.claude/asp/metrics/rule-hits.jsonl`），**非新層**。
 - **條件式**：僅在規則數成長到「追溯成本 > 維護成本」時啟動，且須過 ADR-022 複雜度棘輪（避免欄位/ADR 通膨）。
 - **落點**：P3 條件式。獨立 ADR（P3 開時編號）。
+- **🚫 重評結論（2026-06-25）：不做（已滿足）。** `.asp/config/rule-registry.yaml` 的 **46 條規則 100% 已有 `source:` 欄**（指向具體檔案/段落，如 `session-audit.sh A5`、`asp-gate.md`、`CLAUDE.md 鐵則表`）——Hyrum's Law / Beyoncé Rule「規則 why 可追溯」的借鏡意圖**已達成**；追溯成本 <30 秒（rule id → grep registry → 開檔跳段），條件「追溯成本 > 維護成本」**未成立**（規則數穩定 46、無痛點信號）。⑤ 唯一真 delta = 把 `source` denormalize 進 `rule-hits.jsonl`（telemetry 現只記 `rule_id`，可由 id→registry 一次 O(1) lookup 推導），屬**邊際 nice-to-have、無需求信號**。現在做＝過度工程（借鏡報告全程警告者）+ 被 ADR-022 棘輪計入。**重評觸發**：規則數 >100 且出現「批量統計來源」真實痛點時，再評估那個便宜的 denormalize（屆時成本仍只 schema +1 欄）。
 
 ---
 
@@ -72,6 +73,9 @@ ADR-021（Accepted，分發）
 1. **本批**（PR #50）：① ADR-023 Draft + POC + 本路線圖。等人類 `/asp:approve-adr ADR-023` 升 `Accepted` → 實作 ①。
 2. **① Accepted 後**：起 ②（ADR-024，依賴 ① 的 lint 在位）。
 3. **③**：隨時可補進 ADR-021 的補強證據（不阻塞）。
-4. **P3 階段**（與 ADR-022 複雜度棘輪同期評估）：④ → ⑤（條件式）。
+4. **④**：ADR-025 Accepted + 實作（asp-ship Step 2 量化 scope advisory，PR #53 merged）。
+5. **⑤**：🚫 **結案不做**（重評 2026-06-25：rule-registry `source:` 欄已 100% 滿足 provenance；條件未到、delta 邊際）。
+
+> **借鏡序列完結**：①②③④ 落地、⑤ 結案不做。addyosmani 深層借鏡正式完成——拿了打包/寫作紀律（翻成機械版），守住機械強制力的牙齒，紀律性地停在該停的地方（big-bang 拆被破壞半徑擋下、⑤ provenance 已滿足不重造、二手「≤5 檔」沒照抄）。
 
 > 每項各自走 ADR 流程、需人類核准；本路線圖只排序與規劃，不升任何 ADR、不寫任何生產代碼。
