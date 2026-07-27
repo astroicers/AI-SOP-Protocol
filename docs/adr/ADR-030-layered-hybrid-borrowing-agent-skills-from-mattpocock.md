@@ -2,11 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-07-24 |
-| **決策者** | ASP framework maintainers（待人類核准） |
+| **決策者** | ASP framework maintainers（人類 2026-07-24 核准直升） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
+>
+> **[2026-07-24 升級記錄]** `Draft → Accepted`：經人類透過 `/asp:approve-adr 030` 於本日明確授權直升（「確認直升」）。本 ADR 為**評估／策略型**——Accepted 的是**方向**（選項 B 分層 hybrid + 逐 skill 借用處置框架），**不含生產代碼**；各借用實作仍待後續 SPEC（首個 POC：git-guardrails 借用 SPEC）。直升**跳過 FIRM 的 POC 驗證**，檔尾 Verification Evidence 四欄留白，將由各借用 SPEC 於實作時回填。
 
 ---
 
