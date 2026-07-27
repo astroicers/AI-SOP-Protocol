@@ -26,7 +26,7 @@
 
 **已完成逐 skill 深讀**：2 個 read-only Explore agent 讀完 mattpocock/skills `engineering/`+`productivity/`+`misc/` 全部 `SKILL.md`，逐一套「借用處置」框架。**完整逐 skill 詳析見 `docs/research/2026-07-24-mattpocock-skills-deep-borrow.md`（單一真相來源）**；本 ADR 只載策略、框架、摘要與跨切規則。
 
-**關鍵事實**（見研究文件 §0、FC-009）：ASP 是扁平命名空間 + 意圖路由，**無** Pocock 的 user/model invocation 分層；`grilling` 是真缺口且 ASP 已 soft-depend `grill-with-docs`；mattpocock/skills 已 user-global 安裝**兩份、版本漂移、未 wire 進 repo**。
+**關鍵事實**（見研究文件 §0、FC-010）：ASP 是扁平命名空間 + 意圖路由，**無** Pocock 的 user/model invocation 分層；`grilling` 是真缺口且 ASP 已 soft-depend `grill-with-docs`；mattpocock/skills 已 user-global 安裝**兩份、版本漂移、未 wire 進 repo**。
 
 ### Harness 地景（含 maka watchlist）
 | Harness | 狀態 | 對 ASP 的意義 |
@@ -35,7 +35,7 @@
 | pi（ADR-028） | 已評估、中等 adapter 工作量 | 內容近原樣可攜；enforcement 需 adapter |
 | **maka** | **watchlist（早期）** | 見下 |
 
-**maka watchlist（FC-009，誠實邊界）**：README 明載——local-first workspace（Electron+TUI+CLI+headless，TS）、**有 permission engine**（「File writes, Shell, and dangerous tool calls pass through the permission engine」，利 L1.5/L2 deny）、支援 **API key + 訂閱 OAuth**（Claude/Codex/Copilot/Cursor）、「run from source / under active development」。**NOT STATED（標 unknown）**：SKILL.md / Agent Skills 標準、subagents、擴充可訂閱的 hook/lifecycle、讀 CLAUDE.md、Claude Code 相容。→ maka 於「內容=Agent Skills 可攜」這條**比 pi 弱**（無明載 Agent Skills 支援），但 permission engine 對 enforcement 是加分。**未達 ADR-028 式完整逐層對應成熟度 → 列 watchlist，成熟後再評。**
+**maka watchlist（FC-010，誠實邊界）**：README 明載——local-first workspace（Electron+TUI+CLI+headless，TS）、**有 permission engine**（「File writes, Shell, and dangerous tool calls pass through the permission engine」，利 L1.5/L2 deny）、支援 **API key + 訂閱 OAuth**（Claude/Codex/Copilot/Cursor）、「run from source / under active development」。**NOT STATED（標 unknown）**：SKILL.md / Agent Skills 標準、subagents、擴充可訂閱的 hook/lifecycle、讀 CLAUDE.md、Claude Code 相容。→ maka 於「內容=Agent Skills 可攜」這條**比 pi 弱**（無明載 Agent Skills 支援），但 permission engine 對 enforcement 是加分。**未達 ADR-028 式完整逐層對應成熟度 → 列 watchlist，成熟後再評。**
 
 ---
 
@@ -132,7 +132,7 @@
   - **ADR-010**（最小採納 / 摩擦評估）——本案多為淨簡化，須通過。
   - **ADR-022**（治理複雜度預算棘輪，量測 `profiles`/`skills`/`levels` 的 total_lines）——ADOPT 外部不增棘輪軸；但 VENDOR/ADAPT-MERGE 落地會增 `skills.total_lines`，**不宣稱 ≤0**、各 SPEC 實測，以 SKIP 4 個抑制；三準則降的是 ADR 篇數（非棘輪軸）。
   - **ADR-016**（compiled profile）、**ADR-023/024**（skill lint / SDLC 生命週期）——內容遷移與 taxonomy 的落點。
-  - **FC-009**（maka + mattpocock/skills 事實查證）。
+  - **FC-010**（maka + mattpocock/skills 事實查證）。
 
 ---
 

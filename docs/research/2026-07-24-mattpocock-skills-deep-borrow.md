@@ -1,6 +1,6 @@
 # 研究：ASP 向 mattpocock/skills 借鏡 —— 逐 skill 深度分析
 
-> 日期：2026-07-24 ｜ 支撐 ADR：**ADR-030**（全局管理決策）｜ 事實查證：**FC-009**
+> 日期：2026-07-24 ｜ 支撐 ADR：**ADR-030**（全局管理決策）｜ 事實查證：**FC-010**
 > 方法：2 個 read-only Explore agent 讀完 `mattpocock/skills` 的 `engineering/` + `productivity/` + `misc/` 全部 `SKILL.md`（plugin v1.2.0，安裝於 `~/.claude/plugins/marketplaces/mattpocock/`），逐一套用「借用處置」框架。
 > 本文為**逐 skill 詳析**（單一真相來源）；ADR-030 僅載策略、框架與摘要表並指向本文。
 
@@ -222,4 +222,4 @@
 
 ## 9. 關聯
 - **ADR-030**（本文的管理決策）、**ADR-028**（pi 替代 harness，同「內容可攜/enforcement adapter」軸）、**ADR-020**（AI 遺忘/機械強制＝護城河依據）、**ADR-010/022**（反過度設計自證）、**ADR-023/024**（skill lint / 生命週期）。
-- **FC-009**（maka + mattpocock/skills 事實查證）。
+- **FC-010**（maka + mattpocock/skills 事實查證）。

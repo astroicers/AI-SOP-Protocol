@@ -18,9 +18,9 @@
 
 釐清：使用者提供的 `agegr/pi-web` 只是 pi 的本地網頁 UI（讀 `~/.pi/agent/sessions`），**非 agent 本體**；本評估針對 pi 本體。
 
-ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP skills）是工具中立的；但其**強制力**目前 100% 建在 Claude Code 專屬 primitive 上（四層強制力 L1 SessionStart / L1.5 PreToolUse / L2 Dynamic Deny / L3 Skill Gates / L4 Subagent QA；註：習稱「四層」但實為 **5 個 primitive**——L1.5 PreToolUse 與 L2 Dynamic Deny 同屬「攔截 + deny」機制、合計一層，故層數=4、primitive 數=5）。本 ADR 評估：把這套強制力搬到 pi 需要什麼、哪些做得到、哪些做不到、工作量多大，並在合規前提（不使用 Claude 訂閱 OAuth，見 FC-008）下給出建議。
+ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP skills）是工具中立的；但其**強制力**目前 100% 建在 Claude Code 專屬 primitive 上（四層強制力 L1 SessionStart / L1.5 PreToolUse / L2 Dynamic Deny / L3 Skill Gates / L4 Subagent QA；註：習稱「四層」但實為 **5 個 primitive**——L1.5 PreToolUse 與 L2 Dynamic Deny 同屬「攔截 + deny」機制、合計一層，故層數=4、primitive 數=5）。本 ADR 評估：把這套強制力搬到 pi 需要什麼、哪些做得到、哪些做不到、工作量多大，並在合規前提（不使用 Claude 訂閱 OAuth，見 FC-009）下給出建議。
 
-外部事實依鐵則「外部事實驗證防護」查證並記錄於 `.asp-fact-check.md`：**FC-007**（pi 能力逐層對應，本 session Workflow fan-out + 對抗式驗證）、**FC-008**（Anthropic 訂閱 OAuth 用於第三方 harness 的條款）。
+外部事實依鐵則「外部事實驗證防護」查證並記錄於 `.asp-fact-check.md`：**FC-008**（pi 能力逐層對應，本 session Workflow fan-out + 對抗式驗證）、**FC-009**（Anthropic 訂閱 OAuth 用於第三方 harness 的條款）。
 
 ### 逐層對應（已驗證，本評估載重內容）
 
@@ -33,7 +33,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 | **L3 Skill Gates**（`.claude/skills/asp/` 16 檔；`.claude/commands/asp/` 3 檔 → `/asp:*`） | Skill 工具依 description 自動載入；`commands/<ns>/*.md` → `/ns:name`；`$ARGUMENTS` | **native** | 同一套 Agent Skills `SKILL.md` 規格（name≤64／description≤1024／progressive disclosure；pi 為 lenient 相容實作）→ `~/.pi/agent/skills/` 或共用 `~/.agents/skills/`；命令 → prompt templates（`.pi/prompts/`）。摩擦：叫用變 `/skill:asp-plan`；prompt 目錄**非遞迴**（`/asp:*` 命名空間需壓平）；ASP 用 `$ARGUMENTS` 可原樣（pi `$N` 為 1-based） |
 | **L4 Subagent QA**（`.claude/agents/` reality-checker／security-auditor／test-engineer，唯讀；Agent/Task tool `subagent_type`） | 原生 subagent + Task tool；in-process 唯讀隔離 | **partial** | pi 明列「No sub-agents」為**非目標**；但有**官方範例擴充** `examples/extensions/subagent/`（markdown+YAML frontmatter、`~/.pi/agent/agents/*.md`、子行程隔離、parallel max 8／4-concurrent、`tools` frontmatter + SDK `createReadOnlyTools()` 做唯讀），或裝現成套件（`@vigolium/piolium` = security-auditor 對應、`@tintinweb/pi-subagents`）。差異：無 first-class Task API（須組裝/安裝）、隔離為**子行程級**非 in-process |
 | **Profile/編譯**（`.asp/scripts/asp-compile.sh` → `.asp-compiled-profile.md`，mtime 重編，ADR-016） | SessionStart 觸發重編；CLAUDE.md 映射載入 artifact | **native**（config）＋一處非原生 | 憲法/profile → `SYSTEM.md`／`APPEND_SYSTEM.md`／`AGENTS.md`（**pi 本就讀 `CLAUDE.md`**，現有 ASP CLAUDE.md 可原樣載入）；~30 生命週期事件。**非原生**：compiled-artifact + mtime 重編（改由擴充在 `session_start` 重算/自管 cache——影響小） |
-| **合規 auth** | API key 或訂閱 OAuth | **native** | `ANTHROPIC_API_KEY`／`auth.json`／`--api-key`，與 `/login` OAuth 獨立；多供應商（OpenAI/Gemini/Bedrock/Vertex/Ollama via `models.json`）原生。**須營運上釘死 API-key、禁 `/login`** 以守住合規前提（見 FC-008） |
+| **合規 auth** | API key 或訂閱 OAuth | **native** | `ANTHROPIC_API_KEY`／`auth.json`／`--api-key`，與 `/login` OAuth 獨立；多供應商（OpenAI/Gemini/Bedrock/Vertex/Ollama via `models.json`）原生。**須營運上釘死 API-key、禁 `/login`** 以守住合規前提（見 FC-009） |
 
 **判定**：技術可行、屬「中等 adapter 工作量」，**非 drop-in**。SOP 內容（16 skill 本體、`asp-compile.sh`、`denied-commands.json` 資料、profile/level `.yaml`/`.md`、QA 檢查清單）幾乎原樣可攜；真正需重建的 enforcement = ~2–3 個 pi 擴充（briefing 注入[`before_agent_start`+首輪去重] + tool_call deny gate + L4 dispatch）+ 採用 subagent 範例擴充補 L4 + 壓平 slash 命名空間 + 憲法進 SYSTEM.md。需寫新程式碼的層分兩類：**(a) 完全無 native primitive、須另建的＝L4**（pi 明列 sub-agents 為非目標，須靠官方範例擴充/社群套件另建）；**(b) 有 native primitive、但須手寫 handler 邏輯＝L1、L1.5、L2**——L1 SessionStart 因無「每 session 一次且可注入」的單一事件，須 `before_agent_start`(per-turn) + 首輪去重 gate（`session_start` 只重建 state、不注入）；L1.5/L2 的 deny 須手寫 TS handler（無宣告式 deny-list 可原樣搬）；其餘（L3 Skill/Command、Profile-config、auth）為近原生的**薄綁定**。pi 的擴充 API（型別化 TS 事件、~30 生命週期事件、可改 system prompt / 註冊 tool/command / 擋 tool call）在表達力上其實**比 Claude Code shell hook 更豐富**。
 
@@ -57,7 +57,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 
 - **優點**：零工作量；enforcement 維持最強。
 - **缺點**：放棄 pi 獨有的多供應商／自架／合規多路線能力；把 ASP 永久鎖在單一 harness。
-- **風險**：若 Claude Code 條款/計費/可用性變動（參 FC-008 條款波動），ASP 無退路。
+- **風險**：若 Claude Code 條款/計費/可用性變動（參 FC-009 條款波動），ASP 無退路。
 
 ---
 
@@ -67,7 +67,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 
 本 ADR 狀態為 `Draft`——**僅為評估與建議，待人類核准；核准前不寫任何生產代碼**（符合鐵則「ADR 未定案禁止實作」）。
 
-合規前提（不可協商，見 FC-008）：任何 pi 落地一律走 **`ANTHROPIC_API_KEY`（或他供應商）按量付費路線，禁用 `/login` 訂閱 OAuth**。Claude Code **Max 訂閱額度無法合規地用於 pi**——載重理由是 Anthropic 2026-02 起明訂訂閱 OAuth 憑證僅限官方客戶端，`pi-claude-auth` 讀取該憑證雖技術可行但違反條款、有封號風險。（另註：曾於 2026-06-15 宣布、可讓訂閱涵蓋第三方用量的「Agent SDK 額度」**已於生效前暫停、目前不可用**，且該機制僅涉及**建於 Claude Agent SDK 的工具**——pi 非其一；故此路亦不通。詳 FC-008。）
+合規前提（不可協商，見 FC-009）：任何 pi 落地一律走 **`ANTHROPIC_API_KEY`（或他供應商）按量付費路線，禁用 `/login` 訂閱 OAuth**。Claude Code **Max 訂閱額度無法合規地用於 pi**——載重理由是 Anthropic 2026-02 起明訂訂閱 OAuth 憑證僅限官方客戶端，`pi-claude-auth` 讀取該憑證雖技術可行但違反條款、有封號風險。（另註：曾於 2026-06-15 宣布、可讓訂閱涵蓋第三方用量的「Agent SDK 額度」**已於生效前暫停、目前不可用**，且該機制僅涉及**建於 Claude Agent SDK 的工具**——pi 非其一；故此路亦不通。詳 FC-009。）
 
 ---
 
@@ -76,7 +76,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 **正面影響：**
 - 明確記錄「ASP 內容可攜、強制力綁 harness」的邊界，未來換 harness 有藍圖。
 - 為多供應商／自架模型／合規多路線鋪路（pi 能力，Claude Code 無）。
-- 兩筆 fact-check（FC-007/FC-008）沉澱 pi 與 Anthropic 條款的一手查證，供後續複用。
+- 兩筆 fact-check（FC-008/FC-009）沉澱 pi 與 Anthropic 條款的一手查證，供後續複用。
 
 **負面影響 / 技術債：**
 - 選 B 需維護兩套 harness 綁定（內容共用、綁定分歧）。
@@ -101,7 +101,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 | adapter 所需新增 pi 擴充檔數 | ≤3（briefing 注入[含首輪去重] + tool_call deny + L4 dispatch） | adapter SPEC POC 計數 | `asp-pi-adapter` SPEC |
 | enforcement 等價性（破壞性操作阻擋） | pi tool_call deny 擋下 `denied-commands.json` 全 12 條 | POC 實測 | `asp-pi-adapter` SPEC POC |
 
-**重新評估條件**：pi 擴充事件模型／skill/agent 規格／auth 路線變更（FC-007 失效），或 Anthropic 條款/Agent SDK 額度政策變更（FC-008 失效）時，須重審本 ADR。
+**重新評估條件**：pi 擴充事件模型／skill/agent 規格／auth 路線變更（FC-008 失效），或 Anthropic 條款/Agent SDK 額度政策變更（FC-009 失效）時，須重審本 ADR。
 
 ---
 
@@ -110,7 +110,7 @@ ASP 的治理內容（憲法、成熟度等級、ADR/SPEC/TDD 工作流、SOP sk
 - 取代：（無）
 - 被取代：（無）
 - 參考：
-  - **FC-007**（pi 能力逐層對應）、**FC-008**（Anthropic 訂閱 OAuth 條款）——本 ADR 事實依據。
+  - **FC-008**（pi 能力逐層對應）、**FC-009**（Anthropic 訂閱 OAuth 條款）——本 ADR 事實依據。
   - **ADR-011**（動態 deny 隔離至 settings.local.json）——L2 對應 pi tool_call handler 的來源。
   - **ADR-016**（compiled-profile）——Profile/編譯層的移植對象。
   - **ADR-020**（把 AI 遺忘當一級威脅、機械化強制；偽硬 gate 之忌）——「enforcement 綁 harness、內容可攜」的張力來源；提醒 pi 上勿宣稱過強強制。
