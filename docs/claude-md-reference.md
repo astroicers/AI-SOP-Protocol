@@ -17,6 +17,8 @@
 
 > 對應的「AI 必須報告 BLOCKER」與「必須調用 Skill 的時機」屬行為義務，**不下沉**，仍留在 [CLAUDE.md 強制力架構段](../CLAUDE.md#強制力架構)。
 
+> **Worktree 感知適用範圍（SPEC-017 / ADR-029）**：L1 `session-audit.sh` 的 advisory 檢查（A5/A8/A18/.ai_profile/A19.1 判別式）依 SessionStart stdin `.cwd` 反映實際 worktree——僅針對「**啟動即在 worktree**」的 session 有效；**EnterWorktree 中途切換不重跑 SessionStart，屬已知限制**。repo-wide 治理錨（Iron Rule A/B、A19.1 worktree list、inbox、動態 deny）不受影響、續用 `CLAUDE_PROJECT_DIR`。worktree 解析單一真相在 `.asp/scripts/lib/worktree.sh`（受 Iron Rule A hash 保護），由 L1 與 L1.5 兩 hook 共用。
+
 ---
 
 ## 常用指令

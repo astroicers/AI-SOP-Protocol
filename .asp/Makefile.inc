@@ -147,7 +147,8 @@ lint:
 			shellcheck -S warning -e SC1090,SC1091,SC2086,SC2207 \
 				.asp/scripts/asp-metrics.sh .asp/scripts/asp-compile.sh \
 				.asp/scripts/bypass-hash.sh .asp/hooks/pretooluse-ship-gate.sh \
-				.asp/scripts/level-resolve.sh .asp/scripts/orchestrator/*.sh tests/*.sh \
+				.asp/scripts/level-resolve.sh .asp/scripts/lib/worktree.sh \
+				.asp/scripts/orchestrator/*.sh tests/*.sh \
 				|| LINT_FAIL=1; \
 		else \
 			echo "── bash -n (shellcheck not installed) ──"; \

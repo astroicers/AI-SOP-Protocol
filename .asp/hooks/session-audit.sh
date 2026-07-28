@@ -11,17 +11,21 @@
 #   6. 健康審計 baseline 檢查（A14: 7 rules）
 #   7. 產生 .asp-session-briefing.json + 動態 deny patterns
 #
+# SPEC-017：advisory 檢查（A5/A8/A18/.ai_profile/A19.1 判別式）為 worktree 感知——
+#   本 fix 僅針對「啟動即在 worktree」的 session（stdin .cwd 為唯一 worktree 訊號）；
+#   EnterWorktree 中途切換不重跑 SessionStart，屬已知限制（SPEC-017 DP3）。
+#   repo-wide 治理錨（Iron Rule A/B、A19.1 worktree list、inbox、動態 deny）續用
+#   CLAUDE_PROJECT_DIR，不受 worktree 化影響（INV-1）。
+#
 # 此 hook 永遠 exit 0（不阻擋 session 啟動）
 
 set -uo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 BRIEFING_FILE="${PROJECT_DIR}/.asp-session-briefing.json"
-SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.json"
 # ADR-011: ASP 動態 deny 寫入 gitignored 的 settings.local.json（與 tracked settings.json
 # / 使用者 deny 隔離）。Claude Code 以 deny-first 合併各 scope 的 deny（FC-001 已查證）。
 LOCAL_SETTINGS_FILE="${PROJECT_DIR}/.claude/settings.local.json"
-PROFILE_FILE="${PROJECT_DIR}/.ai_profile"
 
 # 需要 jq
 command -v jq &>/dev/null || {
@@ -54,7 +58,7 @@ asp_metric() { # $1=rule_id  $2=action(blocker|warn|info|deny-inject)
 # Iron Rule A: Hook Integrity Verification
 # ═══════════════════════════════════════════
 if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
-    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" ".asp/scripts/bypass-hash.sh" ".asp/hooks/pretooluse-ship-gate.sh"; do
+    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" ".asp/scripts/bypass-hash.sh" ".asp/hooks/pretooluse-ship-gate.sh" ".asp/scripts/lib/worktree.sh"; do
         if git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" &>/dev/null 2>&1; then
             CURRENT_HASH=$(sha256sum "${PROJECT_DIR}/${CRITICAL_FILE}" 2>/dev/null | cut -d' ' -f1)
             GIT_HASH=$(git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1)
@@ -70,12 +74,63 @@ if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
 fi
 
 # ═══════════════════════════════════════════
+# SPEC-017: SessionStart stdin 讀取 + worktree 解析（advisory 檢查 worktree 感知）
+#   stdin .cwd 為 worktree 訊號唯一來源（非 $PWD，review #1）；jq/解析任何失敗 →
+#   退錨 fail-open、不阻 session。INV-1：僅 worktree-local 檢查用 $WT；
+#   repo-wide 治理錨續用 file-global PROJECT_DIR（本檔唯一定義，不得重新賦值）。
+#   本區塊必須位於 Iron Rule A 之後（對抗式審查 F2）：被竄改的 lib 不得先於完整性
+#   檢查以 auditor 身分執行；Iron Rule A 已對 lib 出 BLOCKER → 拒 source、退錨。
+#   信任假設同 pretooluse-ship-gate.sh #72 聲明：本進程 env 未被 ambient 設
+#   GIT_DIR/GIT_COMMON_DIR/GIT_WORK_TREE（L3 note；被設＝等同能改 hook，Iron Rule A 涵蓋）。
+# ═══════════════════════════════════════════
+INPUT=""
+if [ ! -t 0 ]; then INPUT=$(cat 2>/dev/null || true); fi
+STDIN_CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null) || STDIN_CWD=""
+
+WT_RESOLUTION="anchor"
+_WT_ANCHOR="${CLAUDE_PROJECT_DIR:-$PWD}"   # 與 lib helper 的 anchor 定義一致（PROJECT_DIR 可能為 "."）
+_WT_ANCHOR="${_WT_ANCHOR%/}"; [ -n "$_WT_ANCHOR" ] || _WT_ANCHOR="/"   # 去尾斜線（SH-01）
+_WT_LIB_FLAGGED=0
+for _b in ${BLOCKERS[@]+"${BLOCKERS[@]}"}; do
+    case "$_b" in *worktree.sh*) _WT_LIB_FLAGGED=1 ;; esac
+done
+if [ "$_WT_LIB_FLAGGED" -eq 0 ]; then
+    # lib 與本 hook 同 repo ship → 先以 hook 自身位置解析（受測專案不必自帶 lib），再退
+    # PROJECT_DIR / HOME 安裝點；全缺 → 下方 command -v 不成立 → 退錨 fail-open。
+    for _WT_LIB in "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../scripts/lib/worktree.sh" \
+                   "${PROJECT_DIR}/.asp/scripts/lib/worktree.sh" \
+                   "${HOME}/.claude/asp/scripts/lib/worktree.sh"; do
+        # shellcheck source=/dev/null
+        [ -f "$_WT_LIB" ] && . "$_WT_LIB" && break
+    done
+fi
+WT=""
+if command -v asp_resolve_worktree >/dev/null 2>&1; then
+    WT=$(asp_resolve_worktree "$STDIN_CWD") || WT=""
+fi
+[ -n "$WT" ] || WT="$PROJECT_DIR"          # lib 缺 / 被標記 / 解析空 → 退錨
+if [ "$WT" != "$_WT_ANCHOR" ] && [ "$WT" != "$PROJECT_DIR" ]; then
+    WT_RESOLUTION="worktree"
+elif [ -n "$STDIN_CWD" ]; then
+    _STDIN_TOP=$(git -C "$STDIN_CWD" rev-parse --show-toplevel 2>/dev/null) || _STDIN_TOP=""
+    if [ -z "$_STDIN_TOP" ] || { [ "$_STDIN_TOP" != "$_WT_ANCHOR" ] && [ "$_STDIN_TOP" != "$PROJECT_DIR" ]; }; then
+        # cwd 訊號存在、但解析不到同 repo worktree 也非主樹 → 歧義退錨（A18 將 SUPPRESS）
+        WT_RESOLUTION="suppressed_a18"
+        INFOS+=("SPEC-017: worktree 解析退錨（advisory 檢查以主樹為準）")
+    fi
+fi
+PROFILE_FILE="${WT}/.ai_profile"
+
+# ═══════════════════════════════════════════
 # A19.1: 多 session worktree 競態偵測（ADR-027 L2，advisory WARNING）
 #   主工作樹（.git 為目錄）+ 存在其他 linked worktree（worktree list > 1）→ 可能多 session
 #   共用此工作樹，有 HEAD/commit 落錯分支競態（#56 事故實錄）。純 advisory、不阻擋 session。
 #   linked worktree（.git 為檔案）＝已隔離 → 不警告；無其他 worktree（單一）→ 不警告。
+#   SPEC-017：判別式先看 asp_resolve_worktree——本 session 在 linked worktree（WT≠anchor）
+#   → 不警告（修 cry-wolf：worktree session 下 CLAUDE_PROJECT_DIR 恆主樹、.git 恆目錄）；
+#   worktree list 邏輯續 repo-global 不動（MUST keep）。
 # ═══════════════════════════════════════════
-if [ -d "${PROJECT_DIR}/.git" ] && git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
+if [ "$WT_RESOLUTION" != "worktree" ] && [ -d "${PROJECT_DIR}/.git" ] && git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
     # --porcelain + 濾掉 prunable（殭屍）worktree，只算真正「活躍」的其他 worktree，
     # 避免對已合併未清理的 worktree 每次 session cry-wolf（review 5b）。
     _WT_PORC=$(git -C "${PROJECT_DIR}" worktree list --porcelain 2>/dev/null)
@@ -199,7 +254,9 @@ COMPILE_SCRIPT=""
 for c in "${PROJECT_DIR}/.asp/scripts/asp-compile.sh" "${HOME}/.claude/asp/scripts/asp-compile.sh"; do
     [ -f "$c" ] && COMPILE_SCRIPT="$c" && break
 done
-if [ -n "$COMPILE_SCRIPT" ] && [ -f "$PROFILE_FILE" ]; then
+# A16 全錨主樹（對抗式審查 F3）：compile 動作/產物皆在 PROJECT_DIR，gate 不得跨樹
+# 讀 $WT profile（worktree profile 屬 A1 範疇；A16 未列於 SPEC-017 worktree-local 清單）。
+if [ -n "$COMPILE_SCRIPT" ] && [ -f "${PROJECT_DIR}/.ai_profile" ]; then
     timeout 15 bash "$COMPILE_SCRIPT" --project "$PROJECT_DIR" --check --quiet >/dev/null 2>&1
     COMPILE_RC=$?
     case "$COMPILE_RC" in
@@ -212,29 +269,29 @@ fi
     && COMPILED_LINES=$(awk 'END{print NR}' "${PROJECT_DIR}/.asp-compiled-profile.md")
 
 # ═══════════════════════════════════════════
-# 2. 檔案結構掃描（A5: 11 rules）
+# 2. 檔案結構掃描（A5: 11 rules）— worktree-local（SPEC-017：讀 $WT）
 # ═══════════════════════════════════════════
 MISSING_FILES=()
-[ ! -f "$PROJECT_DIR/README.md" ]    && MISSING_FILES+=("README.md")
-[ ! -f "$PROJECT_DIR/CHANGELOG.md" ] && MISSING_FILES+=("CHANGELOG.md")
+[ ! -f "$WT/README.md" ]    && MISSING_FILES+=("README.md")
+[ ! -f "$WT/CHANGELOG.md" ] && MISSING_FILES+=("CHANGELOG.md")
 
 # Makefile 檢查（A5.9）
-if [ ! -f "$PROJECT_DIR/Makefile" ] && [ ! -f "$PROJECT_DIR/.asp/Makefile.inc" ]; then
+if [ ! -f "$WT/Makefile" ] && [ ! -f "$WT/.asp/Makefile.inc" ]; then
     MISSING_FILES+=("Makefile")
 fi
 
 # Lock file 檢查（A5.3）
-if [ -f "$PROJECT_DIR/package.json" ] && [ ! -f "$PROJECT_DIR/package-lock.json" ] && [ ! -f "$PROJECT_DIR/yarn.lock" ] && [ ! -f "$PROJECT_DIR/pnpm-lock.yaml" ]; then
+if [ -f "$WT/package.json" ] && [ ! -f "$WT/package-lock.json" ] && [ ! -f "$WT/yarn.lock" ] && [ ! -f "$WT/pnpm-lock.yaml" ]; then
     WARNINGS+=("A5.3: package.json 存在但無 lock file")
     asp_metric "AUDIT-A5.3" "warn"
 fi
-if [ -f "$PROJECT_DIR/pyproject.toml" ] && [ ! -f "$PROJECT_DIR/poetry.lock" ] && [ ! -f "$PROJECT_DIR/uv.lock" ]; then
+if [ -f "$WT/pyproject.toml" ] && [ ! -f "$WT/poetry.lock" ] && [ ! -f "$WT/uv.lock" ]; then
     WARNINGS+=("A5.3: pyproject.toml 存在但無 lock file")
     asp_metric "AUDIT-A5.3" "warn"
 fi
 
 # .env.example 檢查（A5.4）
-if [ -f "$PROJECT_DIR/.env" ] && [ ! -f "$PROJECT_DIR/.env.example" ]; then
+if [ -f "$WT/.env" ] && [ ! -f "$WT/.env.example" ]; then
     WARNINGS+=("A5.4: .env 存在但無 .env.example 範本")
     asp_metric "AUDIT-A5.4" "warn"
 fi
@@ -301,7 +358,7 @@ while IFS= read -r line; do
 # 其範例日期過期會造成 A8.3 假陽性——2026-06-11 曾誤報 global_core.md 範例為 3 筆逾期 HIGH）。
 # v5 追加排除：.asp-compiled-profile.md（asp-compile 產物會複製框架範例，ADR-016/018 dogfood
 # 發現）、docs/archive/（歸檔=歷史快照非活債務）、experimental//showcase/（凍結/展示分區）
-done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$PROJECT_DIR" --include="*.md" --include="*.sh" --include="*.yaml" --include="*.json" --exclude-dir=".git" 2>/dev/null \
+done < <(grep -rn "tech-debt:.*HIGH.*DUE:" "$WT" --include="*.md" --include="*.sh" --include="*.yaml" --include="*.json" --exclude-dir=".git" 2>/dev/null \
     | grep -vE '(\.asp/profiles/|\.asp/templates/|\.claude/skills/|docs/runbooks/|\.asp-compiled-profile\.md|docs/archive/|experimental/|showcase/)' || true)
 
 if [ "$OVERDUE_COUNT" -gt 0 ]; then
@@ -398,12 +455,17 @@ if [ -f "$PROJECT_DIR/.asp-fact-check.md" ]; then
 fi
 
 # ═══════════════════════════════════════════
-# 8.6 Autopilot 未完成狀態提醒（A18）
+# 8.6 Autopilot 未完成狀態提醒（A18）— worktree-local + fail-open（SPEC-017）
 #     .asp-autopilot-state.json 存在 = 上次 autopilot 跑到一半（gitignored 跨 session
 #     續接用）；session 啟動主動告知，避免遺忘半成品。
+#     SPEC-017 特殊 fail-open：解析歧義/退錨（suppressed_a18）→ SUPPRESS，絕不退回讀
+#     主樹殘留 state（他 session 殘留 → 誤報 resume＝ADR-029 要消除的跨 session 污染）；
+#     寧可漏報，不可誤報。suppress 時印 INFO 行（Observability D4-1：可與「沒 state」區分）。
 # ═══════════════════════════════════════════
 AUTOPILOT_STATE_EXISTS=false
-if [ -f "$PROJECT_DIR/.asp-autopilot-state.json" ]; then
+if [ "$WT_RESOLUTION" = "suppressed_a18" ]; then
+    INFOS+=("A18 suppressed：worktree 解析歧義，主樹 state 不讀（SPEC-017 fail-open：寧漏報不誤報）")
+elif [ -f "$WT/.asp-autopilot-state.json" ]; then
     AUTOPILOT_STATE_EXISTS=true
     INFOS+=("A18.1: 偵測到未完成的 autopilot 狀態（.asp-autopilot-state.json）— 跑 /asp-autopilot 續接，或刪除該檔放棄")
     asp_metric "AUDIT-A18.1" "info"
@@ -436,6 +498,7 @@ fi
   "test_result_exists": $TEST_RESULT_EXISTS,
   "stale_fact_count": $STALE_FACT_COUNT,
   "autopilot_state_exists": $AUTOPILOT_STATE_EXISTS,
+  "worktree_resolution": "$WT_RESOLUTION",
   "compiled_profile_ok": $COMPILED_OK,
   "compiled_profile_lines": $COMPILED_LINES,
   "dynamic_deny": $(if [ ${#DYNAMIC_DENY[@]} -gt 0 ]; then printf '%s\n' "${DYNAMIC_DENY[@]}" | jq -R . | jq -s .; else echo '[]'; fi)

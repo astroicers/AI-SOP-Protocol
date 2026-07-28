@@ -32,14 +32,17 @@ grep -qE '(^|[;&|]+[[:space:]]*)git[[:space:]]+commit' <<<"$COMMAND" || exit 0
 # 若被設，rev-parse 解析會被導向，可繞過 superproject 血緣比對。Claude Code 的 Bash 工具
 # 每次呼叫的 env 不跨呼叫留存（指令字串只被本 hook 當字串讀、不執行）→ 單次 commit 無法注入；
 # 屬既有威脅類別（等同能改 hook 本身，已由 Iron Rule A 另行涵蓋）。
-_abs_common_dir(){ # $1=dir → 絕對 git-common-dir（失敗印空）
-  local d; d="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)" || return 0
-  [ -n "$d" ] || return 0
-  case "$d" in
-    /*) printf '%s\n' "$d" ;;
-    *)  ( cd "$1" 2>/dev/null && cd "$d" 2>/dev/null && pwd ) ;;
-  esac
-}
+# ── worktree 解析共用 lib（SPEC-017 DP1=b：_abs_common_dir 單一真相在 lib，與 session-audit 共用）──
+# lib 缺（舊 checkout / 部分安裝）→ stub 印空 → 下方血緣比對不成立 → PROJ 守 CLAUDE_PROJECT_DIR
+# （graceful degrade 回 pre-#72 行為：不 crash、不信 planted）。lib 受 Iron Rule A hash 保護。
+# lib 與本 hook 同 repo ship → 先以 hook 自身位置解析，再退 CLAUDE_PROJECT_DIR / HOME 安裝點。
+for _WT_LIB in "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../scripts/lib/worktree.sh" \
+               "${CLAUDE_PROJECT_DIR:-.}/.asp/scripts/lib/worktree.sh" \
+               "${HOME}/.claude/asp/scripts/lib/worktree.sh"; do
+    # shellcheck source=/dev/null
+    [ -f "$_WT_LIB" ] && . "$_WT_LIB" && break
+done
+command -v _abs_common_dir >/dev/null 2>&1 || _abs_common_dir(){ :; }
 _CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // "."' 2>/dev/null)"
 _CPD="${CLAUDE_PROJECT_DIR:-}"
 if [ -n "$_CPD" ]; then
