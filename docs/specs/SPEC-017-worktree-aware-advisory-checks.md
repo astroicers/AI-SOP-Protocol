@@ -3,7 +3,7 @@
 | 欄位 | 內容 |
 |------|------|
 | **規格 ID** | SPEC-017 |
-| **狀態** | Draft（**G2 PASS_WITH_WARN 2026-07-27**，10 findings 已修入 v2，見 `.asp-gate-log/20260727T143123Z-G2-SPEC-017.md`；待人類核准；ADR-029 已 Accepted，本 SPEC 落地其 🟢 scope） |
+| **狀態** | Accepted（G2 PASS_WITH_WARN 2026-07-27 → 人類 merge PR #77 視為核准；ADR-029 已 Accepted，本 SPEC 落地其 🟢 scope）；**實作中**：分支 `asp/spec-017-impl`（0a PASS＝FC-012，DP1 已拍板） |
 | **日期** | 2026-07-24 |
 | **關聯 ADR** | ADR-029（父，worktree-aware hooks L2 補篇）、ADR-027（worktree 隔離）、ADR-018（Iron Rule A/B、rule-registry）、ADR-012（inbox canonical-on-main） |
 | **關聯 issue** | #73（本 SPEC 實作其 🟢 部分）、#72（PR #74，ship-gate 已解，helper 參考正例）、#56 |
@@ -147,7 +147,7 @@ Scenario: A18 fail-open——解析歧義時不誤報 autopilot resume（G2 revi
 
 | DP | 議題 | 選項 | 傾向 |
 |---|---|---|---|
-| **DP1** | helper 置放 | (a) inline 於 session-audit.sh　(b) 抽 `.asp/scripts/lib/worktree.sh` 供多 hook source | **(b)**：ship-gate（#72）已有等價邏輯，抽共用 lib 去重、單一真相；但增一個 sourced 相依（Iron Rule A hash 僅含 session-audit.sh，lib 需納入 critical-file 清單或內聯）。**待拍板** |
+| **DP1** | helper 置放 | (a) inline 於 session-audit.sh　(b) 抽 `.asp/scripts/lib/worktree.sh` 供多 hook source | **(b)**：ship-gate（#72）已有等價邏輯，抽共用 lib 去重、單一真相；但增一個 sourced 相依（Iron Rule A hash 僅含 session-audit.sh，lib 需納入 critical-file 清單或內聯）。**已拍板 (b)**（2026-07-28 人類；lib 已納 CRITICAL_FILE 清單，T10） |
 | **DP2** | A19.1 判別式修正觸 Iron Rule A hash | 走「人類核准 + hash 更新」流程 | 是（同 ADR-029 記載）；本 SPEC commit 後 hash 隨 HEAD 自愈 |
 | **DP3** | 適用範圍文件化 | 明標「僅啟動即在 worktree」 vs 嘗試支援 EnterWorktree | **明標範圍**：EnterWorktree 中途切不重跑 SessionStart、in-hook 無法補救，列已知限制 |
 
@@ -169,7 +169,9 @@ Scenario: A18 fail-open——解析歧義時不誤報 autopilot resume（G2 revi
 - **INV-1**：worktree-local 檢查用 `asp_resolve_worktree`；repo-wide 檢查（Iron Rule A/B、A19.1 list、inbox）用 `CLAUDE_PROJECT_DIR`。二者**不混用**。**驗證**：T9 靜態（`PROJECT_DIR=` 僅一處）+ code review 確認三錨區塊未觸 helper。
 - **INV-2**：`session-audit.sh` 與 `pretooluse-ship-gate.sh`（#72）的 worktree 解析語意**一致**（同 anchor-first + 同 superproject 血緣守衛）。**由 T-INV2 parity 測試強制**（review #3）：非僅宣告——DP1=(b) 時二者 source 同一 lib（parity 恆真）；DP1=(a) 時 parity 測試在同 fixture 上比對兩份實作、抓漂移。**INV-2 若無法以 parity 測試通過，DP1 不得選 (a)**。
 
-## 🔗 追溯性（實作後回填）
-- 實作 commit：TBD
-- 測試檔：`tests/test_worktree_resolve.sh`（新）、`tests/test_worktree_race_detection.sh`（擴充 T5/T6）
-- Iron Rule A hash 更新：TBD
+## 🔗 追溯性（2026-07-28 回填）
+- 步驟 0a/0b：**FC-012**（`.asp-fact-check.md`）——0a PASS（stdin `.cwd`＝worktree 絕對路徑）→ wiring 解鎖
+- 實作 commit：分支 `asp/spec-017-impl` → PR merge commit（G4 gate log 記 head hash）
+- 實作檔：`.asp/scripts/lib/worktree.sh`（新，DP1=b）、`.asp/hooks/session-audit.sh`、`.asp/hooks/pretooluse-ship-gate.sh`（改 source lib）、`docs/claude-md-reference.md`（DW9 適用範圍）
+- 測試檔：`tests/test_worktree_resolve.sh`（新：T1-T4/T7/T7b/T5b/T8b/T9b/T-INV2/T9-T11，20 斷言）、`tests/test_worktree_race_detection.sh`（擴充 T5/T6 stdin harness）、`tests/test_shipgate_worktree.sh`（7/7 回歸綠）
+- Iron Rule A hash 更新：git-HEAD-based 自愈——實作 commit 進 HEAD 即自愈（DP2，無需手動 hash 檔）
