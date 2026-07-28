@@ -40,6 +40,14 @@
 | Held | Awaiting Human Authorization | 外部任務只回報不注入的安全暫置狀態 |
 | Triage-accept | Human Authorization | 人類 commit 即授權的可驗證放行通道 |
 | Pipeline | ASP Development Pipeline | G1→G6 六階段開發流程 |
+| Iron Rule A | Hook Integrity Verification | git-HEAD hash 比對 CRITICAL_FILE，「git 外改 hook」→ BLOCKER |
+| Iron Rule B | Bypass Log Integrity | HWM + per-entry hash chain 的 tamper-evidence（非 tamper-proof） |
+| 三錨 | The Three Anchors | 不得 worktree 化的三機制：Iron Rule A/B + A19.1 worktree list |
+| 血緣守衛 | Superproject Lineage Guard | 絕對 git-common-dir 相等才信任 cwd，擋 planted repo |
+| Anchor／退錨 | Anchor / Anchor-Fallback | CLAUDE_PROJECT_DIR 強信任錨；解析失敗回落 anchor（fail-open） |
+| Worktree／主工作樹 | Linked / Main Worktree | `.git` 檔案 vs 目錄；ADR-027：每 session 專屬 worktree、主樹留人類 |
+| Advisory 檢查 | Advisory Checks | 提示不阻擋的檢查類別；SPEC-017 起 worktree 感知 |
+| Fail-open／Fail-closed | Fail-open / Fail-closed | 異常放行留痕 vs 異常擋下；A18=寧漏報不誤報 |
 | Telemetry | Telemetry Event Log | `.asp-telemetry.jsonl` 行為事件記錄 |
 | Claude Code | Anthropic CLI | ASP 的執行環境 |
 | gh | GitHub CLI | ASP 官方 issue tracker 操作工具 |

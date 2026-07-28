@@ -1,7 +1,7 @@
 # CONTEXT.md — ASP 領域詞彙表
 
 > 由 `/asp-context` skill 維護。所有 ADR、SPEC、commit message 使用的術語必須與此表一致。
-> 最後更新：2026-05-05
+> 最後更新：2026-07-28（補收錄 ADR-027/029/SPEC-017 治理錨與 worktree 感知術語，G2 review D6-1）
 
 ---
 
@@ -32,6 +32,14 @@
 | Telemetry（遙測） | Telemetry Event Log | — |
 | Claude Code | Claude Code (Anthropic CLI) | claude |
 | gh | GitHub CLI | gh |
+| Iron Rule A（hook 完整性鐵則） | Iron Rule A (Hook Integrity Verification) | IRON-A |
+| Iron Rule B（bypass log 防竄改鐵則） | Iron Rule B (Append-Only Bypass Log Integrity) | IRON-B |
+| 三錨（repo-wide 治理錨） | The Three Anchors (repo-wide governance anchors) | — |
+| 血緣守衛 | Superproject Lineage Guard | — |
+| Anchor／退錨 | Anchor / Anchor-Fallback | — |
+| Worktree／主工作樹 | Linked Worktree / Main Worktree | — |
+| Advisory 檢查 | Advisory Checks | — |
+| Fail-open／Fail-closed | Fail-open / Fail-closed | — |
 
 ---
 
@@ -99,6 +107,58 @@
 **English:** Domain Vocabulary File
 **定義：** repo root 的領域詞彙表檔案，由 `/asp-context` skill 維護；session 啟動時若存在則自動讀取，確保 ADR/SPEC/commit 的術語一致性。
 **避免使用：** [詞彙表, glossary, 術語檔]（CONTEXT.md 是 ASP 的固定檔案路徑與機制名稱）
+
+---
+
+## 治理錨與 worktree 感知
+
+### Iron Rule A（hook 完整性鐵則）
+**English:** Iron Rule A (Hook Integrity Verification)
+**定義：** `session-audit.sh` 於 SessionStart 以 git-HEAD hash 比對 CRITICAL_FILE 清單（denied-commands.json、session-audit.sh、bypass-hash.sh、pretooluse-ship-gate.sh、worktree.sh lib），偵測「hook 在 git 外被改」→ BLOCKER；staged 修改豁免、commit 進 HEAD 即自愈（git-HEAD-based，無手動 hash 檔）。
+**避免使用：** [hook 保護, 完整性檢查]（Iron Rule A 特指這條 git-HEAD-based 機制與其 CRITICAL_FILE 清單）
+**相關 ADR：** ADR-002、ADR-018
+
+### Iron Rule B（bypass log 防竄改鐵則）
+**English:** Iron Rule B (Append-Only Bypass Log Integrity)
+**定義：** bypass log 的 append-only 完整性機制：HWM sidecar（偵測末尾截斷）+ per-entry hash chain（偵測等量替換/中間竄改，ADR-019）。誠實界定為 tamper-**evidence** 非 tamper-proof（純本地無外部信任錨）。
+**避免使用：** [log 保護, 防刪除]（Iron Rule B 特指 HWM+hash-chain 這組機制與其誠實邊界）
+**相關 ADR：** ADR-002、ADR-019
+
+### 三錨（repo-wide 治理錨）
+**English:** The Three Anchors (repo-wide governance anchors)
+**定義：** hook worktree 感知化（ADR-029/SPEC-017）中「必須維持 repo-global、不得 worktree 化」的三個機制：**Iron Rule A**、**Iron Rule B**、**A19.1 `git worktree list`**——恆錨定 `CLAUDE_PROJECT_DIR`（主工作樹）。INV-1 保證 worktree-local 檢查（用 `asp_resolve_worktree`）與 repo-wide 檢查（用 `CLAUDE_PROJECT_DIR`）**二者不混用**；「file-global `PROJECT_DIR` 全檔僅一處定義、不重新賦值」是另一條鐵律，由 T9 靜態檢查驗證。
+**避免使用：** [anchors, 三個錨點, 三大機制]（三錨是 ADR-029 的固定術語，成員固定為上列三項）
+**相關 ADR：** ADR-029
+
+### 血緣守衛
+**English:** Superproject Lineage Guard
+**定義：** worktree 解析的安全比對：僅當 cwd 的**絕對 git-common-dir** 與 anchor 相等（同一 superproject）才信任 cwd 的 worktree 頂層，否則退錨——杜絕「cd 進無關 repo 植 planted-trace」繞過（#72 安全審查 #1）。單一實作在 `.asp/scripts/lib/worktree.sh`（`_abs_common_dir`）。
+**避免使用：** [同源檢查, same-repo check]（血緣守衛特指「絕對 git-common-dir 相等」這個比對法）
+**相關 ADR：** ADR-029（實作 SPEC-017；起源 #72/PR #74）
+
+### Anchor／退錨
+**English:** Anchor / Anchor-Fallback
+**定義：** anchor＝`CLAUDE_PROJECT_DIR`（主工作樹路徑，強信任來源）；退錨＝worktree 解析任何失敗/歧義/lib 缺失時回落 anchor 的 fail-open 行為——寧可失去 worktree 感知，不可誤信 cwd 訊號。
+**避免使用：** [fallback, 降級, 回退]（退錨特指「回落至 CLAUDE_PROJECT_DIR」這個方向，含安全語意。範圍註記：避免的是**裸詞**泛稱；正式英文名 Anchor-Fallback 為複合專名，不在避免之列）
+**相關 ADR：** ADR-029
+
+### Worktree／主工作樹
+**English:** Linked Worktree / Main Worktree
+**定義：** git worktree 機制的兩端：主工作樹（`.git` 為**目錄**）與 linked worktree（`.git` 為指標**檔案**）。ADR-027 advisory：多 session 並行同一 repo → 每 session 開專屬 worktree（issue→worktree→branch→PR），主樹留人類。
+**避免使用：** [分支目錄, 副本, checkout 目錄]（worktree 是 git 原生機制名，主樹/worktree 的 `.git` 型態差異是 A19.1 判別依據）
+**相關 ADR：** ADR-027、ADR-029
+
+### Advisory 檢查
+**English:** Advisory Checks
+**定義：** session-audit 中「提示不阻擋」的檢查類別（WARNING/INFO 級：A5 required-files、A8 tech-debt、A18 autopilot-state、A19.1 競態提醒、.ai_profile 檢查等），與 BLOCKER 級治理錨相對；SPEC-017 起為 worktree 感知（依 SessionStart stdin `.cwd` 讀實際 worktree，僅限「啟動即在 worktree」的 session）。
+**避免使用：** [軟檢查, soft check；「警告」僅在指稱**類別**時避免]（advisory 是 ASP 檢查分級的固定類別名。範圍註記：個別 hook 描述行為的動詞用法——如 SPEC-017/session-audit 的「在主樹→警告；在 worktree→不警告」——不受限，指的是發出一則 WARNING，非類別名）
+**相關 ADR：** ADR-029
+
+### Fail-open／Fail-closed
+**English:** Fail-open / Fail-closed
+**定義：** ASP hook 失效模式語彙：**fail-open**＝機制異常時放行並留痕（advisory 檢查、ship-gate jq 缺）；**fail-closed**＝異常時擋下（ship-gate 對損壞 worktree 的 trace 解析）。A18 的「特殊 fail-open」＝解析歧義時 SUPPRESS、寧漏報 resume 不誤報（含 Observability 留痕：suppress INFO 行 + briefing `worktree_resolution` 欄位）。
+**避免使用：** [容錯, 降級模式, graceful degradation（泛稱）]（fail-open/closed 是安全方向語彙，每個 hook 的選向都是明文設計決策）
+**相關 ADR：** ADR-020、ADR-029
 
 ---
 

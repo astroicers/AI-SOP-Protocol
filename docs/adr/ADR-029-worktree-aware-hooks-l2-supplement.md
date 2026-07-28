@@ -69,6 +69,8 @@ asp_resolve_worktree() {           # $1 = 呼叫者的 cwd 訊號（SessionStart
 }
 ```
 
+> **註（2026-07-28）**：上方 snippet 為草稿，**已被 SPEC-017 版取代**——SPEC 版 `_abs_common_dir` 逐字取自 #72 ship-gate 的 `cd`+`pwd` 手動正規化（非本草稿的 `--path-format=absolute` 旗標，後者未經 #72 兩輪審查）並含 top==anchor 短路；語意錨（絕對 git-common-dir 相等＋同 superproject 血緣守衛）不變。**實作以 SPEC-017 為準**（單一實作在 `.asp/scripts/lib/worktree.sh`）。
+
 **鐵律**：worktree-local 檢查呼叫 `WT=$(asp_resolve_worktree "$STDIN_CWD")` 讀 `$WT/…`；repo-wide 檢查繼續用 `$CLAUDE_PROJECT_DIR`。**永不重新賦值 file-global `PROJECT_DIR`**。
 
 ### 必須永遠 repo-wide（不可 worktree 化）
