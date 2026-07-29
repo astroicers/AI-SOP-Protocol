@@ -185,9 +185,25 @@ _pred_worktree() {                   # 第一個非選項參數 = remove 且有 
   return 1
 }
 
+# _strip_redirects — 從 ARGV[] 移除 shell redirect 序列（redirect 是 shell 語法、非
+# 命令參數，不得算 positional）。OB-02：修 `git checkout main 2>/dev/null` 的
+# `2>/dev/null` 被 _positionals 誤當第二個 positional → checkout 誤判 ≥2 → over-block。
+_strip_redirects() {
+  local out=() i=0 n=${#ARGV[@]} t
+  local pure='^([0-9]*(>>?|<)|&>>?)$' selfc='^([0-9]*>|[0-9]*<|&>)'
+  while [ "$i" -lt "$n" ]; do
+    t="${ARGV[$i]}"
+    if [[ "$t" =~ $pure ]]; then i=$((i+2)); continue; fi   # 純 operator（>, 2>, >>, <, &>）→ 連目標跳
+    if [[ "$t" =~ $selfc ]]; then i=$((i+1)); continue; fi  # 自含（2>&1, 2>/dev/null, >file）→ 只跳自己
+    out+=("$t"); i=$((i+1))
+  done
+  if [ "${#out[@]}" -gt 0 ]; then ARGV=("${out[@]}"); else ARGV=(); fi
+}
+
 # _analyze_segment <segment> — 命中本地毀滅性 git → return 0（設 MATCHED）
 _analyze_segment() {
   _load_argv "$1"
+  _strip_redirects
   local n=${#ARGV[@]} i=0 t sub
   [ "$n" -gt 0 ] || return 1
   while [ "$i" -lt "$n" ]; do                # M0.3：跳 VAR=val 前綴

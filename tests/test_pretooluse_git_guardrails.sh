@@ -134,6 +134,20 @@ expect_defer "B8a" '\git reset --hard'                   # 反斜線包裝前綴
 expect_defer "B8b" "env git reset --hard"                # env 包裝（首 token 非 git）
 expect_defer "B9" "git checkout f2.txt"                  # 單 positional 為已追蹤檔（已知漏擋釘樁）
 
+echo ""; echo "════ R（redirect 剝除）：shell redirect 不得算 positional（OB-02 over-block 修復）════"
+# 誤擋修復：redirect token 曾被當 positional → checkout 誤判 ≥2 → deny
+expect_defer "R1" "git checkout main 2>/dev/null"         # 極常見；曾誤擋
+expect_defer "R2" "git checkout --detach origin/main 2>&1"
+expect_defer "R3" "git checkout feature >/tmp/log 2>&1"
+expect_defer "R4" "git checkout main >  /tmp/log"         # 分開形 operator + 目標
+expect_defer "R5" "git switch main 2>/dev/null"
+# 真 deny 不因 redirect 而漏擋（剝除後謂詞仍命中）
+expect_deny  "R6" "git reset --hard 2>/dev/null"
+expect_deny  "R7" "git checkout . 2>/dev/null"            # 唯一 positional 仍為 .
+expect_deny  "R8" "git checkout main foo 2>/dev/null"     # 真 2 positional + redirect
+expect_deny  "R9" "git clean -fd >/dev/null"
+expect_deny  "R10" "git stash clear 2>/dev/null"          # clear 仍 first positional
+
 echo ""; echo "GG-SEC-01：超長 command（>8192）→ defer（O(n²) tokenizer DoS 上限）"
 BIG="git reset --hard $(head -c 9000 /dev/zero | tr '\0' 'a')"
 rm -f "$METRICS"; OUT=$(run_hook "$BIG")

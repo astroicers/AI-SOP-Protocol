@@ -76,6 +76,7 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 ### M0. 分段與 tokenize（前置）
 1. **命令分段**：以 shell 邊界 `;`、`&&`、`||`、`|`、換行 切成 segment；**引號內的邊界字元不算分段**（best-effort：辨識成對 `'...'` / `"..."`，使 `git commit -m "a && git reset --hard"` 的 `&&` **不**被當分段點）。→ 逐 segment 套 M1。
 2. **argv tokenize**：每個 segment 以空白切為 token 序列（best-effort，尊重引號）。
+2b. **redirect 剝除（OB-02，實作審查後補規範）**：tokenize 後須移除 shell redirect 序列（`>`/`>>`/`<`/`2>`/`2>&1`/`&>` 等，含黏著目標 `2>/dev/null` 與分開形 `> file`）——redirect 是 **shell 語法、非命令參數**，不得進入 argv 參與 positional 計數。否則 `git checkout main 2>/dev/null` 的 `2>/dev/null` 會被當第二個 positional → checkout 誤判 `<ref> <pathspec>` → **over-block** 極常見的日常命令。純 operator（結尾為 `>`/`<`）連同下一個 token（目標）一併剝除；自含 operator（`2>&1`/`2>/dev/null`）剝除自身。
 3. **git 起始判定**：segment 首個非賦值 token（跳過 `VAR=val` 前綴）須為 `git`，否則該 segment 非 git、跳過。
 4. **global option 跳過（修正 B1）**：`git` 之後、子命令之前的**全域選項**必須跳過再取子命令：跳過任何 `-*` token；其中 `-C`、`-c`、以及 `--git-dir`/`--work-tree`/`--namespace`/`--super-prefix` 之**空白分隔形**（無 `=`，如 `git --git-dir /x.git reset --hard`）**各再吃掉下一個 token**（其參數）；含 `=` 者（`--git-dir=/x`）為單 token。（**`--exec-path` 刻意不列入空白分隔集**：git 對裸 `--exec-path` 為「印出 exec-path 後即 `exit 0`」、僅 `=` 形設值，**永不**吃空白下一 token（**FC-013 一手實測**：`git --exec-path reset --hard` 僅印路徑、不執行 reset）；若誤列，`git --exec-path reset --hard` 會把 `reset` 當其參數吃掉致漏解析——雖 git 本身此式也不執行 `reset`，仍屬對 git 文法的錯述，故剔除。）跳完的第一個非選項 token＝**子命令**。→ `git -C /x reset --hard`、`git --git-dir /x.git reset --hard`、`git --git-dir=/x.git reset --hard` 的子命令均正確解析為 `reset`（修正 Probe 揪出的空白分隔形漏解析）。
 5. **比對規則**：所有旗標比對 **case-sensitive**（`-d`≠`-D`、`-c`≠`-C`、`-n`≠`-N`）、**以 token 為單位**（非子字串）。短旗標**捆綁**（如 `-fd`）視為其字母集合 `{f,d}`；長旗標整 token 比對。**位置參數**（positional）＝非 `-` 開頭且非選項參數的 token。
@@ -148,6 +149,7 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 - **底層 ref 操作繞過**：`git update-ref -d refs/heads/x`（繞 branch -D 偵測）、`git reflog expire --expire=now`、`filter-branch`、`gc --prune=now`。
 - **極端引號/heredoc**：M0 為 best-effort，巢狀引號或 heredoc 內的分段可能殘留誤判 → 此時 escape hatch + fail-open 兜底。
 - **寫檔再執行**：AI 寫一個含危險 git 的 `.sh` 再 `bash x.sh` → 本 hook 只看單一 Bash command，不追檔內容。
+- **redirect 無空白黏 token（OB-02 修復後獨立審查揭示的既有 tokenizer 邊界）**：`git reset --hard>out.txt`（`>` 無空白緊黏旗標）→ tokenize 得單一 token `--hard>out.txt`，`_arg_has "--hard"` 精確比對失敗 → 漏擋。**有空白形式（`--hard >out.txt`、`--hard 2>/dev/null`）由 `_strip_redirects` 正確剝除、正常擋下**；僅完全無空白黏著這種罕見寫法漏。緩解＝正規寫法皆有空白；徹底修需 tokenizer 在 metachar 邊界二次分段（POC 不納，避免 over-engineering）。
 - **harness 攔截語義（G2 review D5-1 補聲明，對齊 FC-011 unknown #1）**：本 hook 採**方式 A**（`exit 0` + JSON `permissionDecision:deny`，FC-002 官方介面 + ship-gate 生產實證），**不依賴**原生 skill 的 `exit 2` 語義（後者對 harness 的實際效果未一手實證，FC-011 unknown #1）；方式 A 之 deny 若因 harness 版本變動失效，本 hook 退化為無強制力的 no-op（fail-open 家族），不會誤擋。
 
 **（以下 5 類由本 session 對抗式 Probe 稽核揪出、實測確認，明列為能力邊界而非隱性缺陷）**
