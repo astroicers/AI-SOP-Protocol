@@ -7,7 +7,7 @@ description: |
   commit check, before commit, 我要提交, 可以 commit 了嗎.
 ---
 
-# ASP Ship — 提交前檢查（v3.4 Enforcement 強化版）
+# ASP Ship — 提交前檢查
 
 ## 適用場景
 
@@ -17,7 +17,7 @@ description: |
 
 ## 10 步驟有序檢查
 
-### Step 0：Session Briefing 檢查（v3.4 新增）
+### Step 0：Session Briefing 檢查
 
 讀取 `.asp-session-briefing.json`（由 SessionStart hook 產生）：
 
@@ -127,7 +127,7 @@ make adr-list
 
 ---
 
-### Step 8：程式碼品質檢查（v3.4 新增）
+### Step 8：程式碼品質檢查
 
 ```bash
 make lint
@@ -143,7 +143,7 @@ make lint
 
 ---
 
-### Step 9：安全掃描（v3.4 + v4.3 OWASP 補強）
+### Step 9：安全掃描
 
 **9a. 敏感資訊掃描**（掃描 `git diff --cached`）
 
@@ -204,7 +204,7 @@ done <<< "$adr_specs"
 
 ---
 
-### Step 10：記錄結果 + Bypass 事件（v3.5 強化）
+### Step 10：記錄結果 + Bypass 事件
 
 **10a. 記錄測試結果**
 
@@ -218,9 +218,9 @@ done <<< "$adr_specs"
 }
 ```
 
-此檔案供 `session-audit.sh` 讀取，用於判斷是否需要動態阻擋 `git commit`。
+此檔供 `session-audit.sh` 判斷是否動態阻擋 `git commit`。
 
-**10b. 記錄 Bypass 事件（v3.5 新增）**
+**10b. 記錄 Bypass 事件**
 
 若前 9 步中**任何一步**被 WARN-GO 或 SKIPPED 放行（非 BLOCK），針對每次略過呼叫：
 
@@ -232,7 +232,7 @@ make asp-bypass-record SKILL=asp-ship STEP=StepN REASON="使用者說明或 triv
 
 ---
 
-## Evidence-Based Output（v3.5 新增）
+## Evidence-Based Output
 
 > 每一步的結果**必須附帶可觀測證據**。空洞的「✅ lint 通過」不可接受。
 

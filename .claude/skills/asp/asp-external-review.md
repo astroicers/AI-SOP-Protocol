@@ -111,17 +111,7 @@ Low divergence rate → Layer 1 is well-calibrated for your codebase.
 
 ## Why Cross-Vendor Matters
 
-Same-vendor models (Opus + Sonnet, both Anthropic) share:
-- Same Constitutional AI training pipeline
-- Same RLHF preference data
-- Same alignment philosophy
-
-Independence = **2.5/4** at best. For crypto/auth paths, silent failure is catastrophic
-(backup encryption: data appears to work, fails at recovery time).
-
-Cross-vendor review achieves **4/4 independence**: different training data, different
-alignment objectives, different architectural biases. Catches what Anthropic models
-systematically miss.
+同廠商模型（Opus + Sonnet 皆 Anthropic）共享 Constitutional AI 訓練管線、RLHF 偏好資料與 alignment 哲學 → 獨立性至多 **2.5/4**。跨廠商 review 達 **4/4**（不同訓練資料/alignment 目標/架構偏差），能抓 Anthropic 模型系統性遺漏者——對 crypto/auth 這類 silent failure 即災難的路徑尤其關鍵。
 
 ---
 

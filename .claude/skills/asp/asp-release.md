@@ -137,21 +137,3 @@ BODY
 | `git push origin main` | 鐵則：永遠禁止 push to main |
 | `gh pr merge` | HITL：AI 不得自動 merge |
 | `git tag` + `git push tag` | 發布 tag 由人類執行，確保版本最終確認 |
-
----
-
-## 使用範例
-
-```
-用戶：/asp-release
-ASP：讀取 git log... 推薦 patch bump: v4.1.1 → v4.1.2
-     [列出 commits]
-     確認版本號？
-
-用戶：確認，v4.1.2
-
-ASP：更新 CHANGELOG.md...
-     建立 release/v4.1.2 branch...
-     開 Draft PR...
-     ✅ PR #42 已建立
-```
