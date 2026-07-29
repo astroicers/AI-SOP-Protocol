@@ -91,6 +91,21 @@ bash tests/test_skill_lint.sh    # 你的新 skill 也會被掃；R1/R2 必過�
 | Minimal | 100 行才拆支援檔、token 紀律 | R6 行數閾值 | advisory |
 | Battle-tested | 「先看 AI 無 skill 時怎麼失敗再寫」 | **無法靜態驗 → 人審** | 人審（誠實標註，不假裝機械化） |
 
+## 失敗模式（借 writing-great-skills，ADR-030 ADAPT-MERGE；定義忠於一手 SKILL.md，見 FC-014）
+
+四標準是「怎麼寫好」；以下 6 種失敗模式是「怎麼避免寫壞」——**也是診斷既有 skill 問題的判準**（定義逐字對照 mattpocock 一手來源）：
+
+| 失敗模式 | 判準（一手定義） | ASP 對治 |
+|---------|------|---------|
+| **premature-completion** | 步驟未真正完成就結束，注意力滑向「已完成」 | 先磨利完成準則（可檢查＋必要時窮盡）；仍模糊且觀察到 rush → split 隱藏後續步驟 |
+| **duplication** | 同一意義出現在多處（費維護＋token，並膨脹其階層排名） | single source of truth；他處引用 |
+| **sediment** | 陳舊層堆積（加東西感覺安全、移除感覺有風險）——**無 pruning 紀律的默認命運**（版本註記/歷史時間戳為其一種） | pruning 紀律；追溯留 ADR/git，不沉積在 skill 本體 |
+| **sprawl** | skill 就是太長，**即使每行都 live 且 unique**（非重複，與 duplication 相異） | 解法＝ladder：reference 用 progressive disclosure 藏 pointer 後、by branch/sequence split；R6 行數 advisory 兜底 |
+| **no-op** | model 預設就會遵守的行——付 load 卻等於沒說（**測試：相對 default 有無改變行為？**）；弱 leading word（`be thorough` 對已 thorough 的 agent）即 no-op | 砍；弱詞換更強的詞（`relentless`），非換技術 |
+| **negation** | 用禁止引導會反噬（「別想大象」反使大象更顯眼） | 給**正向**指令（說該做什麼，讓禁的那個不被提及）；禁止只留無法正向表達的硬護欄，且仍配「該做什麼」——ASP 的 Red Flags 表即此類有界護欄＋hook 兜底 |
+
+> **leading words**：借 model 預訓練裡已有的緊湊概念詞（如 `tracer bullet`、`fog of war`、`tight`、`red`）反覆錨定行為——用最少 token 喚起既有 priors、累積分散定義。找機會把「三詞並列的重述」（`fast, deterministic, low-overhead` → `tight`）collapse 成一個這樣的詞。
+
 ## Red Flags（AI 寫 skill 時的藉口 × 反駁）
 
 | 藉口 | 反駁 |
