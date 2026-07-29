@@ -14,11 +14,11 @@
 
 新增 PreToolUse hook `.asp/hooks/pretooluse-git-guardrails.sh`，於 Bash 執行**前**攔截**本地毀滅性 git 操作**——會**不可逆銷毀未提交／未合併／未追蹤本地成果**的 git 子命令變體（`reset --hard`、`clean` 帶 force 且非 dry-run、`branch` force-delete、`checkout/restore/switch` 丟棄工作區、`stash clear/drop`、`worktree remove --force`、`git rm` 帶 force）。判定為毀滅性 → `permissionDecision:deny` + ASP 口吻 reason，並提供 escape hatch（`ASP_GIT_OK=1`，留 `GIT-GUARD` 遙測）。把「破壞性操作前須人類確認」鐵則（CLAUDE-IR-1）**本地 git 毀資料**這個目前**無機制**的子集，從散文升為硬強制。
 
-> **借鏡定位（ADR-030 → §2 VENDOR/BUILD-ASP-NATIVE）**：mattpocock `git-guardrails-claude-code` 的核心即「裝一個 PreToolUse hook 讓危險 git 機械上被擋」——**這就是 ASP enforcement substrate 思想的縮影**，不該是「不保證裝了」的外部依賴。故採 **BUILD-ASP-NATIVE**：依既有 `pretooluse-ship-gate.sh`（SPEC-013）樣板自寫，訊息用 ASP 鐵則語氣、過 shellcheck lint、納入 Iron Rule A、掛在 **CLAUDE-IR-1** 鐵則之下（本 hook＝該鐵則的 local git operationalization）。
+> **借鏡定位（ADR-030 摘要處置表「VENDOR / BUILD-NATIVE」；細部分析＝研究文件 §2，「BUILD-ASP-NATIVE」一詞出處；一手行為基準＝FC-011）**：mattpocock `git-guardrails-claude-code` 的核心即「裝一個 PreToolUse hook 讓危險 git 機械上被擋」——**這就是 ASP enforcement substrate 思想的縮影**，不該是「不保證裝了」的外部依賴。故採 **BUILD-ASP-NATIVE**：依既有 `pretooluse-ship-gate.sh`（SPEC-013）樣板自寫，訊息用 ASP 鐵則語氣、過 shellcheck lint、納入 Iron Rule A、掛在 **CLAUDE-IR-1** 鐵則之下（本 hook＝該鐵則的 local git operationalization）。
 
 ### 為何要 script，而非純 `denied-commands.json` 資料（誠實 delta，回應 ADR-010）
 
-先誠實承認：本 hook 攔截的 7 類中，**4 類的簡單形**（`reset --hard`、`branch -D`、`stash clear`、`stash drop`）**確實可**用既有的 `Bash(...)` 前綴 deny 表達——ASP 已有兩個此類機制在用：靜態 `denied-commands.json`（前綴比對）與 `session-audit.sh` 動態注入（[session-audit.sh:261](../../.asp/hooks/session-audit.sh#L261) 即以 `Bash(git commit *)` 注入 settings.local.json）。所以「純資料做不到」是**假命題**，不作為理由。
+先誠實承認：本 hook 攔截的 7 類中，**4 類的簡單形**（`reset --hard`、`branch -D`、`stash clear`、`stash drop`）**確實可**用既有的 `Bash(...)` 前綴 deny 表達——ASP 已有兩個此類機制在用：靜態 `denied-commands.json`（前綴比對）與 `session-audit.sh` 動態注入（[session-audit.sh:337](../../.asp/hooks/session-audit.sh#L337) 即以 `Bash(git commit *)` 注入 settings.local.json；行號隨版本漂移，以 `grep -n "Bash(git commit"` 定位——G2 review D2-1 改符號錨）。所以「純資料做不到」是**假命題**，不作為理由。
 
 script 的**不可替代價值**在**前綴 deny 無法精確表達**的部分（下述 BLOCKER 級 false-positive 全出在這）：
 
@@ -45,7 +45,7 @@ script 的**不可替代價值**在**前綴 deny 無法精確表達**的部分�
 | 參數名稱 | 型別 | 來源 | 限制條件 |
 |----------|------|------|----------|
 | hook stdin | JSON | Claude Code PreToolUse（FC-002） | 含 `tool_name`、`tool_input.command` |
-| `ASP_GIT_OK` | **環境變數** | hook 自身執行環境 | escape hatch：`${ASP_GIT_OK:-}` = `1` 放行。**語義同 ship-gate 之 `ASP_SHIP_OK`**（[ship-gate:36](../../.asp/hooks/pretooluse-ship-gate.sh#L36) 讀自身 env，不解析 command 字串） |
+| `ASP_GIT_OK` | **環境變數** | hook 自身執行環境 | escape hatch：`${ASP_GIT_OK:-}` = `1` 放行。**語義同 ship-gate 之 `ASP_SHIP_OK`**（[ship-gate:71](../../.asp/hooks/pretooluse-ship-gate.sh#L71) 讀自身 env，不解析 command 字串；行號隨版本漂移，以 `grep -n ASP_SHIP_OK` 定位） |
 
 > **escape hatch 語義（修正 D1 矛盾）**：`ASP_GIT_OK` 由 hook **從自身環境**讀取，**不是**去解析 `tool_input.command` 裡的內嵌賦值。故測試放行案例必須以 **env 前綴於 hook 呼叫**（`ASP_GIT_OK=1 run_hook "git reset --hard"`），而非把 `ASP_GIT_OK=1 git reset --hard` 當成 command 字串傳入（後者的賦值只會進「將被執行的 Bash」env，不進 hook env）。deny reason 的 UX 措辭沿用 ship-gate 慣例（見輸出規格），其「inline 前綴是否入 hook env」之 harness 行為**與 ship-gate 同源**——若 ship-gate 的 inline escape 在此環境可用，本 hook 亦然（此 harness 行為屬 ship-gate 既有假設，非本 SPEC 新增宣稱）。
 > 本 hook **無狀態**（不讀 `.asp-test-result.json` 之類痕跡）——判定純由 `tool_input.command` 的**語法/argv**決定。
@@ -61,8 +61,8 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 | command 不含本地毀滅性 git（含所有安全變體：見 Edge Cases） | `defer`（交回預設，不干擾） | 不寫 |
 | command 含本地毀滅性 git + `ASP_GIT_OK=1`（hook env） | `defer`（放行） | `GIT-GUARD` bypass |
 | command 含本地毀滅性 git（指令位置、謂詞命中） | **`deny`** + reason（見下） | `GIT-GUARD` block |
-| jq 缺 | `defer`（fail-open）+ stderr WARN | 不寫 |
-| stdin 空／無法解析／無 command | `defer`（fail-open，**靜默**，同 ship-gate:20） | 不寫 |
+| jq 缺 | `defer`（**fail-open**：機制異常放行＋stderr WARN 留痕，符合 CONTEXT.md fail-open 語意） | 不寫 |
+| stdin 空／無法解析／無 command | `defer`（**no-op**：無輸入可判定、非 fail-open 事件，**靜默**沿 ship-gate L20 慣例——CONTEXT.md fail-open 之「留痕」子句僅適用機制異常路徑，G2 review D6-2 釐清） | 不寫 |
 
 > deny reason（ASP 口吻）：`「ASP git-guardrails：偵測到本地毀滅性操作 <matched>，將不可逆銷毀本地成果（未提交變更/未合併分支/未追蹤檔）。破壞性操作前須人類確認（鐵則 CLAUDE-IR-1）。確認要執行 → 在 Claude Code 啟動環境設 ASP_GIT_OK=1 後重試（會留 GIT-GUARD 遙測）；否則請改用非破壞替代（git stash 代 reset --hard、git clean -n 先預覽、git branch -d 代 -D）。」`
 > deny 用 `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"..."}}`，`exit 0`。
@@ -77,7 +77,7 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 1. **命令分段**：以 shell 邊界 `;`、`&&`、`||`、`|`、換行 切成 segment；**引號內的邊界字元不算分段**（best-effort：辨識成對 `'...'` / `"..."`，使 `git commit -m "a && git reset --hard"` 的 `&&` **不**被當分段點）。→ 逐 segment 套 M1。
 2. **argv tokenize**：每個 segment 以空白切為 token 序列（best-effort，尊重引號）。
 3. **git 起始判定**：segment 首個非賦值 token（跳過 `VAR=val` 前綴）須為 `git`，否則該 segment 非 git、跳過。
-4. **global option 跳過（修正 B1）**：`git` 之後、子命令之前的**全域選項**必須跳過再取子命令：跳過任何 `-*` token；其中 `-C`、`-c`、以及 `--git-dir`/`--work-tree`/`--namespace`/`--super-prefix` 之**空白分隔形**（無 `=`，如 `git --git-dir /x.git reset --hard`）**各再吃掉下一個 token**（其參數）；含 `=` 者（`--git-dir=/x`）為單 token。（**`--exec-path` 刻意不列入空白分隔集**：git 對裸 `--exec-path` 為「印出 exec-path 後即 `exit 0`」、僅 `=` 形設值，**永不**吃空白下一 token；若誤列，`git --exec-path reset --hard` 會把 `reset` 當其參數吃掉致漏解析——雖 git 本身此式也不執行 `reset`，仍屬對 git 文法的錯述，故剔除。）跳完的第一個非選項 token＝**子命令**。→ `git -C /x reset --hard`、`git --git-dir /x.git reset --hard`、`git --git-dir=/x.git reset --hard` 的子命令均正確解析為 `reset`（修正 Probe 揪出的空白分隔形漏解析）。
+4. **global option 跳過（修正 B1）**：`git` 之後、子命令之前的**全域選項**必須跳過再取子命令：跳過任何 `-*` token；其中 `-C`、`-c`、以及 `--git-dir`/`--work-tree`/`--namespace`/`--super-prefix` 之**空白分隔形**（無 `=`，如 `git --git-dir /x.git reset --hard`）**各再吃掉下一個 token**（其參數）；含 `=` 者（`--git-dir=/x`）為單 token。（**`--exec-path` 刻意不列入空白分隔集**：git 對裸 `--exec-path` 為「印出 exec-path 後即 `exit 0`」、僅 `=` 形設值，**永不**吃空白下一 token（**FC-013 一手實測**：`git --exec-path reset --hard` 僅印路徑、不執行 reset）；若誤列，`git --exec-path reset --hard` 會把 `reset` 當其參數吃掉致漏解析——雖 git 本身此式也不執行 `reset`，仍屬對 git 文法的錯述，故剔除。）跳完的第一個非選項 token＝**子命令**。→ `git -C /x reset --hard`、`git --git-dir /x.git reset --hard`、`git --git-dir=/x.git reset --hard` 的子命令均正確解析為 `reset`（修正 Probe 揪出的空白分隔形漏解析）。
 5. **比對規則**：所有旗標比對 **case-sensitive**（`-d`≠`-D`、`-c`≠`-C`、`-n`≠`-N`）、**以 token 為單位**（非子字串）。短旗標**捆綁**（如 `-fd`）視為其字母集合 `{f,d}`；長旗標整 token 比對。**位置參數**（positional）＝非 `-` 開頭且非選項參數的 token。
    > **已知限制（見「誠實能力邊界」）**：git 長選項接受**唯一前綴自動補全**（`git reset --har`＝`--hard`、`--f`＝`--force`），本規範以**字面 token** 比對、不做前綴正規化 → 這類縮寫會漏擋，屬明列的能力邊界而非隱性缺陷。
 
@@ -107,8 +107,8 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 | **`hooks/hooks.json`（plugin manifest）`PreToolUse[0].hooks[]` 增列本 hook 為第二項**（ship-gate 仍居 `[0].hooks[0]`） | plugin 安裝（ADR-021 `/plugin marketplace add`）者 | Claude Code plugin 分發通道 | `test_plugin_manifest.sh`：`PreToolUse[0].hooks[0]`=ship-gate 不變、`refs≥4`、新增 git-guardrails 存在斷言 |
 | 新 hook 腳本 `.asp/hooks/pretooluse-git-guardrails.sh` | 每次 Bash 呼叫 | 本地毀資料強制力 | `tests/test_pretooluse_git_guardrails.sh` |
 | 寫 `GIT-GUARD` 至 `rule-hits.jsonl` | 命中 block/bypass 時 | 遙測（rule-stats） | `make rule-stats` 含 GIT-GUARD |
-| hook 納入 Iron Rule A `CRITICAL_FILE` | session-audit 每次 | 防「改 hook 繞過」 | `tests/test_iron_rule_a_coverage.sh` 含此 hook |
-| rule-registry 登記 `GIT-GUARD`（**`exempt: true`**，掛 CLAUDE-IR-1 之下） | 一次性 | 規則治理 | `tests/test_rule_registry.sh` **新增 GIT-GUARD 顯式斷言**（見 Done When D2） |
+| hook 納入 Iron Rule A `CRITICAL_FILE` | session-audit 每次 | **偵測**「改 hook 繞過」（tamper-evidence：下次 SessionStart hash 比對→BLOCKER，非即時阻擋） | `tests/test_iron_rule_a_coverage.sh` 含此 hook |
+| rule-registry 登記 `GIT-GUARD`（**`exempt: true`**、**`observed_by: pretooluse-git-guardrails`**——比照 SHIP-GATE 前例；registry 檔頭 enum 未含 hook 值屬既有漂移，修檔頭列 follow-up 非本 SPEC，G2 review D6-1），掛 CLAUDE-IR-1 之下 | 一次性 | 規則治理 | `tests/test_rule_registry.sh` **新增 GIT-GUARD 顯式斷言**（見 Done When D2） |
 
 > **`exempt: true` 之必要（ADR-018 規則存留治理）**：安全護欄「90 天零命中」代表**期間無人嘗試危險操作＝成功**，非死規則。`GIT-GUARD` 實作 CLAUDE-IR-1（破壞性操作防護鐵則）的 local 子集，與鐵則同類，豁免「零命中即評估移除」。
 
@@ -137,9 +137,9 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 
 **escape hatch**：`ASP_GIT_OK=1`（hook env）→ 放行 + 記 `GIT-GUARD` bypass。
 
-**fail-open**：jq 缺 → defer + WARN；stdin 空/無法解析 → defer 靜默（同 ship-gate）。**絕不死鎖**。
+**fail-open**：jq 缺 → defer + WARN（留痕）；stdin 空/無法解析 → defer 靜默（no-op、非 fail-open 事件，同 ship-gate）。**絕不死鎖**。
 
-**hook 自身被改繞過** → Iron Rule A 保護（CRITICAL_FILE，ADR-019「看守者的看守者」）。
+**hook 自身被改繞過** → Iron Rule A **偵測**（CRITICAL_FILE hash 比對，下次 SessionStart 出 BLOCKER；tamper-evidence 非即時阻擋——同 session 內改 hook 要到下次 SessionStart 才被偵測。ADR-019「看守者的看守者」）。
 
 ### 🕳️ 誠實能力邊界（本 hook 明確**不宣稱**擋得住，B7/ADR-019）
 
@@ -147,10 +147,11 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 - **底層 ref 操作繞過**：`git update-ref -d refs/heads/x`（繞 branch -D 偵測）、`git reflog expire --expire=now`、`filter-branch`、`gc --prune=now`。
 - **極端引號/heredoc**：M0 為 best-effort，巢狀引號或 heredoc 內的分段可能殘留誤判 → 此時 escape hatch + fail-open 兜底。
 - **寫檔再執行**：AI 寫一個含危險 git 的 `.sh` 再 `bash x.sh` → 本 hook 只看單一 Bash command，不追檔內容。
+- **harness 攔截語義（G2 review D5-1 補聲明，對齊 FC-011 unknown #1）**：本 hook 採**方式 A**（`exit 0` + JSON `permissionDecision:deny`，FC-002 官方介面 + ship-gate 生產實證），**不依賴**原生 skill 的 `exit 2` 語義（後者對 harness 的實際效果未一手實證，FC-011 unknown #1）；方式 A 之 deny 若因 harness 版本變動失效，本 hook 退化為無強制力的 no-op（fail-open 家族），不會誤擋。
 
 **（以下 5 類由本 session 對抗式 Probe 稽核揪出、實測確認，明列為能力邊界而非隱性缺陷）**
 
-- **長選項前綴自動補全**：git 接受唯一前綴（`git reset --har`＝`--hard`、`git clean --for`＝`--force`、`git branch --delet`＝`--delete`）。M0.5 以字面 token 比對、不做前綴正規化 → 這類縮寫漏擋。此為跨子命令問題；緩解僅靠 escape hatch 不受影響 + 未來可加「每子命令選項唯一前綴白名單」正規化（POC 不納，避免 FP-prone 的前綴消歧）。
+- **長選項前綴自動補全**：git 接受唯一前綴（`git reset --har`＝`--hard`、`git clean --for`＝`--force`、`git branch --delet`＝`--delete`；**FC-013 一手實測：`reset --har` 真的以 `--hard` 執行並毀 dirty 變更**）。M0.5 以字面 token 比對、不做前綴正規化 → 這類縮寫漏擋。此為跨子命令問題；緩解僅靠 escape hatch 不受影響 + 未來可加「每子命令選項唯一前綴白名單」正規化（POC 不納，避免 FP-prone 的前綴消歧）。
 - **命令替換／子 shell 內的巢狀 git**：`git commit -m "$(git reset --hard)"`、反引號同理——雙引號內 `$(...)` **先於**外層執行，外層 `commit` 不在 DENY 表 → defer。本 hook **不遞迴解析**命令替換內容（遞迴會顯著增加剖析複雜度，且此形態偏向蓄意而非意外）。
 - **執行檔包裝前綴**：`\git reset --hard`（反斜線抑制 shell 別名）、`env git …`、`command git …`、`sudo git …`、`nice/time/nohup git …`。M0.3 以字面**首 token** `git` 判定，這類包裝的首 token 非 `git` → 漏判。
 - **單一 positional 為「已追蹤檔路徑」而非分支**：`git checkout <trackedfile>`（無 `--`、無 `-b`）git 會**靜默丟棄該檔工作區改動**；本 hook **無法查 repo state** 分辨「positional 是分支還是檔路徑」，一律當分支切換 defer → 這類漏擋。（對照：`git restore <path>` 已由「既無 `-S` 亦無 `-W`」擋下；`checkout <path>` 因「單 positional＝分支」假設而漏，屬同根因的殘留。）
@@ -180,7 +181,7 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 | P3 | ✅ 正向 | `git reset --soft HEAD~1` / `git reset HEAD file` / `git reset hard`（ref 名） | defer | S1 |
 | P4 | ✅ 正向 | `git restore --staged file` / `git branch -d merged` / `git rm --cached f` | defer | S1 |
 | P5 | ✅ 正向 | `git checkout hardening`（分支名含 hard） / `git switch hotfix` | defer（token 比對，不誤擋） | S1 |
-| P6 | ✅ 正向 | `git clean -nfd` / `git clean -nf`（**BLOCKER**：dry-run+force） | defer（git 不刪） | S1 |
+| P6 | ✅ 正向 | `git clean -nfd` / `git clean -nf`（**BLOCKER**：dry-run+force） | defer（git 不刪，**FC-013 一手實測**） | S1 |
 | P7 | ✅ 正向 | `git worktree remove wt`（無 force） / `git stash pop` / `git stash push -m "clear cache before drop"`（訊息含 `clear`/`drop` 字串但子命令為 `push` → 驗非 substring、看子命令 token） | defer | S1 |
 | P8 | ✅ 正向 | `run_hook` env `ASP_GIT_OK=1` + `git reset --hard` | defer + GIT-GUARD bypass | S1 |
 | P9 | ✅ 正向 | `git checkout -b feat origin/main`（建分支+start-point，`-b` 之操作元不計 positional，故不誤命中 ≥2） | defer | S1 |
@@ -265,6 +266,9 @@ Feature: PreToolUse git-guardrails（本地毀資料操作硬強制）
       | git rm -rf dir                        |
       | git -C /other reset --hard            |
       | git --git-dir /tmp/o.git reset --hard |
+      | git stash clear                       |
+      | git add . && git reset --hard         |
+      | FOO=bar git reset --hard              |
 
   # --- 邊界 ---
   Scenario Outline: S3 - 邊界不誤擋、不死鎖、不重複
@@ -277,6 +281,10 @@ Feature: PreToolUse git-guardrails（本地毀資料操作硬強制）
       | jq 缺                                 | defer+WARN   |
       | stdin 空                              | defer（靜默）|
       | git push --force                      | defer（既有層）|
+      | git reset --har（前綴補全，B6 釘樁）  | defer（已知漏擋非安全宣稱）|
+      | $(git reset --hard) 巢狀（B7 釘樁）   | defer（已知漏擋非安全宣稱）|
+      | \git / env git 包裝前綴（B8 釘樁）    | defer（已知漏擋非安全宣稱）|
+      | git checkout 已追蹤檔（B9 釘樁）      | defer（已知漏擋非安全宣稱）|
 ```
 
 ---
@@ -310,20 +318,33 @@ Feature: PreToolUse git-guardrails（本地毀資料操作硬強制）
 ## 🚫 禁止事項（Out of Scope）
 
 - **不重複** `denied-commands.json` 既有 push/publish + `rm -rf` 組——本 hook 只管本地 git 毀資料，避免雙重維護。
-- **`git push --force-with-lease`**（目前不在 `denied-commands.json`）→ 屬 push 家族，建議另以**一行 `denied-commands.json` 追加**（trivial follow-up），不納本 hook。
+- **`git push --force-with-lease`**（目前不在 `denied-commands.json`）→ 屬 push 家族，建議另行追加至 `denied-commands.json` **並同步 rule-registry 增 DENY-13**（`test_rule_registry.sh` T3 斷言 DENY-NN 條數 == denied-commands.json 長度，單改一檔會紅——G2 review D2-1 修正「一行 trivial」低估），不納本 hook。
 - **歷史重寫/底層 ref 冷門者**（`filter-branch`、`reflog expire`、`update-ref -d`、`gc --prune=now`）→ 「誠實能力邊界」已列為**不擋**；交獨立審查評估後續是否納入，守 ADR-010 先證核心集。
 - **`checkout -B` / `--orphan` / `branch -m`/`-M`（改名／建分支）**：非典型「毀工作區」但可覆蓋 ref；首個 POC **不納**＝**defer**。M1 checkout 謂詞已將 `-b`/`-B`/`--orphan` 之 branch-name／start-point 排除於 positional 計數（故 `checkout -B main origin/main` 不再被 `≥2 positional` **靜默誤擋**——修正 Probe MEDIUM 發現）。`branch -m`/`-M` 同列 review-decide，未來若納須另證不 false-positive。
 - **user alias / `git -c alias`**：見「誠實能力邊界」，不宣稱擋得住。
 - **不改鐵則文字**：本 hook **operationalize** CLAUDE-IR-1 的本地子集；是否在 `CLAUDE.md` 鐵則明列本地毀資料操作＝憲法變更，屬另案（follow-up ADR），非本 SPEC 範圍。
 - **不與 ship-gate 合併**：分離關注點（ship-gate＝commit/測試紀律；git-guardrails＝毀資料安全），各自獨立可測。
-- **（A4 follow-up，非本 SPEC）** 兩 hook（ship-gate + git-guardrails）開始共用 stdin 解析/方式-A/遙測 plumbing；**第三個 PreToolUse hook 出現前**，宜抽 `.asp/hooks/lib/` 共用函式（rule of three）。本 SPEC 先複製樣板、不預先抽象（避免過早抽象），僅記此觸發條件。
+- **（A4 follow-up，非本 SPEC）** 兩 hook（ship-gate + git-guardrails）開始共用 stdin 解析/方式-A/遙測 plumbing；**第三個 PreToolUse hook 出現前**，宜抽共用函式至 **`.asp/scripts/lib/`**（位置慣例已由 SPEC-017 的 `worktree.sh` 確立——ship-gate 已 source 該目錄，**勿另建 `.asp/hooks/lib/` 第二個 lib 目錄**；G2 review D7-1 更新）。本 SPEC 先複製樣板、不預先抽象（避免過早抽象），僅記此觸發條件。
+
+---
+
+## 🔗 追溯性（實作後回填）
+
+> G2 review D1-1（HIGH）修入：補齊七必填欄位之第七欄（佔位表，比照 SPEC-014/015/017 慣例，實作後回填）。
+
+- 實作 commit：TBD
+- 實作檔：`.asp/hooks/pretooluse-git-guardrails.sh`（新）、`.claude/settings.json` ＋ `hooks/hooks.json`（wire，D3）、rule-registry（`GIT-GUARD` 登記，D2）
+- 測試檔：`tests/test_pretooluse_git_guardrails.sh`（新：P1-12／N1-14／B1-9）、`tests/test_iron_rule_a_coverage.sh`（擴充）、`tests/test_rule_registry.sh`（D2 顯式斷言）、`tests/test_plugin_manifest.sh`（D3 更新）
+- Iron Rule A 納入：TBD（實作 commit 進 HEAD 即 hash 自愈）
+- ADR-030 Verification Evidence 回填（D6 四欄）：TBD
 
 ---
 
 ## 📎 參考資料（References）
 
-- **ADR-030**（Accepted：分層 hybrid 借鏡 mattpocock/skills；§2 git-guardrails 列 VENDOR/BUILD-ASP-NATIVE）— 本 SPEC 為其**首個 POC**，結果回填其 Verification Evidence。
-- `docs/research/2026-07-24-mattpocock-skills-deep-borrow.md` §2（git-guardrails-claude-code 逐項分析）。
+- **ADR-030**（Accepted：分層 hybrid 借鏡 mattpocock/skills；其**摘要處置表**將 git-guardrails 列「VENDOR / BUILD-NATIVE」）— 本 SPEC 為其**首個 POC**，結果回填其 Verification Evidence。（「§2」與「BUILD-ASP-NATIVE」一詞出自下列研究文件，非 ADR-030 章節——G2 review D8-1 更正指標落點）
+- `docs/research/2026-07-24-mattpocock-skills-deep-borrow.md` §2（git-guardrails-claude-code 逐項分析；BUILD-ASP-NATIVE 一詞出處）。
+- **FC-011**（`.asp-fact-check.md`：git-guardrails 一手行為查證——原生機制 exit 2/unanchored substring/靜默 fail-OPEN、(a)-(g) 刻意偏離對照、3 項 unknown）＋ **FC-013**（本 SPEC 依賴的 git CLI 行為一手實測：clean -nfd 不刪／長選項前綴補全屬實／--exec-path 語義／clean -fi interactive 蓋過 force）。
 - **SPEC-013**（PreToolUse commit gate）— 本 hook 的**結構樣板**（stdin 解析、方式 A deny、指令位置正則、escape hatch、fail-open、Iron Rule A、遙測）。
 - **ADR-021**（plugin marketplace 分發）— `hooks/hooks.json` 為 plugin 安裝者的 hook 承載，故本 SPEC 必須同步 wire（Side Effects D3）。
 - ADR-020（強制力架構 / 遺忘威脅模型 / 機械化決策）、FC-002（PreToolUse hook 介面）、ADR-018（規則存留治理 → `exempt` 依據）、ADR-019（hook 納入 Iron Rule A + 誠實能力邊界）、ADR-010（最小採納 → delta 反重疊、誠實替代方案論證）。
