@@ -133,9 +133,7 @@ make lint
 
 ### G5.5: Cross-Component Parity Gate（HARDEN → DELIVER，G5 之後）
 
-> **新增於 v3.6（PM-002 retrospective action B1）**：避免「我這 module 過了 G5
-> 但下游 consumer 行為不一致」的 cross-component invariant violation
-> （PoC 2026-04-21 的 padding key bug 與 envelope decrypt bug 都屬此類）。
+> 抓「本 module 過了 G5、但下游 consumer 行為不一致」的 cross-component invariant violation。
 
 **何時跑：**
 - 本 PR 修改了 exported function、API response shape、DB column / enum、cloud key 格式、error code，或任何形式的「跨 module / 跨 service 契約」。
@@ -200,10 +198,7 @@ grep -rn "<symbol>" /home/ubuntu/<repo1> /home/ubuntu/<repo2> | grep -v _test.go
 
 ### G6.5: Post-Deploy SIT Round-Trip Gate（DONE → VERIFIED）
 
-> **新增於 v3.6（PM-002 retrospective action B2）**：unit test 過 + ArgoCD synced
-> 不等於系統真的能用。任何改動 worker / api / cloud / db schema 的 PR 部署後
-> 必須先跑端到端 round-trip SIT 才算 deploy 完成；通過後才能發出「請使用者
-> UI 驗證」的請求。
+> unit test 過 + ArgoCD synced 不等於系統真的能用：改動 worker / api / cloud / db schema 的 PR 部署後，須先跑端到端 round-trip SIT 才算 deploy 完成，通過後才能請使用者 UI 驗證。
 
 **何時跑：**
 - 本 PR 影響 worker、API、storage layer、DB migration、frontend 影響資料 path 的任何 commit
@@ -277,7 +272,7 @@ remediation: 確認 Done When 條件對應的測試案例確實先 FAIL，再實
 
 ---
 
-## Evidence-Based Output（v3.5 新增）
+## Evidence-Based Output
 
 > **每個檢查項目的結果必須附上「可觀測證據」**。不接受「✅ PASS」這種空洞宣告。
 

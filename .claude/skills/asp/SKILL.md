@@ -125,10 +125,6 @@ AI-SOP-Protocol (ASP) 的 Claude Code skill 命名空間。根據用戶意圖自
 
 當用戶請求匹配上表中任一觸發詞時，讀取並遵循對應的子 skill 文件（`.claude/skills/asp/asp-*.md`）。
 
-## 角色 ↔ Skill 映射
-
-v5 起隨 multi-agent 凍結移至 `experimental/multi-agent/README.md`（ADR-017）。
-
 ## 參考資源
 
 - 入門指南：`docs/where-to-start.md`

@@ -11,8 +11,7 @@ description: |
 
 ## 核心概念
 
-ASP v5 採用 **3 級成熟度模型**（ADR-014：v4 的 L0-L5 六級收斂為三級），
-使用者不必面對 profile 的組合爆炸，從 `loose` 開始，滿足 graduation_checklist 後逐級升級。
+ASP v5 採用 **3 級成熟度模型**（ADR-014）：從 `loose` 起步，滿足 graduation_checklist 後逐級升級。
 
 | Level | 吸收的 v4 等級 | 核心能力 |
 |-------|---------------|---------|
@@ -84,10 +83,8 @@ ASP v5 採用 **3 級成熟度模型**（ADR-014：v4 的 L0-L5 六級收斂為�
 對每個 item：
 
 ```bash
-# 若 check 是具體 shell
+# 若 check 是具體 shell（exit 0 = 通過）
 <check command>
-# exit 0 → ✅ 通過
-# exit 非 0 → ❌ 未通過
 ```
 
 ```yaml

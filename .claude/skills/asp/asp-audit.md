@@ -26,6 +26,8 @@ description: |
 | 完整審計 | `make audit-health` | 完整 7 維度分析 |
 | 文件新鮮度 | `make doc-audit` | 只關心文件是否過期 |
 | Tech Debt | `make tech-debt-list` | 只看技術債 |
+| SPEC 覆蓋率 | `make spec-list` | 確認 SPEC 覆蓋 |
+| ADR 狀態 | `make adr-list` | 確認 ADR 狀態 |
 
 若用戶未指定，執行**完整審計**。
 
@@ -145,13 +147,9 @@ make tech-debt-list
 
 ---
 
-## 常用搭配
+## 下一步
 
-```bash
-make audit-quick          # 每日確認
-make audit-health         # 週期性完整審計
-make doc-audit            # 文件新鮮度
-make tech-debt-list       # Tech Debt 彙總
-make spec-list            # SPEC 覆蓋率確認
-make adr-list             # ADR 狀態確認
-```
+- 有 blocker → 逐項修復後 `make asp-refresh` 重刷 briefing
+- 文件過期（`doc-audit` 標記）→ 更新對應 ADR/SPEC/CHANGELOG
+- 逾期 HIGH tech-debt → 優先處理或重議 DUE 日期
+

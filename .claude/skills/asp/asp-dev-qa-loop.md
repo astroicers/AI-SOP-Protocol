@@ -13,7 +13,7 @@ description: |
 
 # ASP Dev-QA Loop Skill
 
-即時品質迴路：實作期間 QA agent 逐模組即時驗證，不等全部完成。本 skill 自包含，流程邏輯直接內嵌，不依賴外部 profile。
+即時品質迴路：實作期間 QA agent 逐模組即時驗證，不等全部完成。
 
 ## 設計原則
 
