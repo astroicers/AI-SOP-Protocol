@@ -12,7 +12,8 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/.asp/hooks/pretooluse-ship-gate.sh\"" }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/.asp/hooks/pretooluse-ship-gate.sh\"" },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/.asp/hooks/pretooluse-git-guardrails.sh\"" }
         ]
       }
     ]

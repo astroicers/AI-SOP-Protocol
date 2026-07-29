@@ -54,6 +54,16 @@ for id in CLAUDE-IR-1 CLAUDE-IR-2 CLAUDE-IR-3 CLAUDE-IR-4 IRON-A IRON-B IRON-C; 
 done
 
 echo ""
+echo "T6: GIT-GUARD 顯式斷言（SPEC-016 D2：id 存在 + exempt:true + observed_by）"
+grep -qx "GIT-GUARD" <<<"$REG_IDS" && pass "GIT-GUARD 已註冊" || fail "GIT-GUARD 缺席（SPEC-016 未登記）"
+awk '/^  - id: /{id=$3} /exempt: true/{if (id=="GIT-GUARD") found=1} END{exit !found}' "$REG" \
+  && pass "GIT-GUARD exempt:true（安全護欄豁免 90 天零命中刪除，掛 CLAUDE-IR-1）" \
+  || fail "GIT-GUARD 未標 exempt:true"
+awk '/^  - id: /{id=$3} /observed_by: pretooluse-git-guardrails/{if (id=="GIT-GUARD") found=1} END{exit !found}' "$REG" \
+  && pass "GIT-GUARD observed_by=pretooluse-git-guardrails（避免 enum 漂移，比照 SHIP-GATE）" \
+  || fail "GIT-GUARD observed_by 未明定"
+
+echo ""
 echo "════════════════════════════════"
 echo "Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
 echo "════════════════════════════════"

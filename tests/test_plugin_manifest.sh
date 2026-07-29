@@ -63,14 +63,16 @@ while IFS= read -r cmd; do
   script=$(sed -E 's#.*/([a-zA-Z0-9_-]+\.sh).*#\1#' <<<"$cmd")
   [ -f "$ASP_ROOT/.asp/hooks/$script" ] || { fail "引用的腳本不存在: .asp/hooks/$script"; all_ok=0; }
 done <<< "$CMDS"
-[ "$refs" -ge 3 ] && pass "hooks.json 引用 ≥3 個 hook 命令（session-audit/ship-gate/clean-allow-list）" || fail "hooks.json 引用命令數 <3（$refs）"
+[ "$refs" -ge 4 ] && pass "hooks.json 引用 ≥4 個 hook 命令（clean-allow-list/session-audit/ship-gate/git-guardrails）" || fail "hooks.json 引用命令數 <4（$refs）"
 [ "$all_ok" -eq 1 ] && pass "所有 hook command 用 \${CLAUDE_PLUGIN_ROOT} 且引用腳本皆存在" || true
 
 # 綁定 script → event by name（防止未來把錯的腳本接到錯的事件仍通過）
 SS_SCRIPTS=$(jq -r '[.hooks.SessionStart[].hooks[].command] | .[]' "$HOOKS" 2>/dev/null | sed -E 's#.*/([a-zA-Z0-9_-]+\.sh).*#\1#' | sort | tr '\n' ',')
 PT_SCRIPT=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$HOOKS" 2>/dev/null | sed -E 's#.*/([a-zA-Z0-9_-]+\.sh).*#\1#')
 [ "$SS_SCRIPTS" = "clean-allow-list.sh,session-audit.sh," ] && pass "SessionStart 綁定 = {clean-allow-list, session-audit}" || fail "SessionStart 腳本綁定不符：$SS_SCRIPTS"
-[ "$PT_SCRIPT" = "pretooluse-ship-gate.sh" ] && pass "PreToolUse 綁定 = ship-gate" || fail "PreToolUse 腳本綁定不符：$PT_SCRIPT"
+[ "$PT_SCRIPT" = "pretooluse-ship-gate.sh" ] && pass "PreToolUse[0].hooks[0] 綁定 = ship-gate（不變）" || fail "PreToolUse 腳本綁定不符：$PT_SCRIPT"
+PT_SCRIPT2=$(jq -r '.hooks.PreToolUse[0].hooks[1].command' "$HOOKS" 2>/dev/null | sed -E 's#.*/([a-zA-Z0-9_-]+\.sh).*#\1#')
+[ "$PT_SCRIPT2" = "pretooluse-git-guardrails.sh" ] && pass "PreToolUse[0].hooks[1] 綁定 = git-guardrails（SPEC-016 D3）" || fail "PreToolUse[1] 腳本綁定不符：$PT_SCRIPT2"
 
 # ── Summary ──
 echo ""
