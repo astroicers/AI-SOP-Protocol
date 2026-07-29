@@ -199,25 +199,11 @@ make autopilot-status
 
 ---
 
-## 零確認策略
+## 零確認策略（速覽）
 
-Autopilot 模式下，以下情況**不暫停詢問**（自動處理）：
+Autopilot **零確認自動處理**多數情境（缺 SPEC、測試失敗 ≤3 次修復、Draft ADR blocked、FIRM ADR 🟡、Context 60%/75% 存檔、依賴循環等）。**唯鐵則操作仍擋**（禁止執行）：`git push origin main`／`push --force / -f`／`gh pr merge`／`git rebase`。（`docker push / deploy` 非鐵則擋，而是自動跳過並記 tech-debt 待辦——見 Part 2 canonical 該列的衝突註記。）
 
-| 情況 | 自動處理 |
-|------|---------|
-| 缺少 SPEC | 自動 `make spec-new` |
-| 測試失敗（≤3 次）| 自動修復後重試 |
-| Draft ADR 阻擋 | 自動標記 blocked，跳至下一任務 |
-| FIRM ADR       | 自動標記 🟡，允許執行，記錄至 session briefing |
-| Context 達 60% | 自動存檔，繼續執行 |
-| Context 達 75% | 自動存檔，主動退出 |
-
-**以下情況仍需暫停：**
-- `git push origin main`（鐵則，永遠禁止）
-- `git push --force / -f`（鐵則）
-- `gh pr merge`（鐵則，人工 merge）
-- `docker push / deploy`（鐵則）
-- 任務失敗超過 3 次
+> **完整 canonical 規格見下方「## 安全邊界」→「### Autopilot 自主處理策略（零確認）」表**（逐情境行為 + 禁止表）。本速覽僅供快速理解，行為一律以該 canonical 表為準（ADR-006 / SPEC-018 去重；原重複的自動處理表已併入 Part 2）。
 
 **Auto-PR 流程（每個 task 成功後自動執行）：**
 1. 建立 feature branch：`asp/{task.id}-{slug}`
@@ -417,17 +403,8 @@ FUNCTION autopilot_main():
       blocked: []
     }
 
-  // ═══ Phase 0.5: Load Agent Memory（v3.0；v4.1.1 起 agent_memory profile 已 archive，此 IF 永遠 false → 走 ELSE 空 init；v4.2 將正式 deprecate）═══
-  IF exists(".asp-agent-memory.yaml"):
-    agent_memory = LOAD(".asp-agent-memory.yaml")
-    LOG("📚 Agent memory 已載入（{LEN(agent_memory.fix_strategies)} 個修復策略，{LEN(agent_memory.common_failures)} 個常見失敗模式）")
-  ELSE:
-    agent_memory = { version: 1, fix_strategies: [], team_effectiveness: [], common_failures: [] }
-    LOG("📚 Agent memory 為空（首次執行）")
-
-  IF exists(".asp-agent-session.json"):
-    agent_session = LOAD(".asp-agent-session.json")
-    LOG("📋 上次 session agent 狀態已載入（團隊：{agent_session.team_composition.scenario}）")
+  // ═══ Phase 0.5 已移除（SPEC-018）：agent_memory profile 於 v4.1.1 archive，
+  //     原 IF exists 恆 false、agent_memory/agent_session 賦值後全檔無 downstream 引用（dead code）═══
 
   // ═══ Phase 1: Load ROADMAP & Auto-Configure ═══
   roadmap = PARSE("ROADMAP.yaml")
@@ -779,21 +756,26 @@ Autopilot 模式下不暫停人類，所有情境自動處理：
 | **首次啟動** | 直接開始執行，輸出任務佇列 LOG |
 | **續接** | 自動續接，輸出 LOG |
 | **前置文件缺失** | 自動執行 `make srs-new` 等指令建立模板 |
+| **缺少 SPEC** | 自動 `make spec-new`（task.spec 為 null 時） |
+| **測試失敗（≤3 次）** | 自動修復後重試（重試上限 3；用盡見下方 auto_fix 失敗列） |
+| **Context 達 60%** | 自動存檔，繼續執行 |
+| **Context 達 75%** | 自動存檔，主動退出 |
 | **ADR 不存在** | 自動建立 Draft ADR，標記相關 task 為 blocked 並跳過 |
 | **ADR 未 Accepted** | 標記相關 task 為 blocked 並跳過（不違反鐵則） |
 | **ADR 為 FIRM** | 允許執行，任務標記 🟡，輸出 bypass log |
 | **依賴循環** | 標記涉及的 tasks 為 blocked，繼續其他獨立 task |
 | **git push origin main** | 鐵則禁止。永遠不直接推送主分支 |
+| **git push --force / -f** | 鐵則禁止（含對任何分支的 force push） |
 | **git push origin feature/* 或 asp/*** | ✅ 允許。每個 task 完成後自動推送對應 feature branch |
 | **gh pr create --draft** | ✅ 允許。push 後自動建立 Draft PR |
 | **gh pr merge** | 鐵則禁止。人工審查後 merge |
 | **git rebase** | 禁止。使用 merge |
-| **docker push / deploy** | 跳過，記錄 post-autopilot 待辦 |
+| **docker push / deploy** | 跳過，記錄 post-autopilot 待辦（**不暫停**——SPEC-018 去重：原 Part 1 列「仍需暫停」與此衝突，依 ADR-006 以本 canonical 為準；⚠️ 意味 deploy 步驟被靜默跳過、task 可能標完成但未部署，**人類 Accept ADR-031 時須確認此為預期**，否則改以「暫停」為 canonical） |
 | **刪除檔案** | SPEC 範圍內暫存檔可刪；其他檔案備份（.bak）後刪 |
 | **範圍超出** | 記錄 `tech-debt` 標記，繼續當前 task |
 | **新增外部依賴** | ROADMAP stack 定義的標準依賴自動允許；非標準記 tech-debt |
 | **DB Schema 變更** | SPEC 指定時自動執行；未指定記 tech-debt |
-| **auto_fix 失敗** | task 標記 failed，跳過，繼續下一個獨立 task |
+| **auto_fix 失敗（修復用盡 >3 次）** | task 標記 failed，跳過，繼續下一個獨立 task（**不暫停**——SPEC-018 去重：原 Part 1「失敗超過 3 次暫停」與此衝突，依 ADR-006 以本 canonical 為準；反覆失敗的可見性由 session briefing + failed 標記承載） |
 
 ### 禁止（即使 autopilot 模式也不可）
 

@@ -1,15 +1,17 @@
-<!-- Last Updated: 2026-07-29 | Status: Draft | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-07-29 | Status: FIRM | Audience: ASP framework maintainers -->
 # [ADR-031]: skill 內雙高度雙重編碼的治理（以 asp-autopilot Part1/Part2 為例）
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `FIRM` |
 | **日期** | 2026-07-29 |
 | **決策者** | ASP framework maintainers |
 | **觸發事件** | skill 優化計畫階段 C——16-agent 診斷（PR #82 前置）發現 asp-autopilot 的體積主要來自 Part1/Part2 對同一組 gate 的雙重編碼，且**已 drift**（部分列僅存其中一表） |
 | **關聯** | ADR-006（Item 7：asp-autopilot Part 2 為唯一 canonical 執行規格）；ADR-024（skill 分階 + 機會式漸進拆）；ADR-023（asp-skill-author）；ADR-030（writing-great-skills 失敗模式：duplication）；ADR-010（最小採納 / 摩擦評估）；階段 A（PR #82）、階段 B（PR #84） |
 
-> **狀態說明：** `Draft`（初稿，**禁止實作生產碼**，skill 為行為 canonical 亦屬之）→ `Accepted`（人類審核後方可另立 SPEC 實作）。本 ADR 為設計/分流決策，不含實作。
+> **狀態說明：** `Draft`（初稿，禁止實作生產碼）→ `FIRM`（允許實作 POC/commit，需 Verification Evidence，audit 輸出 🟡）→ `Accepted`（人類看驗證結果後審核直升）。
+>
+> ⬆️ **由 `Draft` 升 `FIRM`**：使用者 2026-07-29 透過 `/asp:approve-adr 031` 呼叫後，選擇 **FIRM 路徑**（「改走 FIRM」「驗證後再直升」，非 Draft 直升 Accepted），看完本 ADR 決策摘要（Part1/Part2 雙重編碼且已 drift、Part 2 canonical + Part 1 收斂、先逐列合併零丟失）與 Verification Evidence 現況（診斷證據 + 親讀佐證已填、驗證日期/驗證者未填、無 POC）後，明確授權以 **FIRM 實作階段 C 作為 POC** 產生 Verification Evidence（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。**取捨**：FIRM 允許 commit（audit 🟡），實作結果（逐列合併零丟失證明 + 獨立審查）回填 Verification Evidence 後，**由人類直升 Accepted**（非 AI）。
 
 ---
 
@@ -71,5 +73,6 @@ ADR Accepted → 另立 SPEC（含：Part1∪Part2 逐列合併映射表、收�
 |------|------|
 | 診斷證據 | 16-agent 診斷（wf_15dbedf9-57c）：asp-autopilot verdict=restructure，findings 列 Part1/Part2 雙重編碼 + drift + Phase 0.5 死碼 |
 | 親讀佐證 | 本 ADR 事實 1-4 為主 agent 親讀 asp-autopilot.md L202-226 / L769-807 / L420-430 |
-| 驗證日期 | — |
-| 驗證者 | — |
+| **POC（SPEC-018）** | **✅ 完成**（2026-07-30）：asp-autopilot 829→811（Part2 併入 Context 60%/75%/測試≤3/--force、Part1 收斂速覽、Phase 0.5 死碼除）。獨立 read-only reality-checker 審查揪出 **canonical 淨丟失 HIGH**（`--force` 漏補、docker deploy 第二處衝突原誤判 aligned）+ Part2 內部新重複 LOW，全數修入。**發現 2 處 drift 衝突**（失敗>3 暫停 vs 跳過、docker deploy 暫停 vs 跳過記 debt）均顯式標記、暫定依 ADR-006 canonical，**待人類 Accept 時確認**（尤其 docker deploy 靜默跳過的風險）。lint R1/R2 過、advisory 7 不增、make test 55+16 全綠。**不解 R6**（811 仍 >300，如預告）。 |
+| 驗證日期 | 2026-07-30（FIRM POC） |
+| 驗證者 | 主 agent TDD + 獨立 read-only reality-checker（canonical 零丟失核對）；**升 Accepted 由人類** |
