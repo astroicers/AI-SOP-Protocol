@@ -224,7 +224,7 @@
 ### Telemetry（.asp-telemetry.jsonl）
 **English:** Telemetry Event Log
 **定義：** JSONL append-only 格式的 ASP 行為事件紀錄，記錄 gate_fail、bypass、session_start 等事件；由 `make asp-telemetry-collect` 收集，`make asp-telemetry-report` 分析。
-**避免使用：** [log, 日誌, metrics]（Telemetry 在 ASP 語境中特指 `.asp-telemetry.jsonl` 的格式與管線）
+**避免使用：** [log, 日誌, metrics]（Telemetry 在 ASP 語境中特指 `.asp-telemetry.jsonl` 的格式與管線。範圍註記：hook 的規則命中遙測——`rule-hits.jsonl`/`make rule-stats`/`SHIP-GATE`/`GIT-GUARD` 事件，ADR-018——為**另一條管線**，慣例上亦稱「遙測」，不受本條避免詞約束）
 **相關 ADR：** ADR-004
 
 ---
