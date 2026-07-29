@@ -80,6 +80,7 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 4. **global option 跳過（修正 B1）**：`git` 之後、子命令之前的**全域選項**必須跳過再取子命令：跳過任何 `-*` token；其中 `-C`、`-c`、以及 `--git-dir`/`--work-tree`/`--namespace`/`--super-prefix` 之**空白分隔形**（無 `=`，如 `git --git-dir /x.git reset --hard`）**各再吃掉下一個 token**（其參數）；含 `=` 者（`--git-dir=/x`）為單 token。（**`--exec-path` 刻意不列入空白分隔集**：git 對裸 `--exec-path` 為「印出 exec-path 後即 `exit 0`」、僅 `=` 形設值，**永不**吃空白下一 token（**FC-013 一手實測**：`git --exec-path reset --hard` 僅印路徑、不執行 reset）；若誤列，`git --exec-path reset --hard` 會把 `reset` 當其參數吃掉致漏解析——雖 git 本身此式也不執行 `reset`，仍屬對 git 文法的錯述，故剔除。）跳完的第一個非選項 token＝**子命令**。→ `git -C /x reset --hard`、`git --git-dir /x.git reset --hard`、`git --git-dir=/x.git reset --hard` 的子命令均正確解析為 `reset`（修正 Probe 揪出的空白分隔形漏解析）。
 5. **比對規則**：所有旗標比對 **case-sensitive**（`-d`≠`-D`、`-c`≠`-C`、`-n`≠`-N`）、**以 token 為單位**（非子字串）。短旗標**捆綁**（如 `-fd`）視為其字母集合 `{f,d}`；長旗標整 token 比對。**位置參數**（positional）＝非 `-` 開頭且非選項參數的 token。
    > **已知限制（見「誠實能力邊界」）**：git 長選項接受**唯一前綴自動補全**（`git reset --har`＝`--hard`、`--f`＝`--force`），本規範以**字面 token** 比對、不做前綴正規化 → 這類縮寫會漏擋，屬明列的能力邊界而非隱性缺陷。
+   > **捆綁 force 的順序感知（G2-impl review UB-01 補強，rule #5 之具體化）**：短旗標捆綁展開適用於 `-f`/force 判定，但**需參數的短旗標**（checkout/switch 的 `-b`/`-B`/`-c`/`-C`）其後字母是**參數**非旗標——`git checkout -Bf origin`＝建分支「f」（放行），`git checkout -qf`＝quiet+force（**擋**）。故 switch/checkout 的 force 捆綁比對須**掃到需參數旗標即停**（其後為參數）。此為 rule #5 對「需參數旗標」的正確詮釋，非例外。
 
 ### M1. 逐子命令謂詞
 
@@ -88,9 +89,9 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 | `reset` | argv 含 token `--hard` | `--soft` / `--mixed`（預設）/ `--keep` / `reset HEAD <f>` / `reset <ref>` / `reset hard`（`hard` 是 ref 名，非旗標） |
 | `clean` | 有 force（token `--force` 或短捆綁含 `f`）**且無** dry-run（token `--dry-run` 或捆綁含 `n`）**且無** interactive（`--interactive` 或捆綁含 `i`） | `-n`/`--dry-run`（含 `-nfd`）、`-i`/`--interactive`、無 `-f`（git 自身拒絕） |
 | `branch` | token `-D`；或捆綁含 `D`；或（delete 意圖 `-d`/`--delete`/捆綁含 `d`）**且**（force 意圖 `-f`/`--force`/捆綁含 `f`） | `-d`/`--delete` 單獨（僅刪已合併，git 拒未合併）、`branch <name>`、`-m`/`-M`（改名，另議見邊界） |
-| `checkout` | token `-f`/`--force`；**或**〔先決：**不含** `-p`/`--patch` 互動、**且不含** `-b`/`-B`/`--orphan` 建分支〕下：出現 `--`（顯式 pathspec 丟棄）／跳選項後**唯一** positional 為 `.`（不再字面比對「恰為 `checkout .`」，修正 `-q .` 破解）／跳選項後 **≥2 個 positional**（`<ref> <pathspec>` 還原路徑） | 單一 positional（分支切換，如 `checkout hardening`）、`-b`/`-B`/`--orphan`（建立分支：**先決條件已整體排除此類**，故其後 branch-name／start-point 從不進入 positional 計數；「**不計入** positional」為**輔助說明、非另一條獨立規範路徑**——兩者結論皆 defer，`checkout -b feat origin/main` 不誤命中 ≥2）、`-`、`-p`/`--patch`（互動 hunk，user-in-loop）；`-B`/`--orphan` 覆蓋 ref 之議見 Out of Scope |
+| `checkout` | token `-f`/`--force`**或捆綁含 `f` 獨立旗標**（順序感知：掃到 `-b`/`-B` 即停，UB-01）；**或**〔先決：**不含** `-p`/`--patch` 互動、**且不含** `-b`/`-B`/`--orphan` 建分支〕下：出現 `--`（顯式 pathspec 丟棄）／跳選項後**唯一** positional 為 `.`（不再字面比對「恰為 `checkout .`」，修正 `-q .` 破解）／跳選項後 **≥2 個 positional**（`<ref> <pathspec>` 還原路徑） | 單一 positional（分支切換，如 `checkout hardening`）、`-b`/`-B`/`--orphan`（建立分支：**先決條件已整體排除此類**，故其後 branch-name／start-point 從不進入 positional 計數；`-Bf origin` 的 `f`＝分支名非旗標，不誤命中）、`-`、`-p`/`--patch`（互動 hunk，user-in-loop）；`-B`/`--orphan` 覆蓋 ref 之議見 Out of Scope |
 | `restore` | 〔先決：**不含** `-p`/`--patch` 互動〕**工作區受影響**：有 `-W`/`--worktree`（含捆綁 `-SW`/`-WS`）；**或** 既無 `-S`/`--staged` 亦無 `-W`（預設 target＝工作區） | `-S`/`--staged` 單獨（僅 unstage，不動工作區）、`-p`/`--patch`（互動：git 逐 hunk 提示、user-in-loop → defer，不論 `-S`/`-W`，修正 Probe 揪出的 `restore -p` 誤擋） |
-| `switch` | token `-C` **或 `--force-create`**（force-create 長式，≠`-c`）；或 `--discard-changes`；或 `-f`/`--force`（`--discard-changes` 別名） | `-c`（建立）、`-`（回上一分支）、`switch <branch>` |
+| `switch` | token `-C` **或捆綁含 `C`**（force-create，順序感知：掃到 `-c` 即停）**或 `--force-create`**（≠`-c`）；或 `--discard-changes`；或 `-f`/`--force`**或捆綁含 `f` 獨立旗標**（順序感知：掃到 `-c`/`-C` 即停，UB-01；`--discard-changes` 別名） | `-c`（建立）、`-cf origin` 的 `f`＝分支名非旗標、`-`（回上一分支）、`switch <branch>` |
 | `stash` | 子命令參數為 `clear` 或 `drop` | `push`/`save`/`pop`/`apply`/`list`/`show`/無參數 |
 | `worktree` | **子命令**為 `remove`（`worktree` 後**第一個非選項參數**）**且** 有 `-f`/`--force`（含 `-ff`） | `remove` 無 force（git 拒 dirty）、`add`/`list`/`prune`/`move`/`lock`；`add … remove`（`remove` 為 commit-ish/路徑字面、非子命令位置 → **不誤擋**，修正 Probe 揪出的字面誤命中） |
 | `rm` | 有 force（token `--force` 或短捆綁含 `f`，如 `-f`/`-rf`/`-fr`） | `--cached`（僅 unstage）、`git rm <f>` 無 force（git 拒已改動；且已提交者可復原） |
@@ -291,15 +292,15 @@ Feature: PreToolUse git-guardrails（本地毀資料操作硬強制）
 
 ## ✅ 驗收標準（Done When）
 
-- [ ] `bash tests/test_pretooluse_git_guardrails.sh` 全綠（P1-12 / N1-14 / B1-9，含 BLOCKER 案 P6、global-option N10/N13、C2 案 B2、建分支不誤擋 P9/P12、互動 -p 放行 P10、--force-create N12、已知漏擋釘樁 B6-9 非安全宣稱）
-- [ ] hook 納入 Iron Rule A → `tests/test_iron_rule_a_coverage.sh` 含 `pretooluse-git-guardrails.sh`
-- [ ] **（D2）** `GIT-GUARD` 登記於 rule-registry 且 `exempt: true`，**且** `tests/test_rule_registry.sh` **新增對 GIT-GUARD 的顯式斷言**（id 存在 + `exempt:true`）——不可只靠既有泛化斷言（現況該測試對 GIT-GUARD/SHIP-GATE 皆零斷言）
-- [ ] **（D3）** `hooks/hooks.json` 已 wire git-guardrails 為 `PreToolUse[0].hooks[1]`（ship-gate 仍 `[0].hooks[0]`）；`tests/test_plugin_manifest.sh` 更新：`refs≥4`、`PreToolUse[0].hooks[0]`=ship-gate 不變、**新增 git-guardrails 存在斷言**
-- [ ] `make test` 全綠（既有零回歸）+ `make lint`（hook 過 shellcheck）
-- [ ] `.claude/settings.json` PreToolUse 與 ship-gate 並存（`jq` 驗證兩支皆在）
-- [ ] 手動驗證：`git reset --hard` 擋、`git clean -nfd` 放行、`git -C /x reset --hard` 擋、`ASP_GIT_OK=1`(env) 放行且留 bypass 遙測
-- [ ] **（D6）** 回填 ADR-030 `## Verification Evidence` **四欄齊全**：POC 分支/測試結果、驗證日期、驗證者、驗證摘要
-- [ ] CHANGELOG 更新
+- [x] `bash tests/test_pretooluse_git_guardrails.sh` 全綠（P1-12 / N1-14 / B1-9，含 BLOCKER 案 P6、global-option N10/N13、C2 案 B2、建分支不誤擋 P9/P12、互動 -p 放行 P10、--force-create N12、已知漏擋釘樁 B6-9 非安全宣稱）
+- [x] hook 納入 Iron Rule A → `tests/test_iron_rule_a_coverage.sh` 含 `pretooluse-git-guardrails.sh`
+- [x] **（D2）** `GIT-GUARD` 登記於 rule-registry 且 `exempt: true`，**且** `tests/test_rule_registry.sh` **新增對 GIT-GUARD 的顯式斷言**（id 存在 + `exempt:true`）——不可只靠既有泛化斷言（現況該測試對 GIT-GUARD/SHIP-GATE 皆零斷言）
+- [x] **（D3）** `hooks/hooks.json` 已 wire git-guardrails 為 `PreToolUse[0].hooks[1]`（ship-gate 仍 `[0].hooks[0]`）；`tests/test_plugin_manifest.sh` 更新：`refs≥4`、`PreToolUse[0].hooks[0]`=ship-gate 不變、**新增 git-guardrails 存在斷言**
+- [x] `make test` 全綠（既有零回歸）+ `make lint`（hook 過 shellcheck）
+- [x] `.claude/settings.json` PreToolUse 與 ship-gate 並存（`jq` 驗證兩支皆在）
+- [x] 手動驗證：`git reset --hard` 擋、`git clean -nfd` 放行、`git -C /x reset --hard` 擋、`ASP_GIT_OK=1`(env) 放行且留 bypass 遙測
+- [x] **（D6）** 回填 ADR-030 `## Verification Evidence` **四欄齊全**：POC 分支/測試結果、驗證日期、驗證者、驗證摘要
+- [x] CHANGELOG 更新
 
 ---
 
@@ -332,11 +333,12 @@ Feature: PreToolUse git-guardrails（本地毀資料操作硬強制）
 
 > G2 review D1-1（HIGH）修入：補齊七必填欄位之第七欄（佔位表，比照 SPEC-014/015/017 慣例，實作後回填）。
 
-- 實作 commit：TBD
-- 實作檔：`.asp/hooks/pretooluse-git-guardrails.sh`（新）、`.claude/settings.json` ＋ `hooks/hooks.json`（wire，D3）、rule-registry（`GIT-GUARD` 登記，D2）
-- 測試檔：`tests/test_pretooluse_git_guardrails.sh`（新：P1-12／N1-14／B1-9）、`tests/test_iron_rule_a_coverage.sh`（擴充）、`tests/test_rule_registry.sh`（D2 顯式斷言）、`tests/test_plugin_manifest.sh`（D3 更新）
-- Iron Rule A 納入：TBD（實作 commit 進 HEAD 即 hash 自愈）
-- ADR-030 Verification Evidence 回填（D6 四欄）：TBD
+- 實作 commit：分支 `asp/spec-016-impl` → PR merge commit（2026-07-29）
+- 實作檔：`.asp/hooks/pretooluse-git-guardrails.sh`（新，M0 tokenize + M1 謂詞引擎）、`.claude/settings.json` ＋ `hooks/hooks.json`（wire `PreToolUse[0].hooks[1]`，D3）、`.asp/config/rule-registry.yaml`（`GIT-GUARD` 登記 exempt+observed_by，D2）、`.asp/Makefile.inc`（lint 清單加 hook）
+- 測試檔：`tests/test_pretooluse_git_guardrails.sh`（新，80 斷言：P1-12／N1-14／B1-9）、`tests/test_iron_rule_a_coverage.sh`（+2 斷言）、`tests/test_rule_registry.sh`（+3 GIT-GUARD 顯式斷言，D2）、`tests/test_plugin_manifest.sh`（refs≥4 + hooks[1] 綁定，D3）
+- Iron Rule A 納入：`session-audit.sh` CRITICAL_FILE 清單已加（commit 進 HEAD 即 hash 自愈）
+- ADR-030 Verification Evidence 回填（D6 四欄）：已回填（POC #1 完成）
+- git CLI 行為前提一手實測：FC-013（`.asp-fact-check.md`）
 
 ---
 

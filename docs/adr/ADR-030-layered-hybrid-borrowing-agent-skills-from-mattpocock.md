@@ -140,7 +140,7 @@
 
 | 欄位 | 內容 |
 |------|------|
-| POC 分支／測試結果 | （待人類核准後，於借用 SPEC 補：git-guardrails hook 實測擋危險 git、grilling 前端 + 書寫導回 ASP 模板 POC、prototype/research 分支豁免 POC） |
-| 驗證日期 | — |
-| 驗證者 | — |
-| 驗證摘要 | — |
+| POC 分支／測試結果 | **POC #1（git-guardrails，SPEC-016）✅ 完成**：分支 `asp/spec-016-impl`，`.asp/hooks/pretooluse-git-guardrails.sh`（M0 tokenize + M1 逐子命令謂詞引擎，純 bash 無外部相依）。`tests/test_pretooluse_git_guardrails.sh` **80/80 綠**（P1-12 defer / N1-14 deny / B1-9 邊界，含全域選項 -C・--git-dir、複合分隔 &&・;・\|、VAR= 前綴、escape hatch bypass 遙測、fail-open）；連動 `test_iron_rule_a_coverage` 10/10、`test_rule_registry` 27/27、`test_plugin_manifest` 18/18；`make test` 55 bash + 16 pytest 全綠、`make lint` 綠。git CLI 行為前提一手實測記於 FC-013。〔POC #2 grilling／#3 prototype 豁免 仍待後續 SPEC〕 |
+| 驗證日期 | 2026-07-29（POC #1） |
+| 驗證者 | 獨立唯讀對抗式審查（workflow 多 agent）+ 人類 PR 核准 |
+| 驗證摘要 | 首個 POC 證實 ADR-030「BUILD-ASP-NATIVE git-guardrails」方向可行：以 ship-gate 方式 A（exit 0 + JSON deny）自寫、非 vendor 原 script（原生 exit 2 未實證 + unanchored substring 誤命中 + 靜默 fail-OPEN）；補齊原生漏擋（stash/switch -f/worktree remove -f/git rm -f）+ 統一 GIT-GUARD 遙測 + 可稽核 escape hatch。誠實邊界（前綴補全/命令替換/包裝前綴）明列為釘樁測試。 |

@@ -210,6 +210,11 @@ rules:
     desc: "PreToolUse commit 閘：commit 前測試痕跡檢查（pass/block/bypass，ADR-020/SPEC-013）"
     source: "pretooluse-ship-gate.sh"
     observed_by: pretooluse-ship-gate
+  - id: GIT-GUARD
+    desc: "PreToolUse 本地毀資料護欄：reset --hard/clean force/branch -D/checkout|restore|switch 丟工作區/stash clear|drop/worktree remove -f/rm -f（block/bypass，SPEC-016/ADR-030）"
+    source: "pretooluse-git-guardrails.sh"
+    observed_by: pretooluse-git-guardrails
+    exempt: true
   - id: AUDIT-IRONB-MIGRATE
     desc: "bypass log 未遷移 ndjson 提示"
     source: "session-audit.sh Iron Rule B"
