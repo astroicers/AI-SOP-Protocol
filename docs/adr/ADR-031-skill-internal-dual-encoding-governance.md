@@ -74,5 +74,6 @@ ADR Accepted → 另立 SPEC（含：Part1∪Part2 逐列合併映射表、收�
 | 診斷證據 | 16-agent 診斷（wf_15dbedf9-57c）：asp-autopilot verdict=restructure，findings 列 Part1/Part2 雙重編碼 + drift + Phase 0.5 死碼 |
 | 親讀佐證 | 本 ADR 事實 1-4 為主 agent 親讀 asp-autopilot.md L202-226 / L769-807 / L420-430 |
 | **POC（SPEC-018）** | **✅ 完成**（2026-07-30）：asp-autopilot 829→811（Part2 併入 Context 60%/75%/測試≤3/--force、Part1 收斂速覽、Phase 0.5 死碼除）。獨立 read-only reality-checker 審查揪出 **canonical 淨丟失 HIGH**（`--force` 漏補、docker deploy 第二處衝突原誤判 aligned）+ Part2 內部新重複 LOW，全數修入。**發現 2 處 drift 衝突**（失敗>3 暫停 vs 跳過、docker deploy 暫停 vs 跳過記 debt）均顯式標記、暫定依 ADR-006 canonical，**待人類 Accept 時確認**（尤其 docker deploy 靜默跳過的風險）。lint R1/R2 過、advisory 7 不增、make test 55+16 全綠。**不解 R6**（811 仍 >300，如預告）。 |
-| 驗證日期 | 2026-07-30（FIRM POC） |
-| 驗證者 | 主 agent TDD + 獨立 read-only reality-checker（canonical 零丟失核對）；**升 Accepted 由人類** |
+| **衝突決策（grill-with-docs 2026-07-30）** | 兩處 drift 衝突經 grilling 逐一查證後**人類確認**皆以 Part 2 canonical 為準：CONFLICT-1（失敗>3→跳過，衍生熔斷 follow-up #87）、CONFLICT-2（docker deploy→跳過記 debt，事實查證推翻靜默漏部署隱憂：docker 早被 denied-commands.json 硬擋）。**衝突已無懸念，可升 Accepted。** |
+| 驗證日期 | 2026-07-30（FIRM POC + 衝突確認） |
+| 驗證者 | 主 agent TDD + 獨立 read-only reality-checker（canonical 零丟失）+ grill-with-docs 衝突決策；**升 Accepted 由人類 `/asp:approve-adr 031`** |
