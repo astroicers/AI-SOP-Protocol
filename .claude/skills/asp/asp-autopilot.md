@@ -770,12 +770,12 @@ Autopilot 模式下不暫停人類，所有情境自動處理：
 | **gh pr create --draft** | ✅ 允許。push 後自動建立 Draft PR |
 | **gh pr merge** | 鐵則禁止。人工審查後 merge |
 | **git rebase** | 禁止。使用 merge |
-| **docker push / deploy** | 跳過，記錄 post-autopilot 待辦（**不暫停**——SPEC-018 去重：原 Part 1 列「仍需暫停」與此衝突，依 ADR-006 以本 canonical 為準；⚠️ 意味 deploy 步驟被靜默跳過、task 可能標完成但未部署，**人類 Accept ADR-031 時須確認此為預期**，否則改以「暫停」為 canonical） |
+| **docker push / deploy** | 跳過，記錄 post-autopilot 待辦（**不暫停**——SPEC-018 去重衝突，**人類已確認 2026-07-30 以此 canonical 為準**。事實：docker push/deploy 早由 `denied-commands.json` 硬擋、autopilot 不可能真部署，故記 tech-debt 待辦由人類事後手動 deploy，非「靜默漏部署」） |
 | **刪除檔案** | SPEC 範圍內暫存檔可刪；其他檔案備份（.bak）後刪 |
 | **範圍超出** | 記錄 `tech-debt` 標記，繼續當前 task |
 | **新增外部依賴** | ROADMAP stack 定義的標準依賴自動允許；非標準記 tech-debt |
 | **DB Schema 變更** | SPEC 指定時自動執行；未指定記 tech-debt |
-| **auto_fix 失敗（修復用盡 >3 次）** | task 標記 failed，跳過，繼續下一個獨立 task（**不暫停**——SPEC-018 去重：原 Part 1「失敗超過 3 次暫停」與此衝突，依 ADR-006 以本 canonical 為準；反覆失敗的可見性由 session briefing + failed 標記承載） |
+| **auto_fix 失敗（修復用盡 >3 次）** | task 標記 failed，跳過，繼續下一個獨立 task（**不暫停**——SPEC-018 去重衝突，**人類已確認 2026-07-30 以此 canonical 為準**；反覆失敗可見性由 session briefing + failed 標記承載。⚠️ 無連續失敗熔斷 → follow-up #87：連續 N task failed 應暫停） |
 
 ### 禁止（即使 autopilot 模式也不可）
 

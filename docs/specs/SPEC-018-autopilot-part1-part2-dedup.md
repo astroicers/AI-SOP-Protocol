@@ -30,10 +30,10 @@ asp-autopilot.md Part 1（L202-）+ Part 2（L762-）。
 | **暫停:失敗>3 次** | **auto_fix 失敗→跳過** | **🔴 CONFLICT-1** |
 | **暫停:docker push/deploy** | **跳過記 tech-debt** | **🔴 CONFLICT-2**（獨立審查揪出，原誤判 aligned） |
 
-### 🔴 衝突解決（人類 Accept 時確認）
-**兩處衝突**，暫定皆依 ADR-006 以 Part 2 canonical 為準，Accept 時須確認：
-- **CONFLICT-1（失敗>3）**：Part 1「暫停問人類」vs Part 2「跳過繼續」→ 依 canonical 跳過不暫停；可見性由 briefing+failed 標記承載。
-- **CONFLICT-2（docker deploy）**：Part 1「暫停」vs Part 2「跳過記 tech-debt」→ 依 canonical 跳過；⚠️ 意味 deploy 被靜默跳過、task 可能標完成但未部署。**此項風險較高**（部署動作不該靜默略過？），人類 Accept 時特別確認；若認為「deploy 應暫停」則此列改以 Part 1 為 canonical。
+### 🔴 衝突解決（**人類已確認 2026-07-30，grill-with-docs**）
+**兩處衝突**，經 grilling 逐一查證事實後，人類確認皆以 Part 2 canonical 為準：
+- **CONFLICT-1（失敗>3）**：Part 1「暫停」vs Part 2「跳過繼續」→ **確認跳過**。事實：autopilot 無連續失敗熔斷（pseudocode 確認 failed→跳過下一個）；可見性由 briefing+failed 標記承載。**⚠️ 衍生 follow-up（新 feature，非本去重範圍）**：補「連續 N 個 task failed → 暫停」熔斷，防環境壞掉時空跑整個 roadmap。
+- **CONFLICT-2（docker deploy）**：Part 1「暫停」vs Part 2「跳過記 tech-debt」→ **確認跳過**。事實查證推翻原「靜默漏部署」隱憂：`docker push/deploy` 早由 `denied-commands.json` 硬擋、autopilot 不可能真部署，記 tech-debt 待辦由人類事後手動 deploy 最合理，與「push main/pr merge 禁止但 autopilot 繼續」一致。
 
 > **Auto-PR 去重（ADR-031 決議提及）不在本 SPEC 範圍**：Part 1 的 Auto-PR 4 步是**操作序**（非情境重複表），與 Part 2 執行迴圈 pseudocode 內容一致、**無 drift**（非本 ADR 要消的問題來源）。保留於收斂後速覽供快速執行參考；若要進一步縮為單行指向，另立 follow-up。
 
