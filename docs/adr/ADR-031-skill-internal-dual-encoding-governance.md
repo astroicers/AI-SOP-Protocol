@@ -1,15 +1,17 @@
-<!-- Last Updated: 2026-07-29 | Status: FIRM | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-08-04 | Status: Accepted | Audience: ASP framework maintainers -->
 # [ADR-031]: skill 內雙高度雙重編碼的治理（以 asp-autopilot Part1/Part2 為例）
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-07-29 |
 | **決策者** | ASP framework maintainers |
 | **觸發事件** | skill 優化計畫階段 C——16-agent 診斷（PR #82 前置）發現 asp-autopilot 的體積主要來自 Part1/Part2 對同一組 gate 的雙重編碼，且**已 drift**（部分列僅存其中一表） |
 | **關聯** | ADR-006（Item 7：asp-autopilot Part 2 為唯一 canonical 執行規格）；ADR-024（skill 分階 + 機會式漸進拆）；ADR-023（asp-skill-author）；ADR-030（writing-great-skills 失敗模式：duplication）；ADR-010（最小採納 / 摩擦評估）；階段 A（PR #82）、階段 B（PR #84） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作生產碼）→ `FIRM`（允許實作 POC/commit，需 Verification Evidence，audit 輸出 🟡）→ `Accepted`（人類看驗證結果後審核直升）。
+>
+> ⬆️ **由 `FIRM` 升 `Accepted`**：使用者 2026-08-04 透過 `/asp:approve-adr 031` 呼叫、看完本指令摘要的決策（Part 2 單一 canonical + Part 1 收斂）與 Verification Evidence（POC SPEC-018 ✅ 完成 829→811、獨立 reality-checker canonical 零丟失審查揪 --force/docker 淨丟失 HIGH 全修、2 處 drift 衝突經 grill-with-docs 確認皆 Part 2、make test 55+16 全綠）後明確同意（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。
 >
 > ⬆️ **由 `Draft` 升 `FIRM`**：使用者 2026-07-29 透過 `/asp:approve-adr 031` 呼叫後，選擇 **FIRM 路徑**（「改走 FIRM」「驗證後再直升」，非 Draft 直升 Accepted），看完本 ADR 決策摘要（Part1/Part2 雙重編碼且已 drift、Part 2 canonical + Part 1 收斂、先逐列合併零丟失）與 Verification Evidence 現況（診斷證據 + 親讀佐證已填、驗證日期/驗證者未填、無 POC）後，明確授權以 **FIRM 實作階段 C 作為 POC** 產生 Verification Evidence（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。**取捨**：FIRM 允許 commit（audit 🟡），實作結果（逐列合併零丟失證明 + 獨立審查）回填 Verification Evidence 後，**由人類直升 Accepted**（非 AI）。
 
