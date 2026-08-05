@@ -22,6 +22,7 @@
 | CONTEXT.md（領域詞彙表） | Domain Vocabulary File | — |
 | Maturity Level（成熟度等級） | Maturity Level | L0-L5 |
 | Autopilot（自動駕駛） | Autopilot (ROADMAP-driven execution) | — |
+| Operator（感知層，FROZEN） | ASP Perception Pillar (asp-operator) | — |
 | Provenance（來源出處） | Task Provenance | — |
 | Task Inbox（任務收件匣） | Task Inbox (External Task Queue) | inbox |
 | Held（待授權暫置） | Held (Awaiting Human Authorization) | held |
@@ -182,6 +183,12 @@
 **避免使用：** [自動模式, 自動執行]（Autopilot 特指 ROADMAP.yaml 驅動 + 跨 session 續接 這個完整機制）
 **相關 ADR：** ADR-001
 
+### Operator（感知層 / Perception Pillar，FROZEN）
+**English:** ASP Perception Pillar (asp-operator)
+**定義：** ASP 三柱之一的**感知層**：獨立 repo `asp-operator`，曾以 GitHub App（App ID 3996872）每 30 分輪詢 GitHub issue、`translate_issue()` 譯成 inbox 任務投遞。**ADR-032（2026-08-05）起停用並凍結**——停 cron、卸 App、archive repo；ADR-012 信任模型隨之 dormant。零實現價值（不用／會忘）+ 休眠 T-14 攻擊面為凍結主因，可逆解凍。
+**避免使用：** [bot, poller, 爬蟲]（Operator 特指「ASP 三柱的感知層 pillar」這個治理角色，且**現為 FROZEN**，非 live 服務）
+**相關 ADR：** ADR-032（凍結）、ADR-012（信任模型 dormant）、ADR-017（凍結前例）
+
 ### Provenance（來源出處）
 **English:** Task Provenance
 **定義：** 任務的來源屬性標記——**人類手寫** vs **外部來源**（帶 `source_type`/`triggered_by` 等 inbox schema 欄位）。ADR-012 信任模型以 provenance 決定授權強度：外部來源任務須人類放行，人類手寫任務維持既有機制。
@@ -190,7 +197,7 @@
 
 ### Task Inbox（任務收件匣）
 **English:** Task Inbox (External Task Queue)
-**定義：** `.asp-task-inbox.json`——asp-operator 將外部 GitHub issue 翻譯後投遞的**惰性佇列**。SPEC-007 起 inbox 內容不再自動進入 ROADMAP（見 Held），僅作為待人類授權的暫存。
+**定義：** `.asp-task-inbox.json`——asp-operator 將外部 GitHub issue 翻譯後投遞的**惰性佇列**。SPEC-007 起 inbox 內容不再自動進入 ROADMAP（見 Held），僅作為待人類授權的暫存。（⏸️ 生產端 asp-operator 已凍結 ADR-032，inbox 現無新投遞；schema 真理來源見 `docs/contracts/inbox-task-schema.md`。）
 **避免使用：** [佇列, queue, 任務池]（Task Inbox 是固定檔名與固定機制，且自 SPEC-007 起為「惰性」——寫入不產生執行效果）
 **相關 ADR：** ADR-012
 

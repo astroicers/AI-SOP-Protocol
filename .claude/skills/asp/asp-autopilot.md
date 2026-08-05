@@ -454,6 +454,7 @@ FUNCTION autopilot_main():
 
   FUNCTION is_external_provenance(task):
     // 外部 ⇔ 帶 inbox 注入 schema 的來源標記；人類手寫任務通常無這些欄位
+    // canonical inbox schema（唯一真理，含 source.type vs 扁平 source_type drift 註，ADR-032）：docs/contracts/inbox-task-schema.md
     RETURN (task.source_type EXISTS AND task.source_type != "manual")
         OR (task.triggered_by EXISTS AND task.triggered_by NOT IN ["human", "maintainer"])
 
