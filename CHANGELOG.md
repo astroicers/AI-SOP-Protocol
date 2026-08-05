@@ -4,6 +4,17 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **ADR-032 — 停用並凍結 asp-operator 感知層柱，ADR-012 信任模型標 dormant**：經 grill-with-docs session 逐分支拷問，推翻「asp × asp-operator 整並」的提問前提——真正該做的不是合併/monorepo/吸收，而是承認 operator 感知層零實現價值（不用/會忘）+ 休眠 T-14 攻擊面，用 ADR-017 凍結手法**停用＋原地凍結**（可逆）。ADR-032 經 POC 驗證（非直升）：Draft→**FIRM**（POC-1 證實凍結對 ASP session 零爆炸半徑——inbox airlock 三情境 `exit=0`、`session-audit.sh` 第 7 段 `BLOCKERS+=` 計數 0、`test_autopilot_provenance_gate.sh` 15/15；POC-2 揪出 `source.type` vs 扁平 `source_type` schema drift，凍結下 moot；POC-3 `workflow_dispatch` 保留可逆）→ 人類 `/asp:approve-adr` 升 **Accepted**。
+  - **asp-operator（獨立 repo）**：停排程輪詢（保留 `workflow_dispatch`）、ADR-002 DP5 pivot → Superseded、README FROZEN banner、GitHub App 3996872 卸載、私鑰封存（未刪）、repo **archived**。
+  - **ASP 側**：ADR-012 + SPEC-007/008/009 provenance 閘標 **dormant**（保留不刪備解凍）；蒸餾（零 code）新增 `docs/contracts/inbox-task-schema.md`（含 drift 註）、`docs/security/github-app-least-privilege-reference.md`、threat-model「生產者↔閘一致性原則」；`CONTEXT.md`/`GLOSSARY.md` 新增 Operator（FROZEN）術語。
+  - **可逆解凍**：取消 `poll-issues.yml` schedule 註解 + 重裝 App + 移除 dormant 註 + 取消 archive。三柱架構收斂為單一治理核心。
+
+### Fixed
+
+- **CLAUDE.md 版本字串 drift**：第 1 行 `v5.0.0` → `v5.1.0`（v5.1.0 release 時漏改，非 ADR-032 造成，順修）。
+
 ## [5.1.0] - 2026-08-04
 
 ### Added
