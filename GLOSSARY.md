@@ -37,6 +37,7 @@
 | Autopilot | ROADMAP-driven Execution | ROADMAP.yaml 驅動、跨 session 續接的連續執行 |
 | Provenance | Task Provenance | 任務來源信任屬性（人類手寫 vs 外部），決定授權強度 |
 | Task Inbox | External Task Queue | asp-operator 投遞外部 issue 的惰性佇列 |
+| Operator | Perception Pillar (FROZEN) | 曾以 GitHub App 輪詢 issue→inbox 的感知層，ADR-032 凍結 |
 | Held | Awaiting Human Authorization | 外部任務只回報不注入的安全暫置狀態 |
 | Triage-accept | Human Authorization | 人類 commit 即授權的可驗證放行通道 |
 | Pipeline | ASP Development Pipeline | G1→G6 六階段開發流程 |

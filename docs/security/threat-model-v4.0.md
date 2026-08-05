@@ -94,6 +94,19 @@ ASP 本身作為一個安全邊界執行系統，同時也是一個攻擊面：�
 | T-13 | **Denial of Service** | 攻擊者持續觸發 session-audit.sh 的 BLOCKER 邏輯（例如保持 ADR 處於 Draft 狀態），使 AI 永久無法執行 git commit，癱瘓開發流程 | session-audit.sh BLOCKER logic | LOW | 這是設計行為（ADR 未決不得實作） | 無 BLOCKER 超時機制；無緊急旁路（除 asp-unlock-commit）；可被濫用作拒絕服務 |
 | T-14 | **Tampering / Prompt Injection** | 外部 GitHub issue（弱 `ready-for-agent` label，無授權模型）經 asp-op 翻成任務 → 注入 ROADMAP → 被 autopilot 信任執行（inbox poisoning／外部來源任務污染）。攻擊者只需能對 issue 貼 label，即可把任意指令送入執行管線 | asp-op → `.asp-task-inbox.json` / inbox-ingest.sh → ROADMAP → autopilot | HIGH | autopilot 對**架構級** `adr:null` 自動建 Draft ADR 並 blocked（`autopilot.md:248-273`，僅架構級） | 非架構外部任務無授權閘；`inbox-ingest.sh` 旁路無 provenance 檢查（直推 `.asp-task-inbox.json` 到 main 即繞過）；asp-op 不存 issue author → 無 approver 身份。**緩解見 [ADR-012](../adr/ADR-012-define-operator-autopilot-interaction-trust-model.md)**：provenance + 影響閘、triage-accept human-author、asp-op 影響分類 pivot、封 inbox 旁路（多項待 SPEC 落地，DP8 過渡措施生效中） |
 
+> **T-14 現況（ADR-032，2026-08-05）：** asp-op 已停用並凍結，App 卸載後無法鑄 token，此攻擊路徑的**活體攻擊面歸零**（dormant）。ADR-012 緩解措施保留不刪以備解凍。
+
+### 生產者↔閘一致性原則（ADR-032 蒸餾 C）
+
+> 蒸餾自 ADR-012 context 揭露的 C1/C2/C3 漂移（asp-op 心智模型從不提 ADR/autopilot → 架構任務靜默 dead-end；直推 main；丟 issue author）。與 operator 是否存在無關的一級治理原則：
+
+**凡向自主執行器（autopilot）供料的生產者，必須：**
+1. **對執行器的授權閘做一致性測試**——生產者產出必須被驗證能通過（或正確被擋於）消費端每一道閘，否則會像 C1 那樣在閘上靜默 dead-end。
+2. **provenance 與 author 端到端保存**——不可像 C3 那樣把 `triggered_by` 硬寫死、丟掉真實 issue author，否則授權記號無法回溯驗證。
+3. **永不直推 main**——一律經 PR / held 佇列 / 人類 commit，杜絕 C3 的 provenance 旁路。
+
+> ADR-032 POC-2 揭露的 `source.type` vs 扁平 `source_type` schema drift，即原則 (1) 的具體案例：生產端與消費端從未被一致性測試。單一真理 schema 見 [inbox-task-schema](../contracts/inbox-task-schema.md)。
+
 ---
 
 ## Section 3：8 步攻擊鏈（攻擊者視角）

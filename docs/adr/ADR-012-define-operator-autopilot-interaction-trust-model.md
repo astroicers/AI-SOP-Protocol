@@ -9,6 +9,8 @@
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
 >
 > **修訂註記（2026-06-11）：** 對齊討論揭露原 DP2「外部一律須 Accepted ADR」過粗——外部瑣碎 / bugfix 不該被迫開 ADR（與已否決的選項 B 同樣的過度設計，只是搬到外部路徑）。本版把「授權」與「ADR」**解耦**：授權 artifact 隨架構影響**縮放**（DP2）、asp-op 先判影響再決定產物（DP5）、新增 bug 拓樸（DP7）。經獨立 reviewer 硬化（INV-1/2 + DP1–DP8 標籤、triage 強制力誠實標註、封 inbox 旁路）後，2026-06-11 由人類 re-Accept。
+>
+> **⏸️ DORMANT（ADR-032，2026-08-05）：** 外部生產者 asp-operator 已停用並凍結（ADR-032）。本信任模型與其消費端閘（SPEC-007/008/009、`asp-autopilot.md` 的 `is_external_provenance`）目前 **dormant**——無 live external producer，故 provenance gate 不會觸發。**保留不刪以備解凍**（解凍＝重啟 operator cron + 重裝 App + 移除本註記）。
 
 ---
 
