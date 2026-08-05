@@ -2,12 +2,12 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `Draft` |
+| **狀態** | `FIRM` |
 | **日期** | 2026-08-04 |
 | **決策者** | astroicers（grill-with-docs session 逐分支拍板）+ AI（探索、拷問、蒸餾） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
-> **本 ADR 為治理決策（非 POC），採 Draft → Accepted 直升；Verification Evidence 區留白。**
+> ⬆️ 由 `Draft` 升 `FIRM`：使用者 2026-08-04 指示「FIRM 的 POC 驗證先做」，AI 執行 POC-1/2/3（見 Verification Evidence）。承重宣稱「凍結對 ASP session 零爆炸半徑」實證成立；POC 另揭生產者/消費端 schema drift（`source.type` vs 扁平 `source_type`），凍結下無害、納入蒸餾 A/C。FIRM 允許 commit，audit 輸出 🟡；待人類 `/asp:approve-adr` 升 `Accepted` 後方全面執行 Decision 各 Locus。
 
 ---
 
@@ -134,13 +134,13 @@ crown jewel（ADR-012 信任模型）本就在 ASP、無需搬。以下三項 do
 
 ---
 
-## Verification Evidence（升級至 FIRM 時必填）
+## Verification Evidence（FIRM）
 
-> 本 ADR 為治理決策，採 Draft → Accepted 直升，不經 FIRM。人類審核通過後將狀態改為 `Accepted`，方可執行 Decision 之實作步驟（Draft 期間禁止實作，鐵則）。
+> 使用者指示「FIRM 的 POC 驗證先做」；AI 於 2026-08-04 執行 POC-1/2/3，證據如下。FIRM 允許 commit（audit 🟡）；待人類 `/asp:approve-adr` 審核後升 `Accepted`，方全面執行 Decision 各 Locus（Draft/FIRM 期間不得執行不可逆的凍結動作）。
 
 | 欄位 | 內容 |
 |------|------|
-| **POC 分支 / 測試結果** | （治理決策，無 POC；實作證據於各 Locus commit 記入 PR） |
-| **驗證日期** | （待 Accept 填） |
-| **驗證者** | （待 Accept 填） |
-| **驗證摘要** | （待 Accept 填） |
+| **POC 分支 / 測試結果** | 分支 `asp/adr-032-freeze-operator`。**POC-1 承重·安全（零爆炸半徑）**：`inbox-ingest.sh` 凍結三情境（inbox 缺／空／殘留 1 pending）皆 `exit=0`；殘留 pending 僅出 held **WARNING、非 BLOCKER**；`session-audit.sh` 第 7 段以 `[ -f "$INBOX_FILE" ]` 守衛、`BLOCKERS+=` 計數 **0**；`tests/test_autopilot_provenance_gate.sh` **15/15 PASS**（gate 凍結後 inert）。**POC-2 蒸餾A可行性/schema**：`translate_issue()` 產出 `{id,type,priority,status,sla_hours,source.type,triggered_by,description}`；`is_external_provenance` 讀 `source_type`／`triggered_by`。**發現 drift**：consumer 讀扁平 `source_type`、producer 寫巢狀 `source.type` → `source_type` 路徑對 operator 任務失效，僅靠 `triggered_by="customer"` 仍正確分類 external（凍結下無操作影響；佐證蒸餾 A/C 必要）。**POC-3 可逆**：`poll-issues.yml` 同具 `schedule:*/30` 與 `workflow_dispatch` → 停 schedule、保留 workflow_dispatch 即可手動解凍。 |
+| **驗證日期** | 2026-08-04 |
+| **驗證者** | astroicers（指示先做 POC）+ AI（執行 POC-1/2/3） |
+| **驗證摘要** | 承重宣稱「凍結對 ASP session 零爆炸半徑」**實證成立**；附帶揭露一處 producer/consumer schema drift（`source.type` vs `source_type`），harmless under freeze，已納入蒸餾 A（單一真理 schema）/ C（一致性教訓）。 |
