@@ -2,12 +2,13 @@
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-08-04 |
 | **決策者** | astroicers（grill-with-docs session 逐分支拍板）+ AI（探索、拷問、蒸餾） |
 
 > **狀態說明：** `Draft`（初稿，禁止實作）→ `FIRM`（POC 驗證，允許 commit，需附驗證證據）→ `Accepted`（人類審核通過）
 > ⬆️ 由 `Draft` 升 `FIRM`：使用者 2026-08-04 指示「FIRM 的 POC 驗證先做」，AI 執行 POC-1/2/3（見 Verification Evidence）。承重宣稱「凍結對 ASP session 零爆炸半徑」實證成立；POC 另揭生產者/消費端 schema drift（`source.type` vs 扁平 `source_type`），凍結下無害、納入蒸餾 A/C。FIRM 允許 commit，audit 輸出 🟡；待人類 `/asp:approve-adr` 升 `Accepted` 後方全面執行 Decision 各 Locus。
+> ⬆️ 由 `FIRM` 升 `Accepted`：使用者 2026-08-05 透過 `/asp:approve-adr 32` 呼叫、看完本指令摘要的決策與 Verification Evidence（POC-1 零爆炸半徑實證成立、POC-2 揭 schema drift 且 harmless under freeze、POC-3 workflow_dispatch 可逆）後明確同意（人類顯式授權，非 AI 自行升級，符合 ADR 狀態變更鐵則）。
 
 ---
 
