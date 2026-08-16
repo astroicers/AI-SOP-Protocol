@@ -333,6 +333,14 @@ FUNCTION evaluate_G5(artifacts):
       FOR h IN lint.hygiene WHERE h.severity == "error" AND h.pass == false:
         issues.append("Skill hygiene 未過：{h.id} {h.detail}")
 
+      // H-005 逐檔合規：H-001 只問 repo 級「≥1 合規」，抓不到「已有好 skill 的 repo
+      // 新增一個壞的」。取本次變更與不合規清單的交集 → 精準命中「這次改壞了」才擋。
+      // repo-wide 的既有不合規檔不擋（不因別人的爛攤子阻斷你的改動），只在下方列為 flag。
+      FOR f IN (artifacts.changed_files ∩ lint.noncompliant_skills):
+        issues.append("Skill 不合規（H-005）：{f} 缺 name/description")
+      IF lint.noncompliant_skills AND NOT (artifacts.changed_files ∩ lint.noncompliant_skills):
+        YELLOW_FLAG("repo 內有 {len(lint.noncompliant_skills)} 個既有不合規 SKILL.md（非本次變更，不擋）")
+
       // 不擋：安全紅旗靜態偵測有假陽性，降 YELLOW_FLAG 交人複核
       // 排除 polarity==positive（防禦樣態，無 confidence 欄位）；medium 假陽性率最低，措辭加重
       FOR s IN lint.security WHERE s.polarity != "positive":
