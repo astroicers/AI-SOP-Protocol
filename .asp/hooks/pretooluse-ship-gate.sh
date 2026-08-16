@@ -73,26 +73,18 @@ if [ "${ASP_SHIP_OK:-}" = "1" ]; then
   exit 0
 fi
 
-# ── 測試痕跡新鮮度判定 ──
-TR="$PROJ/.asp-test-result.json"
-# 解析真實 git index：linked worktree 的 .git 是檔案、index 在 .git/worktrees/<n>/index，
-# "$PROJ/.git/index" 會找不到（#72）→ 誤落 else fresh=1 恆放行。非 git → 退回舊路徑。
-_GITDIR="$(git -C "$PROJ" rev-parse --absolute-git-dir 2>/dev/null)"
-IDX="${_GITDIR:-$PROJ/.git}/index"
-fresh=0
-if [ -f "$TR" ] && [ "$(jq -r '.passed // false' "$TR" 2>/dev/null)" = "true" ]; then
-  if [ -f "$IDX" ]; then
-    if grep -qE '\-\-amend' <<<"$COMMAND"; then
-      fresh=1                       # amend：.git/index mtime 不可靠 → passed-only（保守放行）
-    elif [ ! "$IDX" -nt "$TR" ]; then
-      fresh=1                       # test-result 不舊於 index（= staging 後跑過測試）
-    fi
-  elif [ -n "$_GITDIR" ] || [ -d "$PROJ/.git" ]; then
-    fresh=1                         # 確認是 repo（git 可解析／.git 為目錄）但無 index = 真無 staged → passed 放行
-  fi                                # .git 為檔案卻無法解析 index（損壞/relocated worktree）→ 不放行、保守擋（fail-closed，安全審查 #2）
+# ── 檢查本體：單一事實源（P0-5 薄包裝；asp-ng ADR-000 §7）──
+# 新鮮度邏輯已抽至 asp-gate.yaml → 渲染物 .asp/gate.sh（.asp/checks/test-fresh.sh，逐行保留）。
+# 本 hook 只留攔截/worktree 解析/escape hatch/metrics 骨架；擴充檢查＝改 asp-gate.yaml
+# 後以 asp-ng 的 `asp render gate` 重渲染，不改本檔。
+ASP_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"   # repo 頂層（.asp/hooks/ 上兩層）
+GATE="$ASP_HOME/.asp/gate.sh"
+if [ ! -f "$GATE" ]; then
+  # 渲染物缺（部分安裝/舊 checkout）→ fail-open，與 jq 缺同哲學：強制力讓位於可用性
+  echo "[ASP] pretooluse-ship-gate: gate 渲染物缺（$GATE），fail-open 放行" >&2
+  exit 0
 fi
-
-if [ "$fresh" = 1 ]; then
+if ASP_GATE_HOME="$ASP_HOME" ASP_GATE_PROJ="$PROJ" ASP_GATE_COMMAND="$COMMAND" bash "$GATE" >/dev/null 2>&1; then
   write_metric pass
   exit 0
 fi
