@@ -1,0 +1,13 @@
+# asp-gate.yaml — 檢查單一事實源(asp-ng ADR-000 §7;P0-5 薄包裝落地)
+# 本檔為 ASP v4 repo 的 gate 定義;渲染:asp-ng 的 `asp render gate -s asp-gate.yaml -o .asp/gate.sh`
+# v0.1 僅收錄 ship-gate hook 的檢查本體——行為不變優先(asp-ng issue #5 AC),擴充走本檔+重渲染。
+version: 0.1
+checks:
+  - id: test-fresh
+    layer: gate
+    tool: builtin-script
+    args:
+      inputs: "env:ASP_GATE_PROJ(受檢 repo 頂層)、env:ASP_GATE_COMMAND(--amend 判定)"
+    severity: blocker
+    origin: "pretooluse-ship-gate.sh 檢查本體(SPEC-013/ADR-020)"
+    notes: "腳本 .asp/checks/test-fresh.sh;由 hook 以 ASP_GATE_HOME 錨定呼叫"
