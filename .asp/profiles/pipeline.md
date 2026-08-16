@@ -322,6 +322,32 @@ FUNCTION evaluate_G5(artifacts):
       IF NOT spec.rollback_plan.tested:
         checks.append("⚠️ Rollback Plan 未經測試（建議但不強制）")
 
+  // skill-reviewer：僅當變更觸及 SKILL.md（來源 skill-quality-research）
+  IF artifacts.changed_files MATCHES "**/SKILL.md":
+    lint = EXECUTE("python3 ~/.claude/skills/skill-reviewer/scripts/lint_skill.py {repo_root} --json")
+
+    IF lint.exit_code != 0 OR NOT is_valid_json(lint.stdout):
+      YELLOW_FLAG("skill-reviewer 未安裝或執行失敗，跳過 skill 檢查（不擋 gate）")
+    ELSE:
+      // 擋 gate：只有 hygiene error 級（確定性判定，無假陽性疑慮）
+      FOR h IN lint.hygiene WHERE h.severity == "error" AND h.pass == false:
+        issues.append("Skill hygiene 未過：{h.id} {h.detail}")
+
+      // 不擋：安全紅旗靜態偵測有假陽性，降 YELLOW_FLAG 交人複核
+      // 排除 polarity==positive（防禦樣態，無 confidence 欄位）；medium 假陽性率最低，措辭加重
+      FOR s IN lint.security WHERE s.polarity != "positive":
+        IF s.confidence == "medium":
+          YELLOW_FLAG("Skill 安全紅旗（較高信心，優先複核）：{s.id}/{s.flag}")
+        ELSE:
+          YELLOW_FLAG("Skill 安全紅旗待複核（靜態偵測，假陽性率高）：{s.id}/{s.flag}")
+
+      // craft：比照 qa_agent，由 LLM 層判讀；判斷不是事實，不擋 gate
+      skill_verdict = skill_reviewer.review(artifacts.changed_skills)
+      IF skill_verdict.craft == "needs-revision":
+        YELLOW_FLAG("Skill craft 待修：{skill_verdict.gap_list}")
+
+      checks.append("Skill packaging 剖面：{lint.tier_benchmark_packaging}（僅 packaging 面，非總評）")
+
   IF issues:
     RETURN GATE_FAIL(issues)
 
