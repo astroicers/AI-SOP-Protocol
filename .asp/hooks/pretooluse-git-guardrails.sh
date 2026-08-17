@@ -40,8 +40,15 @@ if [ ! -f "$CHECK" ]; then
   exit 0
 fi
 
-_OUT=$(bash "$CHECK" "$COMMAND" 2>/dev/null); _RC=$?
-[ "$_RC" = 1 ] || exit 0             # 0＝無命中、200＝自跳過、其他＝異常 → 一律 defer
+_OUT=$(bash "$CHECK" "$COMMAND" 2>&1); _RC=$?
+case "$_RC" in
+  1) ;;                              # 命中 → 續行 deny
+  0|200) exit 0 ;;                   # 無命中 / 自跳過 → defer
+  *)                                 # 契約外退出碼＝檢查本體壞了(語法錯/不可執行/被清空)
+     # fail-open 維持(可用性優先),但誠實留痕:靜默放行會讓護欄無聲失效
+     echo "[ASP] git-guardrails: 檢查本體異常(exit $_RC),fail-open defer;輸出:${_OUT:0:200}" >&2
+     exit 0 ;;
+esac
 
 MATCHED="${_OUT##*操作: }"           # 契約：stdout 末段為命中謂詞
 [ -n "$MATCHED" ] && [ "$MATCHED" != "$_OUT" ] || MATCHED="本地毀滅性 git 操作"

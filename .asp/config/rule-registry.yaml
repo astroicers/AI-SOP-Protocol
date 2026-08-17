@@ -165,6 +165,10 @@ rules:
     desc: "FIRM ADR 🟡 YELLOW FLAG"
     source: "session-audit.sh A3"
     observed_by: session-audit
+  - id: AUDIT-A3-BROKEN
+    desc: "A3 檢查本體契約外退出（薄包裝後的新失效模式:鐵則不得無聲失效）"
+    source: "session-audit.sh A3"
+    observed_by: session-audit
   - id: AUDIT-A4.7
     desc: "上次測試未通過"
     source: "session-audit.sh A4"

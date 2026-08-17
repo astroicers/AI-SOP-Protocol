@@ -144,7 +144,8 @@ fi
 echo "── T9/T10/T11：靜態不變式 ──"
 n=$(grep -c 'PROJECT_DIR=' "$AUDIT" || true)
 [ "$n" = "1" ] && pass "T9 PROJECT_DIR= 僅一處（檔首定義區，未全域改寫）" || fail "T9 PROJECT_DIR= 出現 $n 處（期望 1）"
-grep -E 'for CRITICAL_FILE in' "$AUDIT" | grep -q 'scripts/lib/worktree.sh' \
+_CRIT_BLOCK=$(sed -n '/CRITICAL_FILES=(/,/^[[:space:]]*)/p' "$AUDIT")   # 先存變數:pipefail 下 grep -q 會讓 sed 收 SIGPIPE 而誤判失敗
+grep -q 'scripts/lib/worktree.sh' <<<"$_CRIT_BLOCK" \
   && pass "T10 lib 已納 CRITICAL_FILE 清單（Iron Rule A hash 保護）" \
   || fail "T10 lib 未納 Iron Rule A CRITICAL_FILE 清單"
 n=$(grep -cE '(^|[^A-Z_])SETTINGS_FILE' "$AUDIT" || true)

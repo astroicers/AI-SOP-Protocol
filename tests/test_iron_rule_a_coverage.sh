@@ -15,7 +15,9 @@ ASP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$ASP_ROOT/.asp/hooks/session-audit.sh"
 
 # 擷取 CRITICAL_FILE 迴圈列出的受保護檔
-CRIT=$(grep -oE 'for CRITICAL_FILE in [^;]+' "$HOOK" | head -1)
+# 擷取 CRITICAL_FILES 陣列定義(含續行)——2026-08-18 起清單由陣列 + git ls-tree
+# 動態擴充(.asp/checks/*),故不再以單行 for-loop 形式擷取。
+CRIT=$(sed -n '/CRITICAL_FILES=(/,/^[[:space:]]*)/p' "$HOOK")
 
 echo ""
 echo "T1: Iron Rule A 涵蓋核心 hook 與 deny 清單"
