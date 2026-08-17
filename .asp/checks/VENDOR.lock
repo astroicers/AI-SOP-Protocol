@@ -1,0 +1,7 @@
+# .asp/checks/VENDOR.lock — vendored 檢查本體來源記錄(asp-ng issue #43)
+# 格式:<檔名> <上游 repo> <上游路徑> <sha256>
+# 更新方式:自上游重新 vendoring 後,以 sha256sum 更新對應列;勿就地改檔。
+# 註:test-fresh.sh 為本 repo 自有(P0-5 自 ship-gate hook 抽出),非 vendored,不列入。
+git-guard.sh astroicers/asp-ng .asp/checks/git-guard.sh 1a72604500144798d368f8f349724caa12eba7e3c9203e2b206a3c864693232f
+adr-draft.sh astroicers/asp-ng .asp/checks/adr-draft.sh 609ebd3074d96981e78f8e46b6424c71d29af88e695da0cfffbf20c7c369c1e9
+vendor-verify.sh astroicers/asp-ng .asp/checks/vendor-verify.sh b3e0e175f2992f82f1f4f8081937e382cada4b6b47dafbedd3e38d67ec549432
