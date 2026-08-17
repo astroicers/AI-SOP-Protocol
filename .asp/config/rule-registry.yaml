@@ -75,6 +75,21 @@ rules:
     source: "asp-gate.md"
     observed_by: gate-log
 
+  # ── G5 skill 品質檢查（見 pipeline.md evaluate_G5；來源 skill-quality-research）──
+  - id: GATE-G5-SKILL-HYGIENE
+    enabled_since: "2026-08-17"
+    desc: "Skill hygiene 門檻（H-001 合規 SKILL.md 等 error 級；擋 gate）"
+    source: "skill-reviewer/references/rubric-manual-dimensions.yaml"
+    # observed_by 用 manual 而非 gate-log：rule-stats.sh 第 67 行的 gate-log 聚合只合成
+    # GATE-<G1..G6> 這種頂層 id，無法產生子規則 id，此規則永遠 0 命中，90 天保護到期後
+    # 會誤判為待刪候選。與 -CRAFT 對齊改為 manual。
+    observed_by: manual
+  - id: GATE-G5-SKILL-CRAFT
+    enabled_since: "2026-08-17"
+    desc: "Skill craft 質化判讀（LLM 層，YELLOW_FLAG 不擋 gate）"
+    source: "skill-reviewer/SKILL.md"
+    observed_by: manual
+
   # ── 靜態 deny patterns（denied-commands.json 逐條；方案 A：不可觀測）──
   - id: DENY-01
     desc: "Bash(git push origin main)"

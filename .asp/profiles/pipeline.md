@@ -322,6 +322,46 @@ FUNCTION evaluate_G5(artifacts):
       IF NOT spec.rollback_plan.tested:
         checks.append("⚠️ Rollback Plan 未經測試（建議但不強制）")
 
+  // skill-reviewer：僅當變更觸及 SKILL.md（ADR-033；來源 skill-quality-research）
+  // 設計取捨（尤其「安全紅旗不擋 gate」是刻意的）見 docs/adr/ADR-033-skill-quality-gate-in-g5.md
+  IF artifacts.changed_files MATCHES "**/SKILL.md":
+    // 傳入變更集 → lint 切換為 change-scoped 判定，severity 由它一次決定。
+    // 本 profile 不重新編碼「什麼該擋」的政策——canonical 是 skill-reviewer 的
+    // references/rubric-manual-dimensions.yaml（ADR-031：同一意義兩處編碼會 drift）。
+    lint = EXECUTE("python3 ~/.claude/skills/skill-reviewer/scripts/lint_skill.py {repo_root} \
+                    --changed-files {join(artifacts.changed_files, ',')} --json")
+
+    IF lint.exit_code != 0 OR NOT is_valid_json(lint.stdout):
+      YELLOW_FLAG("skill-reviewer 未安裝或執行失敗，跳過 skill 檢查（不擋 gate）")
+    ELSE:
+      // 擋 gate：hygiene error 級。H-005（逐檔合規）在 change-scoped 下，若本次變更改壞了
+      // SKILL.md，lint 已標為 error，故此一條即涵蓋——不需在此重算交集。
+      FOR h IN lint.hygiene WHERE h.severity == "error" AND h.pass == false:
+        issues.append("Skill hygiene 未過：{h.id} {h.detail}")
+
+      // 既有不合規檔（非本次變更）lint 標 warning，落此分支 → 提醒但不擋
+      FOR h IN lint.hygiene WHERE h.severity == "warning" AND h.pass == false:
+        YELLOW_FLAG("Skill hygiene 提醒：{h.id} {h.detail}")
+
+      // 不擋：安全紅旗靜態偵測有假陽性，降 YELLOW_FLAG 交人複核
+      // 排除 polarity==positive（防禦樣態，無 confidence 欄位）；medium 假陽性率最低，措辭加重
+      FOR s IN lint.security WHERE s.polarity != "positive":
+        IF s.confidence == "medium":
+          YELLOW_FLAG("Skill 安全紅旗（較高信心，優先複核）：{s.id}/{s.flag}")
+        ELSE:
+          YELLOW_FLAG("Skill 安全紅旗待複核（靜態偵測，假陽性率高）：{s.id}/{s.flag}")
+
+      // craft：由 Gate Checker 的 LLM 判讀層處理（見 CONTEXT.md「Gate Checker」）。
+      // 注意：skill-reviewer 是 Gate Checker 不是 team role——**無 team 守衛**，
+      // 不要比照 sec_agent 加 IF "..." IN current_team，那會讓它永遠不執行。
+      // 執行者：載入 ~/.claude/skills/skill-reviewer/SKILL.md，照其步驟 3–5
+      //（判 skill 形狀 → craft 四維度 → 安全複核）對 changed_skills 判讀。
+      skill_verdict = INVOKE_SKILL("skill-reviewer", scope=artifacts.changed_skills)
+      IF skill_verdict.craft == "needs-revision":
+        YELLOW_FLAG("Skill craft 待修：{skill_verdict.gap_list}")   // 判斷不是事實，不擋 gate
+
+      checks.append("Skill packaging 剖面：{lint.tier_benchmark_packaging}（僅 packaging 面，非總評）")
+
   IF issues:
     RETURN GATE_FAIL(issues)
 

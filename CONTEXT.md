@@ -68,6 +68,12 @@
 **定義：** ASP pipeline 的六個品質門檻檢查點，由 `asp-gate` skill 執行；G1=ADR、G2=SPEC 完整性、G3=測試先行、G4=實作通過、G5=安全審查、G6=部署就緒。
 **避免使用：** [Checkpoint, 關卡, 審查點]（Gate 特指 G1-G6 這六個固定門檻）
 
+### Gate Checker（門檻檢查器）
+**English:** Gate Checker
+**定義：** 被 gate pseudocode 直接呼叫、以 **skill** 形式實作的檢查器（如 `skill-reviewer`）。與 team role agent（`qa_agent`、`sec_agent`）的差異：**不需要在 `current_team` 內、無 team 守衛**，gate 一到條件就呼叫；執行者以 `INVOKE_SKILL(...)` 載入該 skill 的 SKILL.md 並照其流程執行。判準的 canonical 在該 skill 自己的 references，gate 只消費結果、不得重新編碼政策（ADR-031）。
+**避免使用：** [agent, 子代理]（Gate Checker 不是 team role,寫成 agent 會讓執行者去找不存在的 team 成員）、[lint]（lint 只是它的 script 層,Gate Checker 通常含 LLM 判讀層）
+**相關：** ADR-033（首例：G5 呼叫 skill-reviewer）、ADR-031（canonical 單一化約束）
+
 ### HITL（Human-in-the-Loop）
 **English:** Human-in-the-Loop
 **定義：** ASP 鐵則之一：破壞性操作（`git push`、`rm -rf` 等）必須先列出變更並等待人類確認才能執行。
