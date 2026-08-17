@@ -11,3 +11,12 @@ checks:
     severity: blocker
     origin: "pretooluse-ship-gate.sh 檢查本體(SPEC-013/ADR-020)"
     notes: "腳本 .asp/checks/test-fresh.sh;由 hook 以 ASP_GATE_HOME 錨定呼叫"
+
+  - id: vendor-verify
+    layer: gate
+    tool: builtin-script
+    args:
+      inputs: "env:ASP_GATE_PROJ 的 .asp/checks/VENDOR.lock;無 lock→skip 200"
+    severity: blocker
+    origin: "asp-ng issue #43:vendored 檢查本體與上游對帳(本 repo 為消費端)"
+    notes: "本地竄改偵測;上游同步偵測待 asp-ng 轉 public 後以 raw 比對(#43 第二段)"
