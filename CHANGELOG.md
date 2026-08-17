@@ -13,6 +13,23 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **G5 證據誠實原則:三態 checks(issue #101)**。實測發現
+  「檢查通過」與「無物可檢」在 gate evidence 裡長得一模一樣——一個**零測試**的 repo
+  拿到跟「測試齊全且未被竄改」相同的 `偷渡偵測通過 ✅`;`QA 獨立驗證通過 ✅` 同理。
+  gate evidence 是人類用來判斷該不該信任這道 gate 的紀錄,兩者混同會讓紀錄說謊。
+  - `checks` 改為三態:`passed` / `not-applicable` / `skipped`。
+    **不改變任何 gate 的通過與否**,只改標示——與 A18「寧漏報不誤報」的 fail-open 家規一致。
+  - `qa_agent.independent_verify` 補上 contract:有 SPEC 逐條驗 Done When;
+    無 SPEC 時驗「變更是否符合自述意圖 + 無 scope 外殘留」並標 `not-applicable`。
+    **刻意不加「無 SPEC → FAIL」**:`CLAUDE.md:64` 明列「輕量改動可跳 G1-G6 重 gate,
+    但獨立審查不可省」——無 SPEC 到達 G5 是**框架自己文件化的路徑**,擋掉會打斷它。
+  - hygiene 豁免項(`severity: info` / `pass: null`)原本兩個 FOR 都不進而靜默消失,
+    現記進 `checks`(#101 ⑤)。
+  - 明訂 `artifacts.changed_skills` 是 **SKILL.md 檔路徑**而非 skill 目錄(#101 ⑥)。
+  - 來源:一次「不知情執行者」的 G5 實測——只給 `pipeline.md` 與變更集、不提
+    skill-reviewer 也不提 ADR-033,它自己走到 `INVOKE_SKILL` 並照其步驟判讀。
+    **這同時為 ADR-033 成功指標表中唯一標「未驗證」的 craft 路徑提供了證據**
+    (建構情境,非生產觸發)。
 
 - **G5 定義 drift 收斂(issue #98)**:`CONTEXT.md:68` 與 `GLOSSARY.md:15` 把第 5 道 gate
   寫成「安全(審查)」,但 `pipeline.md:271` / `rule-registry.yaml:69` / `CLAUDE.md:58`

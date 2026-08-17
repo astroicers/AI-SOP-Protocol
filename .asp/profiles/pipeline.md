@@ -275,10 +275,14 @@ FUNCTION evaluate_G5(artifacts):
   checks = []
   issues = []
 
-  // QA 獨立驗證
+  // QA 獨立驗證。**三態**：passed / not-applicable / skipped —— 見本節末「證據誠實原則」。
+  // 有 SPEC 時逐條驗 Done When;無 SPEC 時(CLAUDE.md 明列的輕量改動路徑,
+  // 「可跳 G1-G6 重 gate 但獨立審查不可省」)驗「變更是否符合其自述意圖 + 無 scope 外殘留」。
+  // ⚠️ 不得因「無 SPEC」而 FAIL——那會打斷框架自己文件化的輕量路徑。
   qa_verdict = qa_agent.independent_verify(artifacts)
   IF qa_verdict.status == "QA_FAIL":
     issues.append("QA 獨立驗證失敗：{qa_verdict.evidence}")
+  qa_state = "passed" IF artifacts.spec ELSE "not-applicable（無 SPEC，退化為意圖一致性檢查）"
 
   // Security 審查
   IF "sec" IN current_team:
@@ -295,9 +299,11 @@ FUNCTION evaluate_G5(artifacts):
         new_warnings = lint_result.warning_count - artifacts.baseline.lint_warning_count
         issues.append("新增 {new_warnings} 個 lint warning")
 
-  // 偷渡偵測
+  // 偷渡偵測。**三態**：無 checksum 或 repo 內無測試檔時是 not-applicable，不是 passed。
   IF test_checksums_changed(artifacts.original_checksums, artifacts.current_checksums):
     issues.append("測試檔案 checksum 已變更（偷渡風險）")
+  smuggle_state = "passed" IF (artifacts.original_checksums AND artifacts.current_checksums) \
+                  ELSE "not-applicable（無 checksum 可比對）"
 
   // 全專案 grep（global_core.md 鐵則：Bug 修復後無豁免）
   IF artifacts.task_type == "BUGFIX":
@@ -343,6 +349,11 @@ FUNCTION evaluate_G5(artifacts):
       FOR h IN lint.hygiene WHERE h.severity == "warning" AND h.pass == false:
         YELLOW_FLAG("Skill hygiene 提醒：{h.id} {h.detail}")
 
+      // 豁免項（severity == "info"、pass == null）兩個迴圈都不進，會靜默消失。
+      // 記進 checks 而非 flag——豁免本就不該吵，但不該看不見（#101 第 ⑤ 項）。
+      FOR h IN lint.hygiene WHERE h.severity == "info":
+        checks.append("Skill hygiene {h.id}：not-applicable（豁免條款成立）")
+
       // 不擋：安全紅旗靜態偵測有假陽性，降 YELLOW_FLAG 交人複核
       // 排除 polarity==positive（防禦樣態，無 confidence 欄位）；medium 假陽性率最低，措辭加重
       FOR s IN lint.security WHERE s.polarity != "positive":
@@ -356,6 +367,9 @@ FUNCTION evaluate_G5(artifacts):
       // 不要比照 sec_agent 加 IF "..." IN current_team，那會讓它永遠不執行。
       // 執行者：載入 ~/.claude/skills/skill-reviewer/SKILL.md，照其步驟 3–5
       //（判 skill 形狀 → craft 四維度 → 安全複核）對 changed_skills 判讀。
+      // artifacts.changed_skills = 本次變更觸及的 **SKILL.md 檔路徑**（與 changed_files 同粒度），
+      // 不是 skill 目錄。質化審讀以那些檔案為準；同目錄下的 references/ 只在該 SKILL.md
+      // 明確引用時才一併讀（#101 第 ⑥ 項）。
       skill_verdict = INVOKE_SKILL("skill-reviewer", scope=artifacts.changed_skills)
       IF skill_verdict.craft == "needs-revision":
         YELLOW_FLAG("Skill craft 待修：{skill_verdict.gap_list}")   // 判斷不是事實，不擋 gate
@@ -365,10 +379,17 @@ FUNCTION evaluate_G5(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
-  checks.append("QA 獨立驗證通過 ✅")
+  // 證據誠實原則(2026-08-18,issue #101):**「檢查通過」與「無物可檢」不得長得一樣。**
+  // 實測:一個零測試的 repo 拿到跟「測試齊全且未被竄改」一模一樣的綠勾。
+  // gate evidence 是人類用來判斷該不該信任這道 gate 的紀錄——兩者混同會讓紀錄說謊。
+  // 本改動**不改變任何 gate 的通過與否**,只改標示。與 A18「寧漏報不誤報」的 fail-open
+  // 家規一致:誠實標示,不是加擋。
+  checks.append("QA 獨立驗證：{qa_state}")
   IF "sec" IN current_team:
     checks.append("安全審查 clear ✅")
-  checks.append("偷渡偵測通過 ✅")
+  ELSE:
+    checks.append("安全審查：skipped（\"sec\" 不在 current_team）")
+  checks.append("偷渡偵測：{smuggle_state}")
 
   // Reality Checker 否決權
   IF "reality" IN current_team:
