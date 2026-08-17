@@ -1,9 +1,9 @@
-<!-- Last Updated: 2026-08-17 | Status: FIRM | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-08-17 | Status: Accepted | Audience: ASP framework maintainers -->
 # [ADR-033]: 把 skill 品質檢查掛入 G5,判準外部化到 skill-reviewer rubric
 
 | 欄位 | 內容 |
 |------|------|
-| **狀態** | `FIRM` |
+| **狀態** | `Accepted` |
 | **日期** | 2026-08-17 |
 | **決策者** | ASP framework maintainers |
 | **觸發事件** | ASP 有 G1–G6 完整管線,但**沒有任何 gate 檢查 skill 本身的品質**——新增或修改 SKILL.md 時,無論 frontmatter 是否合規、是否含安全紅旗,都能無阻通過 G5 |
@@ -13,6 +13,18 @@
 >
 > **本 ADR 以 FIRM 起始的理由**:實作與驗證已於 PR #94 完成(見下方 Verification Evidence),
 > 符合 ADR-031 的先例——先以 FIRM 允許 POC commit,人類看完證據後再直升 Accepted。
+>
+> ⬆️ **由 `FIRM` 升 `Accepted`**:使用者 2026-08-17 透過 `/asp:approve-adr 033` 呼叫、
+> 看完本指令摘要的決策(D1 擋/不擋分界、D2 canonical 單一化、D3 Gate Checker 術語、
+> D4 observed_by manual)與 Verification Evidence(5 個 eval 案例實跑、H-005 三情境、
+> 誤報率 1/54、3 個已發布 repo 實戰、ADR-022 複雜度未觸發)後明確同意
+> (人類顯式授權,非 AI 自行升級,符合 ADR 狀態變更鐵則)。
+>
+> ⚠️ **升級當下的例外情形(如實記錄)**:原訂 Accepted 條件含「至少一次真實 G5 觸發的
+> 觀察結果」,**該觸發於升級當下尚未發生**。使用者選擇**先修訂條件再升級**——
+> 判定原條件混淆了「設計決策的證據」與「執行期行為的觀察」,前者已充分、後者改列為
+> 持續追蹤的已知殘留風險(修訂理由詳見文末 Verification Evidence 節)。
+> **craft 路徑至本次升級為止仍未經真實執行驗證。**
 
 ---
 
@@ -227,5 +239,16 @@ ADR-031 的教訓是「兩處編碼會 drift」,但它同時示範了正確解�
   未定義的 team role)改為明確指令 + Gate Checker 術語,但「指令明確」不等於「執行者會照做」——
   這是 merge 前無法驗證的殘留風險。
 
-> **升 Accepted 的條件**:人類看完上述證據 + 至少一次真實 G5 觸發的觀察結果後,
+> **升 Accepted 的條件(2026-08-17 修訂)**:人類看完上述 **lint 層驗證證據**後,
 > 以 `/asp:approve-adr 033` 顯式授權(非 AI 自行升級)。
+>
+> **原條件與修訂理由**:原訂條件為「上述證據 **+ 至少一次真實 G5 觸發的觀察結果**」。
+> 修訂原因是原條件**混淆了兩件不同的事**——
+> (a) **設計決策的證據**:掛哪個 gate、什麼該擋什麼不該擋、canonical 放哪裡。
+>     這些已由 5 個 eval 案例、54 樣本回歸、3 個已發布 repo 實戰充分支撐,是本 ADR 的實質內容。
+> (b) **執行期行為的觀察**:執行者讀到 `INVOKE_SKILL(...)` 會不會照做。
+>     這是**運維面**的持續追蹤項,不是設計決策的成立前提。
+>
+> 本 ADR 採納的是 (a);(b) 維持為**已知殘留風險**,由「後續追蹤」第 1 項與成功指標的
+> 「craft 路徑可運作 = 未驗證」列繼續追蹤。若日後證實執行者不照 pseudocode 觸發
+> skill-reviewer,依「何時該重新評估」重啟本 ADR。
