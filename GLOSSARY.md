@@ -12,7 +12,7 @@
 | ASP | AI-SOP-Protocol | 給 AI coding agent 的行為憲法 + 機械護欄框架 |
 | ADR | Architecture Decision Record | 架構決策記錄；`Draft` 狀態下 `git commit` 被動態阻擋 |
 | SPEC | Software Design Specification | 任務級七欄位設計文件，G2 核心產物 |
-| G1-G6 | Quality Gate 1-6 | ADR→SPEC→測試先行→實作→安全→部署 六道品質門 |
+| G1-G6 | Quality Gate 1-6 | ADR→SPEC→測試先行→實作→驗證→部署 六道品質門 |
 | HITL | Human-in-the-Loop | 破壞性操作必須人類確認的鐵則 |
 | L0-L5 | Maturity Level 0-5 | 舊六級成熟度，v5 收斂為 loose / standard / autonomous |
 | SRS / SDS | Software Requirements / Design Spec | Autopilot 前置文件體系 |
