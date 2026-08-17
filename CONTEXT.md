@@ -65,8 +65,9 @@
 
 ### Gate（G1-G6）
 **English:** Quality Gate (G1-G6)
-**定義：** ASP pipeline 的六個品質門檻檢查點，由 `asp-gate` skill 執行；G1=ADR、G2=SPEC 完整性、G3=測試先行、G4=實作通過、G5=安全審查、G6=部署就緒。
-**避免使用：** [Checkpoint, 關卡, 審查點]（Gate 特指 G1-G6 這六個固定門檻）
+**定義：** ASP pipeline 的六個品質門檻檢查點，由 `asp-gate` skill 執行；G1=ADR、G2=SPEC 完整性、G3=測試先行、G4=實作通過、G5=驗證、G6=部署就緒。
+**權威來源：** 上列只是助記；**每道 gate 的確切檢查項與判定條件以 [`.asp/profiles/pipeline.md`](.asp/profiles/pipeline.md) 的 `### G1`–`### G6` 小節為準**，兩處衝突時以 pipeline 為準（ADR-031 canonical 單一化）。G5 曾在此處寫成「安全審查」，而 pipeline 實作的是 Verification Gate（含安全審查、G5.5 Cross-Component Parity、skill 品質檢查）——安全審查只是其中一項，不是 G5 的全部。
+**避免使用：** [Checkpoint, 關卡, 審查點]（Gate 特指 G1-G6 這六個固定門檻）、[G5=安全審查]（G5 是驗證，安全審查只是它的子項）
 
 ### Gate Checker（門檻檢查器）
 **English:** Gate Checker

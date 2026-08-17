@@ -196,6 +196,13 @@ ADR-031 的教訓是「兩處編碼會 drift」,但它同時示範了正確解�
 **建議後續**:另開 issue 收斂 G5 定義(canonical 建議取 `pipeline.md`,
 `GLOSSARY`/`CONTEXT` 改為「驗證/HARDEN(含安全審查)」)。
 
+> ✅ **已收斂(2026-08-17,issue #98)**:依上述建議執行——`CONTEXT.md:68` 與
+> `GLOSSARY.md:15` 的第 5 道 gate 由「安全(審查)」改為「驗證」,並在 CONTEXT 的
+> Gate 詞條加上**權威來源**宣告:每道 gate 的確切範圍以 `.asp/profiles/pipeline.md`
+> 為準(ADR-031)。逐項比對確認**只有 G5 語意不符**,G1–G4/G6 兩處說法相容,零丟失。
+> `docs/multi-agent-architecture.md:182` 原本就寫「G5: Verification Gate|獨立 QA +
+> 安全審查 + 偷渡檢查」,無需改動。本節作為歷史紀錄保留,**決策本身未變更**。
+
 ---
 
 ## 關聯(Relations)
