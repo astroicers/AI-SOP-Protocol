@@ -306,29 +306,23 @@ fi
 # ═══════════════════════════════════════════
 DRAFT_ADRS=()
 FIRM_ADRS=()
-ADR_DIR=""
-for dir in "$PROJECT_DIR/docs/adr" "$PROJECT_DIR/docs/ADR" "$PROJECT_DIR/adr"; do
-    [ -d "$dir" ] && ADR_DIR="$dir" && break
-done
 
-if [ -n "$ADR_DIR" ]; then
-    while IFS= read -r adr_file; do
-        [ -f "$adr_file" ] || continue
-        # TD-004: anchor on the canonical 狀態/Status LABEL cell, then match the
-        # status word anywhere in the VALUE cell — regardless of backticks, bold,
-        # or in-cell annotations like （待確認）. This repo mixes formats:
-        # `| **狀態** | `Draft` |`, `| **狀態** | Draft |` (no backticks, as in
-        # SPEC-001/SPEC-004), and annotated `| **狀態** | `Draft`（待確認） |` all
-        # denote a real status — a too-strict regex would let a genuinely-Draft ADR
-        # bypass the commit BLOCKER. The label anchor keeps body prose out: the
-        # status legend line `Draft`→`FIRM`→`Accepted` and a `驗證摘要` cell that
-        # merely mentions `Draft` are NOT matched (their label cell is not 狀態).
-        if grep -qiE "\|[[:space:]]*\*{0,2}(狀態|Status)\*{0,2}[[:space:]]*\|[^|]*\bDraft\b" "$adr_file" 2>/dev/null; then
-            DRAFT_ADRS+=("$(basename "$adr_file")")
-        elif grep -qiE "\|[[:space:]]*\*{0,2}(狀態|Status)\*{0,2}[[:space:]]*\|[^|]*\bFIRM\b" "$adr_file" 2>/dev/null; then
-            FIRM_ADRS+=("$(basename "$adr_file")")
-        fi
-    done < <(find "$ADR_DIR" -name "ADR-*.md" -o -name "adr-*.md" 2>/dev/null)
+# 檢查本體:asp-ng 單一事實源 .asp/checks/adr-draft.sh（asp-ng issue #32 S8a）——
+# TD-004 label-cell 錨定 regex 逐行遷出,另加 blockquote 狀態格式(超集,v4 原為表格限定)。
+# 契約:stdout「❌ Draft ADR:<檔名> — …」/「⚠️  FIRM ADR:<檔名> — …」;exit 200＝無 ADR 目錄。
+# 腳本以 hook 自身位置錨定(plugin 安裝時 ASP 家目錄 ≠ 受檢專案),受檢目錄以 argv 傳入。
+_ASP_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
+_ADR_CHECK="$_ASP_HOME/.asp/checks/adr-draft.sh"
+if [ -f "$_ADR_CHECK" ]; then
+    while IFS= read -r _line; do
+        case "$_line" in
+            *"Draft ADR:"*) _f="${_line#*Draft ADR:}"; DRAFT_ADRS+=("${_f%% —*}") ;;
+            *"FIRM ADR:"*)  _f="${_line#*FIRM ADR:}";  FIRM_ADRS+=("${_f%% —*}") ;;
+        esac
+    done < <(bash "$_ADR_CHECK" "$PROJECT_DIR" 2>/dev/null)
+else
+    # 檢查本體缺(部分安裝/舊 checkout)→ fail-open + 明示警告(不靜默失效鐵則)
+    WARNINGS+=("A3: 檢查本體缺($_ADR_CHECK)——Draft ADR 掃描本次未執行")
 fi
 
 if [ ${#DRAFT_ADRS[@]} -gt 0 ]; then
