@@ -65,7 +65,7 @@ packaging 全部 0–5/14 卻 craft 全部 approved,實證了這一點。
 
 ## 決策(Decision)
 
-**選擇選項 A**,並附三個關鍵設計決定:
+**選擇選項 A**,並附四個關鍵設計決定:
 
 ### D1. 只有 hygiene error 擋 gate;安全紅旗與 craft 一律 YELLOW_FLAG 不擋
 
@@ -94,7 +94,19 @@ pipeline 只消費 `lint.hygiene[].severity`。
 初版曾在 pipeline 內自行取交集判擋不擋,經 grill-with-docs 對照 ADR-031 發現
 那與 rubric 形成雙重編碼(同一政策兩處),已修正。
 
-### D3. rule-registry 兩條規則皆 `observed_by: manual`
+### D3. `skill-reviewer` 是 Gate Checker,不是 team role
+
+pseudocode 原寫 `skill_reviewer.review(...)`,但 `skill_reviewer` 既不符合 GLOSSARY 的
+`Skill` 定義(`/skill-name` 觸發),也不是 team role(`qa_agent`/`sec_agent` 有
+`IF "sec" IN current_team` 守衛且在 `team_compositions.yaml` 有定義,它沒有)。
+執行者可能誤解為「未定義的 team 成員」而跳過。
+
+新增術語 **Gate Checker**(CONTEXT.md canonical + GLOSSARY 一句話):
+被 gate 呼叫、以 skill 形式實作的檢查器,**無 team 守衛**。
+呼叫改寫為 `INVOKE_SKILL("skill-reviewer", scope=...)` 並在註解寫明執行者該做什麼
+(載入哪個 SKILL.md、跑哪幾步)。
+
+### D4. rule-registry 兩條規則皆 `observed_by: manual`
 
 `rule-stats.sh:7` 定義待刪候選為「零命中 ∧ 非 exempt ∧ `observed_by ∉ {none, manual}`」。
 子規則(`GATE-G5-SKILL-*`)無法被 gate-log 聚合產生(該聚合只合成 `GATE-<G1..G6>` 頂層 id),
@@ -113,8 +125,9 @@ pipeline 只消費 `lint.hygiene[].severity`。
 **負面影響 / 技術債:**
 - **跨 repo 依賴**:ASP 的 G5 依賴 `~/.claude/skills/skill-reviewer/`(來自另一個 repo)。
   緩解:未安裝時走降級路徑(YELLOW_FLAG,不擋),過渡期安全
-- **craft 那條路徑無法在 merge 前驗證**:`skill_reviewer.review()` 是 agent 呼叫,
-  要等真實 G5 HARDEN 跑起來才知道執行者是否照預期解讀。已驗證的只有 lint 層
+- **craft 那條路徑無法在 merge 前驗證**:`INVOKE_SKILL("skill-reviewer", ...)` 要等真實
+  G5 HARDEN 跑起來,才知道執行者是否照註解載入並執行該 skill。已驗證的只有 lint 層。
+  D3 的術語與明確指令降低了誤解風險,但無法消除「執行者會不會照做」的不確定性
 - **H-001 的 repo 級盲點**:H-001 問「repo 內 ≥1 合規」,單獨無法抓「已有好 skill 的
   repo 新增一個壞的」。已由 H-005(逐檔合規 + change-scoped 交集)補上
 - `REDFLAG_SELF_UPDATE` 等 regex 仍可能產生 flag 疲勞,需依實際使用調整
@@ -148,7 +161,7 @@ pipeline 只消費 `lint.hygiene[].severity`。
 - 被取代:(無)
 - 參考:ADR-031(雙重編碼治理,約束本 ADR 的 D2)、ADR-030(借入外部方法論的先例)、
   ADR-022(複雜度預算:本次 `profiles.total_lines` 3670 < baseline 5177,未觸發棘輪)、
-  ADR-018(規則存留治理:D3 的依據)
+  ADR-018(規則存留治理:D4 的依據)
 
 ---
 
@@ -178,10 +191,10 @@ pipeline 只消費 `lint.hygiene[].severity`。
    `bash -n install.sh` 通過;diff 除版本字串外全為新增;6 個 gate 函式結構未動
 
 **未驗證(誠實記錄):**
-- `skill_reviewer.review()` 這條 craft 路徑**從未真正執行過**。本質上要等一次真實的
-  G5 HARDEN 才知道執行者是否照 pseudocode 觸發 skill-reviewer。
-  `qa_agent`/`sec_agent` 有 team role 定義撐著,`skill_reviewer` 在 ASP 內無對應定義,
-  執行者需自行推論「去跑 /skill-reviewer」。
+- craft 路徑(`INVOKE_SKILL("skill-reviewer", ...)`)**從未真正執行過**。要等一次真實的
+  G5 HARDEN 才知道執行者是否照做。D3 已把原本的 `skill_reviewer.review()`(易被誤解為
+  未定義的 team role)改為明確指令 + Gate Checker 術語,但「指令明確」不等於「執行者會照做」——
+  這是 merge 前無法驗證的殘留風險。
 
 > **升 Accepted 的條件**:人類看完上述證據 + 至少一次真實 G5 觸發的觀察結果後,
 > 以 `/asp:approve-adr 033` 顯式授權(非 AI 自行升級)。

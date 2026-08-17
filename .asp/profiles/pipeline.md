@@ -351,10 +351,14 @@ FUNCTION evaluate_G5(artifacts):
         ELSE:
           YELLOW_FLAG("Skill 安全紅旗待複核（靜態偵測，假陽性率高）：{s.id}/{s.flag}")
 
-      // craft：比照 qa_agent，由 LLM 層判讀；判斷不是事實，不擋 gate
-      skill_verdict = skill_reviewer.review(artifacts.changed_skills)
+      // craft：由 Gate Checker 的 LLM 判讀層處理（見 CONTEXT.md「Gate Checker」）。
+      // 注意：skill-reviewer 是 Gate Checker 不是 team role——**無 team 守衛**，
+      // 不要比照 sec_agent 加 IF "..." IN current_team，那會讓它永遠不執行。
+      // 執行者：載入 ~/.claude/skills/skill-reviewer/SKILL.md，照其步驟 3–5
+      //（判 skill 形狀 → craft 四維度 → 安全複核）對 changed_skills 判讀。
+      skill_verdict = INVOKE_SKILL("skill-reviewer", scope=artifacts.changed_skills)
       IF skill_verdict.craft == "needs-revision":
-        YELLOW_FLAG("Skill craft 待修：{skill_verdict.gap_list}")
+        YELLOW_FLAG("Skill craft 待修：{skill_verdict.gap_list}")   // 判斷不是事實，不擋 gate
 
       checks.append("Skill packaging 剖面：{lint.tier_benchmark_packaging}（僅 packaging 面，非總評）")
 

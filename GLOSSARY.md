@@ -27,6 +27,7 @@
 | Profile | Behavioral Specification File | 載入 context 的行為規格 `.md`，定義 AI 在某場景的預設行為 |
 | Skill | Structured Command Workflow | `/skill-name` 觸發的結構化指令集 |
 | Gate | Quality Gate | G1-G6 的品質門檻檢查 |
+| Gate Checker | Gate Checker | 被 gate 呼叫、以 skill 形式實作的檢查器；非 team role，無 team 守衛（ADR-033） |
 | Session Briefing | Session Briefing | SessionStart 自動產生的 BLOCKER / WARNING JSON |
 | Bypass Log | Bypass Log | append-only skip 記錄；同步驟累計 3 次觸發 BLOCKER |
 | Dynamic Deny List | Dynamic Deny List | 依專案狀態動態注入 settings 的 `deny` 清單 |
