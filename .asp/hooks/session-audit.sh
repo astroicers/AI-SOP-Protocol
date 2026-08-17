@@ -58,7 +58,18 @@ asp_metric() { # $1=rule_id  $2=action(blocker|warn|info|deny-inject)
 # Iron Rule A: Hook Integrity Verification
 # ═══════════════════════════════════════════
 if git -C "${PROJECT_DIR}" rev-parse --git-dir &>/dev/null; then
-    for CRITICAL_FILE in ".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" ".asp/scripts/bypass-hash.sh" ".asp/hooks/pretooluse-ship-gate.sh" ".asp/hooks/pretooluse-git-guardrails.sh" ".asp/scripts/lib/worktree.sh"; do
+    CRITICAL_FILES=(".asp/hooks/denied-commands.json" ".asp/hooks/session-audit.sh" \
+                    ".asp/scripts/bypass-hash.sh" ".asp/hooks/pretooluse-ship-gate.sh" \
+                    ".asp/hooks/pretooluse-git-guardrails.sh" ".asp/scripts/lib/worktree.sh" \
+                    ".asp/gate.sh")
+    # 檢查本體同受保護(asp-ng#32 薄包裝的必要補強):判定邏輯自 hook 移出後,
+    # 若不納入即出現「看守者的看守者」缺口——把 .asp/checks/git-guard.sh 換成
+    # `exit 0` 可無聲關閉護欄,hook 自身 hash 不變、本規則零告警(2026-08-18 實測)。
+    # 自 git HEAD 列舉而非 glob 工作區:刪檔亦須被偵測(glob 看不到已刪的檔)。
+    while IFS= read -r _cf; do
+        [ -n "$_cf" ] && CRITICAL_FILES+=("$_cf")
+    done < <(git -C "${PROJECT_DIR}" ls-tree --name-only HEAD .asp/checks/ 2>/dev/null)
+    for CRITICAL_FILE in "${CRITICAL_FILES[@]}"; do
         if git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" &>/dev/null 2>&1; then
             CURRENT_HASH=$(sha256sum "${PROJECT_DIR}/${CRITICAL_FILE}" 2>/dev/null | cut -d' ' -f1)
             GIT_HASH=$(git -C "${PROJECT_DIR}" show "HEAD:${CRITICAL_FILE}" 2>/dev/null | sha256sum | cut -d' ' -f1)
@@ -314,12 +325,20 @@ FIRM_ADRS=()
 _ASP_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
 _ADR_CHECK="$_ASP_HOME/.asp/checks/adr-draft.sh"
 if [ -f "$_ADR_CHECK" ]; then
+    _ADR_OUT=$(bash "$_ADR_CHECK" "$PROJECT_DIR" 2>&1); _ADR_RC=$?
+    case "$_ADR_RC" in
+        0|1|200) ;;   # 契約內:0=無 Draft、1=有 Draft、200=無 ADR 目錄
+        *)            # 契約外＝檢查本體壞了;鐵則不得無聲失效
+           WARNINGS+=("A3: 檢查本體異常退出(exit $_ADR_RC)——Draft ADR 掃描本次未生效")
+           asp_metric "AUDIT-A3-BROKEN" "warn" ;;
+    esac
     while IFS= read -r _line; do
         case "$_line" in
-            *"Draft ADR:"*) _f="${_line#*Draft ADR:}"; DRAFT_ADRS+=("${_f%% —*}") ;;
-            *"FIRM ADR:"*)  _f="${_line#*FIRM ADR:}";  FIRM_ADRS+=("${_f%% —*}") ;;
+            # 取「ADR:」之後至行末的檔名——em-dash 後為說明文字,以最後一個 " — " 切
+            *"Draft ADR:"*) _f="${_line#*Draft ADR:}"; DRAFT_ADRS+=("${_f% —*}") ;;
+            *"FIRM ADR:"*)  _f="${_line#*FIRM ADR:}";  FIRM_ADRS+=("${_f% —*}") ;;
         esac
-    done < <(bash "$_ADR_CHECK" "$PROJECT_DIR" 2>/dev/null)
+    done <<< "$_ADR_OUT"
 else
     # 檢查本體缺(部分安裝/舊 checkout)→ fail-open + 明示警告(不靜默失效鐵則)
     WARNINGS+=("A3: 檢查本體缺($_ADR_CHECK)——Draft ADR 掃描本次未執行")
