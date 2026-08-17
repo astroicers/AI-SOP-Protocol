@@ -322,7 +322,8 @@ FUNCTION evaluate_G5(artifacts):
       IF NOT spec.rollback_plan.tested:
         checks.append("⚠️ Rollback Plan 未經測試（建議但不強制）")
 
-  // skill-reviewer：僅當變更觸及 SKILL.md（來源 skill-quality-research）
+  // skill-reviewer：僅當變更觸及 SKILL.md（ADR-033；來源 skill-quality-research）
+  // 設計取捨（尤其「安全紅旗不擋 gate」是刻意的）見 docs/adr/ADR-033-skill-quality-gate-in-g5.md
   IF artifacts.changed_files MATCHES "**/SKILL.md":
     // 傳入變更集 → lint 切換為 change-scoped 判定，severity 由它一次決定。
     // 本 profile 不重新編碼「什麼該擋」的政策——canonical 是 skill-reviewer 的

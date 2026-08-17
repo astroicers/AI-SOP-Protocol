@@ -6,7 +6,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 
 ### Added
 
-- **G5 掛入 skill-reviewer——skill 品質成為 pipeline 的一部分**：`pipeline.md` 的 `evaluate_G5` 新增條件子句，僅當本次變更觸及 `**/SKILL.md` 時觸發（不觸及則整段跳過，對絕大多數任務零成本）。分層處置：hygiene error 級進 `issues`（擋 gate，確定性判定無假陽性）；安全紅旗一律 `YELLOW_FLAG` 不擋（靜態 regex 有實證假陽性，`confidence: medium` 者措辭加重優先複核，`polarity: positive` 的防禦樣態排除不當紅旗）；craft 走 `skill_reviewer.review()` agent 呼叫（與既有 `qa_agent.independent_verify()` 同形），判斷不是事實故只 `YELLOW_FLAG`。工具缺席/JSON 非法一律降級 `YELLOW_FLAG`，不阻斷他人管線。
+- **ADR-033 — G5 掛入 skill-reviewer,skill 品質成為 pipeline 的一部分**(FIRM,待人類看驗證證據後升 Accepted)：`pipeline.md` 的 `evaluate_G5` 新增條件子句，僅當本次變更觸及 `**/SKILL.md` 時觸發（不觸及則整段跳過，對絕大多數任務零成本）。分層處置：hygiene error 級進 `issues`（擋 gate，確定性判定無假陽性）；安全紅旗一律 `YELLOW_FLAG` 不擋（靜態 regex 有實證假陽性，`confidence: medium` 者措辭加重優先複核，`polarity: positive` 的防禦樣態排除不當紅旗）；craft 走 `skill_reviewer.review()` agent 呼叫（與既有 `qa_agent.independent_verify()` 同形），判斷不是事實故只 `YELLOW_FLAG`。工具缺席/JSON 非法一律降級 `YELLOW_FLAG`，不阻斷他人管線。
   - `rule-registry.yaml` 登記 `GATE-G5-SKILL-HYGIENE` / `GATE-G5-SKILL-CRAFT`，兩者 `observed_by: manual`（gate-log 聚合只合成 `GATE-<G1..G6>` 頂層 id，子規則走 gate-log 會恆零命中而誤判為待刪候選）。
   - 依據：外部研究 skill-quality-research（97 repos 星數梯度分析，三道 HITL gate approved）。其核心結論「星數關聯的是可安裝/可發現的打包面、不是內容工藝」正是此設計把 lint 限縮為 packaging 過濾器 + 安全門檻、而把 craft 判讀交給 LLM 層的理由。
   - 複雜度預算（ADR-022）：`profiles.total_lines` 3635 → 3661，遠低於 baseline 5177，未觸發棘輪，無需逃生門 ADR。
