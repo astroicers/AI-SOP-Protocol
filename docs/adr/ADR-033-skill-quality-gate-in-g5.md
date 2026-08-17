@@ -155,6 +155,37 @@ pseudocode 原寫 `skill_reviewer.review(...)`,但 `skill_reviewer` 既不符合
 
 ---
 
+## 發現但未在本 ADR 處理:G5 定義的既有 drift
+
+grill-with-docs 過程中發現 **G5 的定義在四處不一致**。這是**既有 drift,非本 ADR 造成**,
+但它影響「skill 檢查該不該掛 G5」的判斷,故記錄於此:
+
+| 來源 | G5 是什麼 |
+|------|-----------|
+| `GLOSSARY.md:15` | 六道門 = ADR→SPEC→測試先行→實作→**安全**→部署 ⇒ G5 = 安全 |
+| `CONTEXT.md:68` | 「G5=**安全審查**」 |
+| `.asp/profiles/pipeline.md:271` | 「G5: **Verification Gate**(HARDEN → DELIVER)」 |
+| `.asp/config/rule-registry.yaml` | GATE-G5 desc = 「**Verification Gate**(含 G5.5 Cross-Component Parity)」 |
+| `CLAUDE.md:58` | 「**驗證階段** → `/asp-gate G5` + `/asp-reality-check`」 |
+
+**為何影響本 ADR**:若 G5 是「安全審查門」,那把「安全紅旗刻意不擋」(D1)放進 G5
+概念上很彆扭——在安全門裡放一個不擋的安全檢查;若 G5 是「驗證/HARDEN 階段」
+(安全只是其中一面,與 qa、lint、偷渡偵測、rollback 並列),則本設計完全合理。
+
+**本 ADR 採後者**,因為實作面(`pipeline.md` 的 `evaluate_G5` 實際內容:qa 獨立驗證 +
+sec 審查 + make lint + 偷渡偵測 + side effects + rollback)與 `CLAUDE.md` 的工作流描述
+都站在「驗證階段」這一側;`GLOSSARY`/`CONTEXT` 的「安全」應是六字對仗的過時簡寫。
+
+**刻意不在本 PR 修的理由**:修 drift 的正確做法是先定調哪個是 canonical 再收斂,
+那是使用者對「G5 的本質」的判斷,不該由一個功能 PR 夾帶改動治理框架的核心術語定義。
+ADR-031 的教訓是「兩處編碼會 drift」,但它同時示範了正確解法是**先逐項比對、確認零丟失,
+再收斂到單一 canonical**——那需要獨立處理。
+
+**建議後續**:另開 issue 收斂 G5 定義(canonical 建議取 `pipeline.md`,
+`GLOSSARY`/`CONTEXT` 改為「驗證/HARDEN(含安全審查)」)。
+
+---
+
 ## 關聯(Relations)
 
 - 取代:(無)
