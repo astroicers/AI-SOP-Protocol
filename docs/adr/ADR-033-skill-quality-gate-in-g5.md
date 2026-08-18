@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-08-17 | Status: Accepted | Audience: ASP framework maintainers -->
+<!-- Last Updated: 2026-08-18 | Status: Accepted | Audience: ASP framework maintainers -->
 # [ADR-033]: 把 skill 品質檢查掛入 G5,判準外部化到 skill-reviewer rubric
 
 | 欄位 | 內容 |
@@ -145,7 +145,9 @@ pseudocode 原寫 `skill_reviewer.review(...)`,但 `skill_reviewer` 既不符合
 - `REDFLAG_SELF_UPDATE` 等 regex 仍可能產生 flag 疲勞,需依實際使用調整
 
 **後續追蹤:**
-- [ ] 累積 ≥1 次真實 G5 觸發,確認執行者確實會跑 skill-reviewer(驗證 craft 路徑)
+- [ ] 累積 ≥1 次**真實**(生產)G5 觸發,確認執行者確實會跑 skill-reviewer
+      —— **維持未勾**。2026-08-18 已用不知情執行者在建構情境驗證過
+      (見「成功指標」節),但那不是生產觸發,本項的判準未變
 - [ ] 觀察 YELLOW_FLAG 數量,若出現 flag 疲勞則收窄對應 regex
 - [ ] 90 天後檢視 `make rule-stats`,確認兩條規則正確歸類為「不可觀測」而非待刪候選
 
@@ -159,8 +161,35 @@ pseudocode 原寫 `skill_reviewer.review(...)`,但 `skill_reviewer` 既不符合
 | hygiene error 正確擋 | 68 個 SKILL.md 全無 frontmatter 的 repo → 擋 | eval 案例實跑 | 已驗證 ✅ |
 | 已知假陽性不擋 | `anthropics/skills` 的 S-001 → 只 flag | eval 案例實跑 | 已驗證 ✅ |
 | H-005 誤報率 | ≤5% | 54 個研究樣本回歸掃描 | 已驗證 ✅(1/54) |
-| craft 路徑可運作 | 執行者確實觸發 skill-reviewer | 首次真實 G5 觸發時觀察 | **未驗證** |
+| craft 路徑可運作 | 執行者確實觸發 skill-reviewer | 首次真實 G5 觸發時觀察 | **建構情境已驗證;生產觸發仍未發生**(見下) |
 | 無 flag 疲勞 | YELLOW_FLAG 不會被使用者自動略過 | 使用一段時間後主觀評估 | 待觀察 |
+
+**craft 路徑的建構情境驗證(2026-08-18 補登,不改變上表判定)**
+
+`INVOKE_SKILL` 是 pseudocode 不是程式(全 repo 零實作)——`pipeline.md` 是載入 AI context
+的 Profile,那一行的實質是「請執行者去載入該 skill 的 SKILL.md 並照步驟做」。
+因此「執行者會不會照做」**沒有任何靜態方法可驗證**:沒有 runtime、沒有斷言點。
+原本把它掛在「首次真實 G5 觸發」下等待,但那不是唯一的取得證據方式。
+
+**做法**:派一個**不知情**的執行者——只給 `pipeline.md` 路徑、一個動到 `SKILL.md` 的
+變更集、與 `current_team`;**不提 skill-reviewer、不提本 ADR、不給任何提示**。
+情境刻意設計成 hygiene 不擋、無安全紅旗,確保會走到 craft 那條路徑。
+
+**結果**:執行者自行命中 `MATCHES "**/SKILL.md"` → 照字面跑 change-scoped lint →
+走完兩個 hygiene 迴圈與 security 迴圈 → **執行 `INVOKE_SKILL`,載入
+`~/.claude/skills/skill-reviewer/SKILL.md` 並照其步驟 3–5 判讀** → craft = `needs-revision`
+→ 觸發 `YELLOW_FLAG` 且**不擋 gate**(符合 D1)→ `GATE_PASS`。
+它並主動查證了本 ADR 存在且為 Accepted、`rule-registry.yaml` 兩條規則已登記。
+
+**這證明什麼、不證明什麼**:
+
+- ✅ 證明 **D3 的術語與明確指令有效**——pseudocode 對不知情執行者可讀,且會被遵循
+- ❌ **不**證明真實任務會觸發。那仍需生產環境的 G5 HARDEN,「後續追蹤」第 1 項維持未勾
+
+**同一次實測另外報回 6 個 pseudocode 缺陷**,逐條查證後全部屬實,已由 issue #101 與
+PR #102 / #103 處置(三態 checks、`independent_verify` 補 contract、豁免項不再靜默消失、
+`changed_skills` 語義、`G5_integration` 適用性推導)。
+**那 6 個缺陷沒有一個是靜態閱讀本 ADR 或 pipeline.md 讀得出來的。**
 
 **何時該重新評估**:若 YELLOW_FLAG 開始被自動略過(訊號變雜訊),
 或 craft 路徑證實執行者不會照 pseudocode 觸發 skill-reviewer。

@@ -13,6 +13,17 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **ADR-033 補登 craft 路徑的建構情境驗證證據**(狀態欄維持 `Accepted`,**非狀態變更**)。
+  成功指標的「craft 路徑可運作」由 `未驗證` 改為
+  **`建構情境已驗證;生產觸發仍未發生`** —— 刻意不寫「已驗證」,那會誇大成生產觸發。
+  「後續追蹤」第 1 項**維持未勾**,並加註其判準未變(仍要求生產觸發)。
+  - 為什麼可以這樣取得證據:`INVOKE_SKILL` 是 pseudocode 不是程式(全 repo 零實作),
+    「執行者會不會照做」沒有任何靜態方法可驗證。但那不代表只能等生產觸發——
+    派一個**不知情**執行者(只給 `pipeline.md` 與變更集,不提 skill-reviewer 也不提本 ADR)
+    就能測。結果:它自行走到 `INVOKE_SKILL`、載入 SKILL.md、照步驟 3–5 判讀、
+    正確 `YELLOW_FLAG` 不擋 gate。**證明 D3 的術語與明確指令有效。**
+  - 同一次實測另外報回 **6 個 pseudocode 缺陷且全部屬實**(已由 #101 / PR #102 / #103 處置)
+    —— 那 6 個沒有一個是靜態閱讀 ADR 或 pipeline.md 讀得出來的。
 - **G5_integration 閾值:由專案型別推導適用性(issue #101 ③)**。
   六道 gate 中**只有 G5 不 load `quality-thresholds.yaml`**(對比 `evaluate_G2` 有),
   於是 `G5_integration` 的四條(≥1 E2E 場景 / 頁面載入 ≤3000ms / a11y critical=0 /
