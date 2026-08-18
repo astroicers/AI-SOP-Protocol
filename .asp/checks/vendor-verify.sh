@@ -31,9 +31,11 @@ COUNT=0
 
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in ''|'#'*) continue ;; esac
-  # shellcheck disable=SC2086
-  set -- $line
-  if [ "$#" -ne 4 ]; then
+  # 以 read 分欄:`set -- $line` 未加引號會讓含 glob 的行依「執行時 CWD」展開,
+  # 使竄改偵測的判定取決於它從哪個目錄被呼叫(補審 HIGH-4)。
+  read -r f1 f2 f3 f4 f5 <<< "$line"
+  set -- "$f1" "$f2" "$f3" "$f4"
+  if [ -n "$f5" ] || [ -z "$f4" ]; then
     echo "❌ vendor-verify: VENDOR.lock 格式錯誤(需四欄:檔名 上游repo 上游路徑 sha256):$line"
     FAIL=1
     continue
@@ -57,6 +59,12 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
 done < "$LOCK"
 
+# lock 存在即代表該 repo 有 vendoring;零條目屬異常——清空 lock 原本回報 ✅ rc=0,
+# 是停用本檢查最省力的手法且看起來像通過(補審 BLOCKER-3)。
+if [ "$COUNT" -eq 0 ] && [ "$FAIL" = 0 ]; then
+  echo "❌ vendor-verify: VENDOR.lock 存在但零條目——清空 lock 等同停用檢查;無 vendoring 請刪除 lock 檔"
+  exit 1
+fi
 if [ "$FAIL" = 0 ]; then
   echo "✅ vendor-verify: $COUNT 份 vendored 檔與來源記錄一致"
 fi

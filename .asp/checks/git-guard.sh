@@ -19,14 +19,24 @@
 #   (前綴補全/命令替換/包裝前綴/checkout 檔路徑屬已知漏擋釘樁)。
 set -u
 
+# 呼叫端未加引號時只會傳進第一個 token(`git`)而靜默通過——視為誤用直接紅,
+# 不讓「引號寫錯」變成無聲關閉護欄(補審 HIGH-6)。
+if [ "$#" -gt 1 ]; then
+  echo "❌ git-guard: 收到 $# 個參數;受檢指令須為單一字串(呼叫端請加引號)"
+  exit 1
+fi
+
 CMD="${1:-${ASP_GATE_COMMAND:-}}"
 if [ -z "$CMD" ]; then
   echo "⏭  git-guard: 無受檢指令(ASP_GATE_COMMAND 未設),略過"
   exit 200
 fi
+# GG-SEC-01:純 bash tokenizer 為 O(n²),上限防超長指令 DoS。但**截斷後照常分析**
+# 而非略過——略過在 gate 語境等於綠燈,尾隨長註解即可繞過護欄(補審 BLOCKER-1);
+# 截斷的計算成本與原上限相同,毀滅性謂詞位於指令前段,判定不受影響。
 if [ "${#CMD}" -gt 8192 ]; then
-  echo "⏭  git-guard: 指令超長(>8192),略過(GG-SEC-01 DoS 防護)"
-  exit 200
+  echo "⚠️  git-guard: 指令超長(>8192),截斷至上限後分析(GG-SEC-01 DoS 防護)"
+  CMD="${CMD:0:8192}"
 fi
 
 # ══════════════════════════════════════════════════════════════
