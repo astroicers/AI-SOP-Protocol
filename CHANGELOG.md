@@ -5,6 +5,22 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **ADR-034(Draft)—— gate pseudocode 三層標記**。三次不知情執行者實測(#101 G5、#105 G2/G4)
+  共 23 個缺陷,分析後發現**約一半不是缺陷,是形式造成的幻覺**:`pipeline.md` 用
+  `FUNCTION`/`IF`/`RETURN` 的形式包裝語意判斷,執行者因此期待精確,而精確不存在。
+  - **診斷**:`pipeline.md` 是**唯一沒被 ADR-015 三分法處理過的大型 pseudocode 檔**
+    (595 行、六道 gate、全 repo 零實作)。ADR-015 只處理 `task_orchestrator.md`,
+    並把 pipeline.md 當「不可斷裂的外部錨點」放過;三分法從未被宣告為通則。
+  - **決策(選項 A)**:每個檢查點標出屬於「機械可判 / 執行者裁量 / 意圖紀錄」哪一層,
+    **不動語法、不動判定邏輯、零行為變更**。與 ADR-022 的 advisory 降級先例同構
+    (該 ADR 的 POC 證實語意檢查無法便宜機械化後,誠實降級並記錄)。
+  - **未採選項 B(照 ADR-015 下沉腳本)**:SPEC 等級工程,而 `.asp-gate-log/` 分布是
+    G1×18 / G2×10 / G3×2 / G4×2 / G5×0 / G6×0、最近一筆 2026-07-29
+    —— **為走過兩次的門蓋鋼筋,投資報酬極低**。確定性子集(`git_diff_files` 等)另立 SPEC。
+  - **唯一的可驗證成功指標**:標記 pass 後再派一次不知情執行者跑同一道 gate,
+    量測「未定義/不清楚」類回報是否下降。**若沒下降,代表診斷錯了**,應回頭考慮選項 B。
+  - ⚠️ **Draft** —— 它改變六道 gate 的書寫方式,是治理框架核心文件的形式變更,
+    不該由任何功能 PR 夾帶。實作須待人類裁決。
 
 - **ADR-033 — G5 掛入 skill-reviewer,skill 品質成為 pipeline 的一部分**(**Accepted**,2026-08-17 由人類 `/asp:approve-adr 033` 升級)：`pipeline.md` 的 `evaluate_G5` 新增條件子句，僅當本次變更觸及 `**/SKILL.md` 時觸發（不觸及則整段跳過，對絕大多數任務零成本）。分層處置：hygiene error 級進 `issues`（擋 gate，確定性判定無假陽性）；安全紅旗一律 `YELLOW_FLAG` 不擋（靜態 regex 有實證假陽性，`confidence: medium` 者措辭加重優先複核，`polarity: positive` 的防禦樣態排除不當紅旗）；craft 走 `skill_reviewer.review()` agent 呼叫（與既有 `qa_agent.independent_verify()` 同形），判斷不是事實故只 `YELLOW_FLAG`。工具缺席/JSON 非法一律降級 `YELLOW_FLAG`，不阻斷他人管線。
   - `rule-registry.yaml` 登記 `GATE-G5-SKILL-HYGIENE` / `GATE-G5-SKILL-CRAFT`，兩者 `observed_by: manual`（gate-log 聚合只合成 `GATE-<G1..G6>` 頂層 id，子規則走 gate-log 會恆零命中而誤判為待刪候選）。
