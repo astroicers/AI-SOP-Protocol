@@ -46,13 +46,30 @@ SPECIFY ──G1──▶ PLAN ──G2──▶ FOUNDATION ──G3──▶ BU
 
 ## 品質門定義
 
+> **⟦四層標記⟧**(ADR-034)——底下每個檢查點旁都標了它**實際上是什麼**。
+> 形式(`FUNCTION`/`IF`/`RETURN`)讓四種性質不同的東西長得一樣,執行者因此期待精確,
+> 並把「本來就要靠判斷」與「沒實作」一律回報為缺陷(**六道 gate 各派一次不知情執行者,共 50 條**)。
+>
+> | 標記 | 意思 | 執行者該怎麼做 |
+> |---|---|---|
+> | `⟦mechanical⟧` | 有真實可執行檔/指令,今天就能跑 | 真的去跑。**目標專案沒有該 target 時標 not-applicable,不是 passed** |
+> | `⟦judgment⟧` | 需要語意理解,**且不預期會機械化** | 自行裁量,但**必須寫依據**。這不是缺陷 |
+> | `⟦debt⟧` | 被呼叫、**零實作**,但可機械化 | 依註解描述自行判斷;**回報它未實作是正確的** |
+> | `⟦intent⟧` | config 定義了門檻但**沒有任何一行讀它** | **非生效門檻**,不要當成會被檢查的東西 |
+>
+> 標記**不改變任何 gate 的通過與否**。`debt` / `intent` 兩層是待辦清單,不是現況描述。
+
 ### G1: Architecture Gate（SPECIFY → PLAN）
 
 ```
 FUNCTION evaluate_G1(artifacts):
   checks = []
 
+  // ⟦judgment⟧ `artifacts.requires_adr` **全 repo 只出現在本檔**,沒有任何欄位或腳本產生它。
+  //   實務上它問的是「這個任務有沒有架構影響」——語意問題,不預期機械化。
+  //   判斷時看:是否新增/更換外部依賴、是否改變模組邊界或資料流、是否影響其他 profile 的錨點。
   IF artifacts.requires_adr:
+    // ⟦mechanical⟧ 檔案存在性。
     IF NOT exists(artifacts.adr):
       RETURN GATE_FAIL("ADR 不存在（鐵則）")
     // ⚠️ 2026-08-18 G1 前測發現兩個問題，一併修：
@@ -62,6 +79,9 @@ FUNCTION evaluate_G1(artifacts):
     //   (2) 精確比對讓小寫 `draft` 繞過鐵則 FAIL 再被蓋成 Accepted。
     //       機械後手 `.asp/checks/adr-draft.sh` 用的是 `grep -qiE`（大小寫不敏感、抓得到），
     //       **兩層的比對規則不一致**；此處對齊之。
+    // ⟦mechanical⟧ 機械後手已存在且今天就能跑:`.asp/checks/adr-draft.sh [專案根]`
+    //   (狀態錨定「狀態/Status」label、正文 legend 不誤判、無 ADR 目錄 → exit 200 skip)。
+    //   本 gate 目前不呼叫它,但兩層的判定規則自 2026-08-18 起已對齊(皆大小寫不敏感)。
     adr_status = lowercase(trim(artifacts.adr.status))
     IF adr_status == "draft":
       RETURN GATE_FAIL("ADR 為 Draft 狀態，禁止實作（鐵則）")
@@ -76,12 +96,19 @@ FUNCTION evaluate_G1(artifacts):
       YELLOW_FLAG("ADR 狀態「{artifacts.adr.status}」不在 Draft/FIRM/Accepted 之列，請人工確認")
 
   IF artifacts.dependency_graph:
+    // ⟦debt⟧ `has_cycle()` 未實作。標準有向圖環偵測(DFS + 三色標記),估 ~30 行。
+    //   屬 ADR-034 D4 那份 ~150 行清單。**注意 `artifacts.dependency_graph` 同樣無產生來源**,
+    //   所以現況等同這整段從不執行。
     IF has_cycle(artifacts.dependency_graph):
       RETURN GATE_FAIL("依賴圖存在循環")
     checks.append("依賴圖無環 ✅")
 
   IF NOT artifacts.requires_adr AND NOT artifacts.dependency_graph:
     checks.append("無架構影響，G1 自動通過 ✅")
+
+  // ⟦intent⟧ `G1_architecture` 的 2 個鍵(`max_draft_adrs_blocking`、`dependency_cycle_allowed`)
+  //   **沒有任何一行讀取**。G1 從不 load thresholds。兩者的語意目前由上方條件式硬編
+  //   (Draft → FAIL、有環 → FAIL),數值改動不會生效。
 
   RETURN GATE_PASS(evidence=checks)
 ```
@@ -93,14 +120,17 @@ FUNCTION evaluate_G2(artifacts):
   checks = []
   issues = []
 
-  // SPEC 七欄位完整性
+  // ⟦mechanical⟧ 七欄位存在性 = 對 SPEC 抓標題。
+  // ⟦intent⟧ 但 `G2_specification.required_spec_sections: 7` **沒被讀**——下面是硬編清單。
+  //   改 config 的 7 不會改變這裡檢查幾個欄位。
   required_fields = ["Goal", "Inputs", "Expected Output", "Side Effects",
                      "Edge Cases", "Done When", "Traceability"]
   FOR field IN required_fields:
     IF NOT artifacts.spec.has(field):
       issues.append("SPEC 缺少欄位：{field}")
 
-  // Done When 可二元測試
+  // ⟦judgment⟧ `is_binary_testable()` 判一句散文條件能不能二元測試——語意的,不預期機械化。
+  //   判斷時看:有沒有可觀測的受詞與明確的成功值(「回傳 200」可測;「效能良好」不可測)。
   FOR criterion IN artifacts.spec.done_when:
     IF NOT is_binary_testable(criterion):
       issues.append("Done When '{criterion}' 無法二元測試")
@@ -117,6 +147,7 @@ FUNCTION evaluate_G2(artifacts):
   checks.append("Done When 可二元測試：{dw_state}")
 
   // Reality Checker 參與（如果 team 包含 reality）
+  // ⟦judgment⟧ `reality_check()` 是 reality_checker.md 的 agent 判定,無機械判準。
   IF "reality" IN current_team:
     reality_verdict = reality_check(artifacts, "G2")
     IF reality_verdict.status == "NEEDS_WORK":
@@ -131,6 +162,9 @@ FUNCTION evaluate_G2(artifacts):
   // v3.2: Gherkin 場景強制驗證
   IF severity != TRIVIAL:
     // 測試矩陣必須存在
+    // ⟦mechanical⟧ 矩陣存在 + 正/負向列計數 = 解析 SPEC 的表格。
+    // ⟦intent⟧ `min_test_matrix_positive/negative`(各 1)未被讀取;下方硬編 `== 0`。
+    //   兩者目前語意等價,但把 config 調成 2 不會生效。
     IF NOT spec.has_test_matrix:
       issues.append("🔴 缺少測試矩陣（非 trivial 任務必須填寫）")
     ELSE:
@@ -141,7 +175,9 @@ FUNCTION evaluate_G2(artifacts):
       IF negative_count == 0:
         issues.append("🔴 測試矩陣缺少負向案例（至少 1 個）")
 
-    // Gherkin 場景必須存在（config_only 豁免）
+    // ⟦judgment⟧ `config_only` **全 repo 只出現在本檔**,無資料來源——執行者自行認定。
+    //   判斷時看:變更是否只動 config/資料檔而無邏輯分支變化。
+    // ⟦intent⟧ `min_gherkin_scenarios: 2` 未被讀取——這裡只檢查「有沒有」,不檢查數量。
     IF NOT config_only AND NOT spec.has_scenarios:
       issues.append("🔴 缺少 Gherkin 驗收場景（非 trivial 任務必須撰寫）")
 
@@ -150,7 +186,8 @@ FUNCTION evaluate_G2(artifacts):
     // 分支只 append issue、**不 return**,於是這裡會去迭代一個不存在的 test_matrix。
     // 兩個條件都要成立才做這個交叉比對。
     IF spec.has_scenarios AND spec.has_test_matrix:
-      // 矩陣 ↔ 場景引用一致性
+      // ⟦mechanical⟧ 以下三段(引用一致性、重現場景、場景品質)全是字串/計數比對,
+      //   對已解析的 SPEC 可直接判定,無裁量成分。
       FOR row IN spec.test_matrix:
         IF row.scenario_ref AND row.scenario_ref NOT IN spec.scenario_ids:
           issues.append("矩陣 {row.id} 引用場景 {row.scenario_ref} 不存在")
@@ -184,6 +221,8 @@ FUNCTION evaluate_G2(artifacts):
   //   改為:**適用性由 SPEC 作者依模板判準表態,pipeline 不重新編碼**,只檢查作者有沒有表態。
   //   模板已允許標 N/A —— 與 Side Effects 的「若無跨模組影響,填『無』並說明理由」同慣例。
   //   ADR-034 分類上這是升級:judgment(執行者猜隱藏旗標)→ mechanical(區塊存在且非空)。
+  // ⟦mechanical⟧ 只檢查「作者有沒有表態」(區塊存在且非空),適用性判準在 SPEC_Template L187。
+  // ⟦intent⟧ `observability_required: true` 未被讀取;此處硬編為必要。
   IF NOT spec.has_observability:
     // 嚴重度:**擋 gate**。人類 2026-08-18 於 PR #108 明確裁決「維持擋」。
     //   理由:模板本來就寫「必填」;逃生門只是一行字(`N/A — <理由>`);
@@ -197,6 +236,8 @@ FUNCTION evaluate_G2(artifacts):
 
   // v3.7: Done When 數量下限（quality-thresholds.yaml G2_specification.min_acceptance_criteria）
   IF severity != TRIVIAL:
+    // ⟦mechanical⟧ **這是全檔僅有的兩處真的 load thresholds 之一**(另一處是 G5)。
+    //   `min_acceptance_criteria` 是 23 個 gate threshold 鍵中 5 個生效鍵的第 1 個。
     thresholds = load(".asp/config/quality-thresholds.yaml")
     min_ac = thresholds.gates.G2_specification.min_acceptance_criteria  // 預設 3
     IF LEN(artifacts.spec.done_when) < min_ac:
@@ -205,6 +246,9 @@ FUNCTION evaluate_G2(artifacts):
       checks.append("Done When 數量 {LEN(artifacts.spec.done_when)} ≥ {min_ac} ✅")
 
   // v3.7: [UNVERIFIED] 標注檢查（quality-thresholds.yaml fact_verification.max_unverified_facts_in_spec）
+  // ⟦mechanical⟧ 字串計數,grep 即可。
+  // ⟦intent⟧ 但 `fact_verification.max_unverified_facts_in_spec`(值 0)**未被讀取**——
+  //   下面硬編 `> 0`。目前與 config 值等價,把它調成 1 不會放寬。
   unverified_count = count_pattern("[UNVERIFIED]", artifacts.spec.content)
   IF unverified_count > 0:
     issues.append("🔴 SPEC 含 {unverified_count} 個 [UNVERIFIED] 標注——必須先完成 Fact Verification Gate 再提交 G2")
@@ -214,6 +258,10 @@ FUNCTION evaluate_G2(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
+  // ⟦intent⟧ G2 尚未被讀取的鍵:`required_spec_sections`、`max_open_questions`、
+  //   `min_gherkin_scenarios`、`min_test_matrix_positive`、`min_test_matrix_negative`、
+  //   `observability_required`(7 個中的 6 個)。其中 `max_open_questions: 0`
+  //   **完全沒有對應的檢查邏輯**,不只是沒讀——SPEC 的 Open Questions 從未被計數。
   RETURN GATE_PASS(evidence=checks)
 ```
 
@@ -224,12 +272,15 @@ FUNCTION evaluate_G3(artifacts):
   checks = []
   issues = []
 
-  // 每個 Done When 有對應測試
+  // ⟦judgment⟧ `has_test_for()` 判一句散文條件與一堆測試檔的對應關係——語意的,不預期機械化。
+  //   判斷時看:測試名稱/斷言是否針對該條件的受詞與成功值,而非只是檔案存在。
   FOR criterion IN artifacts.spec.done_when:
     IF NOT has_test_for(criterion, artifacts.test_files):
       issues.append("Done When '{criterion}' 無對應測試")
 
   // 測試全部 FAIL（證明它們在測試東西）
+  // ⟦mechanical⟧ 條件成立:**目標專案須提供 `test-filter` target**,否則整段空轉
+  //   (G4 探測用的 scratch repo 就沒有,G3 在那裡根本跑不起來)。無 target → not-applicable。
   test_result = EXECUTE("make test-filter FILTER={artifacts.spec.filter}")
   IF test_result.all_passed:
     issues.append("測試在實作前就全部通過——測試可能沒有在測東西")
@@ -238,6 +289,8 @@ FUNCTION evaluate_G3(artifacts):
 
   // v3.3: 測試品質檢查（防止空測試）
   FOR test_file IN artifacts.test_files:
+    // ⟦debt⟧ `count_assertions()` 未實作,但**可機械化且很便宜**——regex 下一行就給了。
+    //   估 ~20 行 shell。屬 ADR-034 D4 那份 ~150 行清單。
     assertion_count = count_assertions(test_file)
     // count_assertions 依語言：
     //   Go: count("assert", "require.")  Python: count("assert")  TS/JS: count("expect(")
@@ -279,6 +332,9 @@ FUNCTION evaluate_G3(artifacts):
 
   // v3.2: 場景 ↔ 測試映射驗證
   IF spec.has_scenarios:
+    // ⟦debt⟧ `has_test_for_scenario()` / `count_test_cases_for_spec()` 皆未實作。
+    //   與上面的 `has_test_for()` 不同:這兩個比對的是**字面 ID**(場景 id、SPEC id),
+    //   grep 即可,不需要語意理解 → 歸 debt 不歸 judgment。估 ~25 行。
     FOR scenario IN spec.scenarios:
       IF NOT has_test_for_scenario(scenario.id, artifacts.test_files):
         issues.append("場景 {scenario.id}（{scenario.name}）無對應測試")
@@ -292,6 +348,10 @@ FUNCTION evaluate_G3(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
+  // ⟦intent⟧ `G3_tdd_red` 的 2 個鍵(`must_fail_before_impl`、`compilation_error_allowed`)
+  //   **未被讀取**——G3 從不 load thresholds。前者的名字出現在上面的訊息字串裡,
+  //   那是文字引用不是取值。
+
   RETURN GATE_PASS(evidence=checks)
 ```
 
@@ -302,7 +362,7 @@ FUNCTION evaluate_G4(artifacts):
   checks = []
   issues = []
 
-  // 測試通過
+  // ⟦mechanical⟧ ×2:`make test` / `make lint`。條件成立——目標專案須提供該 target。
   test_result = EXECUTE("make test")
   IF NOT test_result.all_passed:
     issues.append("make test 失敗：{test_result.failures}")
@@ -313,7 +373,9 @@ FUNCTION evaluate_G4(artifacts):
     IF lint_result.has_errors:
       issues.append("make lint 有 error")
 
-  // Scope 未超出
+  // ⟦debt⟧ ×2:`git_diff_files()`(一行 git,估 ~5 行)與 `matches_scope()`(glob 比對,估 ~20 行)
+  //   皆未實作。兩者都屬 ADR-034 D4 那份 ~150 行清單,是其中最便宜的。
+  //   ⚠️ 另注意 `git_diff_files()` 在「gate 執行前已 commit」時回空集合,檢查恆真空過。
   modified_files = git_diff_files()
   allowed_files = artifacts.task_manifest.scope.allow
   out_of_scope = [f FOR f IN modified_files IF NOT matches_scope(f, allowed_files)]
@@ -327,6 +389,11 @@ FUNCTION evaluate_G4(artifacts):
   IF NOT modified_files:
     checks.append("TODO/FIXME 標記掃描：not-applicable（無變更檔案可掃）")
   ELSE:
+    // ⟦mechanical⟧ grep 本體可跑。
+    // ⟦debt⟧ 但 `{ext}` **沒有定義**——沒有任何一處說它從哪來(專案語言?變更檔副檔名集合?)。
+    //   逐字執行者會把它原樣帶進 shell,`--include="*.{ext}"` 匹配不到任何檔案而靜默回空。
+    //   估 ~10 行(取 modified_files 的副檔名集合)。屬 D4 清單。同樣的 `{ext}` 在 G5 的
+    //   全專案 grep 也出現一次。
     marker_result = EXECUTE("grep -rn \"TODO\\|FIXME\\|HACK\\|XXX\" --include=\"*.{ext}\" {modified_files}")
     IF marker_result.has_matches:
       FOR match IN marker_result.matches:
@@ -352,6 +419,11 @@ FUNCTION evaluate_G4(artifacts):
   checks.append("make test：{test_state}")
   checks.append("make lint：{lint_state}")
   checks.append("修改範圍在 scope 內：{scope_state}")
+
+  // ⟦intent⟧ `G4_implementation` 的 4 個鍵**全部未被讀取**:
+  //   `min_unit_coverage_pct: 80` 與 `max_cognitive_complexity: 10` **完全沒有對應檢查**
+  //   (2026-08-18 已從快速參考表移除那兩條不實承諾);
+  //   `lint_errors_allowed: 0` 與 `all_done_when_tested: true` 的語意由上方條件式硬編。
   RETURN GATE_PASS(evidence=checks)
 ```
 
@@ -383,6 +455,10 @@ FUNCTION evaluate_G5(artifacts):
   has_web_surface = (ai_profile.type IN ["web", "fullstack"]) OR artifacts.has_ui_changes
   IF has_web_surface:
     FOR name, limit IN g5_int:
+      // ⟦debt⟧ `measure()` / `violates()` 未實作。`violates()` 是數值比較(估 ~10 行);
+      //   `measure()` **不屬** D4 那份 ~150 行清單——量 e2e 場景數/頁面載入 ms/a11y critical
+      //   需要 e2e + lighthouse + axe 工具鏈,那是獨立專案等級,不是一個下午。
+      //   現況:回 null 即 skipped(A18 寧漏報不誤報),所以這四條實務上從未擋過任何東西。
       actual = measure(name, artifacts)                    // 量不到就是 null
       IF actual == null:
         checks.append("{name}：skipped（無法量測）")       // 不擋——A18 寧漏報不誤報
@@ -401,12 +477,15 @@ FUNCTION evaluate_G5(artifacts):
   // 有 SPEC 時逐條驗 Done When;無 SPEC 時(CLAUDE.md 明列的輕量改動路徑,
   // 「可跳 G1-G6 重 gate 但獨立審查不可省」)驗「變更是否符合其自述意圖 + 無 scope 外殘留」。
   // ⚠️ 不得因「無 SPEC」而 FAIL——那會打斷框架自己文件化的輕量路徑。
+  // ⟦judgment⟧ `qa_agent.independent_verify()` 無機械判準——它就是「另一個人重看一遍」。
+  //   判斷時看:每條 Done When 是否有可指認的證據(測試/輸出/截圖),而非只有實作者自述。
   qa_verdict = qa_agent.independent_verify(artifacts)
   IF qa_verdict.status == "QA_FAIL":
     issues.append("QA 獨立驗證失敗：{qa_verdict.evidence}")
   qa_state = "passed" IF artifacts.spec ELSE "not-applicable（無 SPEC，退化為意圖一致性檢查）"
 
   // Security 審查
+  // ⟦judgment⟧ `sec_agent.review()` 同上,語意審查,不預期機械化。
   IF "sec" IN current_team:
     sec_verdict = sec_agent.review(artifacts)
     IF sec_verdict.has_findings:
@@ -422,12 +501,18 @@ FUNCTION evaluate_G5(artifacts):
         issues.append("新增 {new_warnings} 個 lint warning")
 
   // 偷渡偵測。**三態**：無 checksum 或 repo 內無測試檔時是 not-applicable，不是 passed。
+  // ⟦debt⟧ `test_checksums_changed()` 未實作。sha256 比對,估 ~15 行。屬 D4 清單。
+  //   (`.asp/checks/test-fresh.sh` 做的是**測試痕跡新鮮度**,不是 checksum 比對,不能替代。)
   IF test_checksums_changed(artifacts.original_checksums, artifacts.current_checksums):
     issues.append("測試檔案 checksum 已變更（偷渡風險）")
   smuggle_state = "passed" IF (artifacts.original_checksums AND artifacts.current_checksums) \
                   ELSE "not-applicable（無 checksum 可比對）"
 
   // 全專案 grep（global_core.md 鐵則：Bug 修復後無豁免）
+  // ⟦mechanical⟧ grep 本體可跑。
+  // ⟦judgment⟧ 但 `artifacts.bug_pattern` **全 repo 只出現在本檔**,無來源——
+  //   「這個 bug 的模式是什麼」本來就要人判(是函式名?錯誤的比較運算?缺的 null check?)。
+  // ⟦debt⟧ `{ext}` 同 G4,未定義。
   IF artifacts.task_type == "BUGFIX":
     grep_result = EXECUTE("grep -r \"{artifacts.bug_pattern}\" --include=\"*.{ext}\" .")
     IF grep_result.has_matches:
@@ -436,12 +521,16 @@ FUNCTION evaluate_G5(artifacts):
   // v3.3: Side Effects 驗證
   IF spec.side_effects AND LEN(spec.side_effects) > 0:
     FOR effect IN spec.side_effects:
+      // ⟦judgment⟧ `has_verification_for()` 判「這個副作用有沒有被某條 Done When 或某列矩陣涵蓋」
+      //   ——語意對應,不預期機械化。判斷時看:副作用的受詞是否出現在某條驗收的可觀測結果裡。
       IF NOT has_verification_for(effect, spec.done_when, spec.test_matrix):
         issues.append("副作用 '{effect.description}' 缺少驗證（Done When 或測試矩陣無對應）")
     IF NOT issues:
       checks.append("Side Effects 全部有驗證 ✅")
 
   // v3.3: Rollback 測試驗證
+  // ⟦judgment⟧ `task_involves_architecture_change` / `task_involves_schema_change` 無資料來源,
+  //   由執行者判定;`spec.rollback_plan.tested` 本身是 SPEC 欄位(mechanical)。
   IF spec.rollback_plan:
     IF task_involves_architecture_change OR task_involves_schema_change:
       IF NOT spec.rollback_plan.tested:
@@ -456,6 +545,8 @@ FUNCTION evaluate_G5(artifacts):
     // 傳入變更集 → lint 切換為 change-scoped 判定，severity 由它一次決定。
     // 本 profile 不重新編碼「什麼該擋」的政策——canonical 是 skill-reviewer 的
     // references/rubric-manual-dimensions.yaml（ADR-031：同一意義兩處編碼會 drift）。
+    // ⟦mechanical⟧ **六道 gate 中唯一指向真實可執行檔的檢查**(ADR-033)。
+    //   `--selftest` 可自我驗證;未安裝時走下方 YELLOW_FLAG 不擋。
     lint = EXECUTE("python3 ~/.claude/skills/skill-reviewer/scripts/lint_skill.py {repo_root} \
                     --changed-files {join(artifacts.changed_files, ',')} --json")
 
@@ -492,6 +583,10 @@ FUNCTION evaluate_G5(artifacts):
       // artifacts.changed_skills = 本次變更觸及的 **SKILL.md 檔路徑**（與 changed_files 同粒度），
       // 不是 skill 目錄。質化審讀以那些檔案為準；同目錄下的 references/ 只在該 SKILL.md
       // 明確引用時才一併讀（#101 第 ⑥ 項）。
+      // ⟦judgment⟧ `INVOKE_SKILL` **是 pseudocode 不是程式**(全 repo 零實作,ADR-033 已補登)。
+    //   它的意思是:執行者請去載入 skill-reviewer 的 SKILL.md 並照步驟做。
+    //   craft 判讀無機械判準——這正是 skill-quality-research 的核心結論
+    //   (星數關聯打包面不是工藝,craft 只能靠 LLM 維度)。**不預期會機械化。**
       skill_verdict = INVOKE_SKILL("skill-reviewer", scope=artifacts.changed_skills)
       IF skill_verdict.craft == "needs-revision":
         YELLOW_FLAG("Skill craft 待修：{skill_verdict.gap_list}")   // 判斷不是事實，不擋 gate
@@ -512,6 +607,11 @@ FUNCTION evaluate_G5(artifacts):
   ELSE:
     checks.append("安全審查：skipped（\"sec\" 不在 current_team）")
   checks.append("偷渡偵測：{smuggle_state}")
+
+  // ⟦mechanical⟧ G5 的 4 個 threshold 鍵是**唯一一組真的被讀取**的 gate 門檻
+  //   (`min_e2e_scenarios` / `performance_budget_ms` / `a11y_violations_critical` /
+  //    `security_scan_critical`)——連同 G2 的 `min_acceptance_criteria` 共 5 個生效鍵。
+  //   ⚠️ 但「被讀取」不等於「會擋」:`measure()` 未實作 → 一律 null → skipped。
 
   // Reality Checker 否決權
   IF "reality" IN current_team:
@@ -536,6 +636,8 @@ FUNCTION evaluate_G6(artifacts):
   issues = []
 
   // asp-ship 7 步清單
+  // ⟦judgment⟧ `pre_commit_checklist()` 是 system_dev.md 的 7 步清單,其中多步是語意判斷
+  //   (「變更有沒有對應的 CHANGELOG 條目」「這是不是該拆成兩個 commit」)。不預期機械化。
   ship_result = pre_commit_checklist()  // from system_dev.md
   IF ship_result.has_blockers:
     issues.append("asp-ship 有 BLOCKER：{ship_result.blockers}")
@@ -544,6 +646,10 @@ FUNCTION evaluate_G6(artifacts):
   // ⚠️ 2026-08-18 修正：#106 在下方加了 `IF artifacts.baseline` 的 null-check，
   //   但**這一行早 9 行就已無守衛地 dereference `artifacts.baseline.blockers`** ——
   //   baseline 為 null 時逐字執行者在此就炸，永遠走不到那個優雅降級。守衛要在使用點之前。
+  // ⟦mechanical⟧ `make audit-quick` 是 ASP 自己提供的 target,可跑。
+  // ⟦debt⟧ 但 `load_audit_baseline()`(在下方 execute_pipeline 中)**全 repo 只出現在本檔、
+  //   零實作**——沒有它 `artifacts.baseline` 恆為 null,整段降級為 not-applicable。
+  //   估 ~15 行(讀上一次 audit 輸出取 blockers 數)。屬 D4 清單。
   current_audit = EXECUTE("make audit-quick")
   IF artifacts.baseline AND current_audit.blockers > artifacts.baseline.blockers:
     issues.append("健康審計引入新 blocker（before: {artifacts.baseline.blockers}, after: {current_audit.blockers}）")
@@ -559,6 +665,7 @@ FUNCTION evaluate_G6(artifacts):
   checks.append("健康分數未退步：{health_state}")
 
   // v3.3: Traceability 檔案存在驗證
+  // ⟦mechanical⟧ 檔案存在性,逐條可判。
   IF spec.traceability:
     FOR impl_file IN spec.traceability.impl_files:
       IF NOT exists(impl_file):
@@ -577,7 +684,13 @@ FUNCTION evaluate_G6(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
+  // ⟦intent⟧ `G6_delivery` 的 4 個鍵**全部未被讀取**:`doc_freshness_days: 7` 與
+  //   `tech_debt_p0_allowed: 0` 與 `postmortem_required_if_p0: true` **完全沒有對應檢查**;
+  //   `health_score_regression: false` 的語意由上方 blockers 比較硬編。
+  //   快速參考表的 G6 列(「文件新鮮度 ≤ 7 天;P0 tech debt = 0」)因此是**意圖不是實作**。
+
   // Reality Checker 否決權
+  // ⟦judgment⟧ `reality_check()` 同 G2/G5。
   IF "reality" IN current_team:
     reality_verdict = reality_check(artifacts, "G6")
     IF reality_verdict.status == "NEEDS_WORK":
@@ -599,6 +712,9 @@ FUNCTION evaluate_G6(artifacts):
 ```
 FUNCTION evaluate_gate(gate_id, artifacts, evaluating_agents):
 
+  // ⟦judgment⟧ `agent.evaluate()` 是各 agent 的裁定。
+  // ⟦debt⟧ `create_handoff()` / `collect_evidence()` 的實際定義在 task_orchestrator.md,
+  //   本檔只引用(ADR-015 保護的外部錨點,不得改名)。
   verdicts = {}
   FOR agent IN evaluating_agents:
     verdicts[agent.role] = agent.evaluate(gate_id, artifacts)
@@ -636,6 +752,7 @@ FUNCTION evaluate_gate(gate_id, artifacts, evaluating_agents):
 
 ```
 FUNCTION execute_pipeline(task, team, phases):
+  // ⟦debt⟧ `load_audit_baseline()` 零實作 —— 見 G6 的 ⟦debt⟧ 註。
   artifacts = { spec: task.spec, baseline: load_audit_baseline() }
 
   FOR phase IN phases:
@@ -671,7 +788,13 @@ FUNCTION execute_pipeline(task, team, phases):
 
 ## 量化閾值（v3.7）
 
-> Gate 評分必須對照具體數字，不得使用「基本達標」等主觀描述。
+>   **⟦mechanical⟧ 檢查**必須對照具體數字，不得使用「基本達標」等主觀描述。
+>   **⟦judgment⟧ 檢查**不填「實際值」，填**判斷 + 依據**，狀態欄標 `judgment`。
+>   **⟦debt⟧ / ⟦intent⟧ 檢查照列但標明未生效**，不得以空白或 `N/A` 混過。
+>
+> (ADR-034 D5 收窄。原文是「Gate 評分必須對照具體數字」——保留它禁止空話的原意
+>  [裁量也要寫依據]，只否定「一切皆可量化」的隱含前提。實測:同一條規則兩個執行者兩種應對,
+>  G2 的產出 13 列混著可數的與它自己判的,G4 的則填了四個 `⏭ 不適用`。)
 
 完整閾值定義在 `.asp/config/quality-thresholds.yaml`。Gate 評分時必須輸出以下格式：
 
@@ -684,7 +807,16 @@ Done When 數量    | ≥ 3              | 2         | ❌ FAIL
 Gherkin 場景      | ≥ 2              | 3         | ✅ PASS
 Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 [UNVERIFIED] 標注 | = 0              | 1         | ❌ BLOCKER
+Done When 可二元測試| 全部             | 4/4 判斷  | judgment（依據：每條均有可觀測受詞與成功值）
+count_assertions   | > 0             | 未實作    | debt（⟦debt⟧，本次未生效）
+覆蓋率             | ≥ 80%            | 未接線    | intent（config 有值，evaluate_G4 不讀）
+------------------|------------------|-----------|------
+本 gate 分布       | mechanical N / judgment N / debt N / intent N
 ```
+
+> **最後一列是必填的。** 一道 gate 的四層分布**就是它有多硬的量測**——
+> 全部 `mechanical` 表示這道門真的擋得住;`intent` 佔多數表示它主要是意圖聲明。
+> 目前這個比例完全看不到,而它是讀者判斷該不該信任這道 gate 的第一個數字。
 
 **核心閾值快速參考（詳見 quality-thresholds.yaml）：**
 

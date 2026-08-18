@@ -40,6 +40,32 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **ADR-034 標記 pass 完成:六道 gate 全部標上四層分類(零行為變更)**。
+  42 筆錨點、+132 行**純註解**。`pipeline.md` 每個檢查點旁現在都標了它**實際上是什麼**:
+  `⟦mechanical⟧` 今天就能跑 / `⟦judgment⟧` 靠裁量且不預期機械化 /
+  `⟦debt⟧` 被呼叫但零實作 / `⟦intent⟧` config 有門檻但沒有任何一行讀它。
+  - **零行為變更是機械證明的,不是宣稱的**:剝除註解後,六道 gate 加兩個包裝函式的
+    pseudocode 與 HEAD **逐字相同**(G1 22 行 / G2 69 / G3 42 / G4 36 / G5 90 / G6 33 /
+    evaluate_gate 24 / execute_pipeline 21)。140 行新增中 136 行是註解、
+    4 行是 D5 的示範表列。`profiles.total_lines` 3852 → 3984(baseline 5177)。
+  - **副產物:每道 gate 的硬度,原本完全看不到**——
+    G1 40% · G2 40% · **G3 20%** · G4 42% · G5 25% · G6 33%,六道合計
+    mechanical 17 / judgment 13 / debt 10 / intent 10。
+    **G3 是 Test Readiness Gate,理應全線最機械(測試要嘛紅要嘛綠),實測硬度最低。**
+  - **一個標記時才發現的事**:`max_open_questions`、G4 的覆蓋率/複雜度、
+    G6 的文件新鮮度/P0 債/postmortem ——這些鍵**不只是「沒被讀取」,是完全沒有對應的
+    檢查邏輯存在**。D3 說意圖紀錄是「未來機械化的需求清單」,而那份清單裡有幾條是
+    **空的需求**,不是**斷的線**——兩者的工作量差一個量級。
+  - **D5 落地**:量化摘要要求收窄為「`mechanical` 填數字;`judgment` 填判斷 + 依據;
+    `debt`/`intent` 照列但標明未生效」,並要求摘要表底部輸出該 gate 的四層分布。
+  - **D4 清單只長了一點,沒有變量級**:新增 `{ext}` / 兩個 ID 比對 helper /
+    `load_audit_baseline` / `violates` 都是 ~10–25 行等級。**唯一例外是 `measure()`**
+    (需 e2e + lighthouse + axe 工具鏈),已在標記處明寫**不屬**那份 ~150 行清單。
+  - **ADR-034 勘誤**:D3 殘留「19 鍵 / 約 16 未讀」——那是 PR #110 已修正的計數腳本錯誤,
+    `pipeline.md` 早已改成 23/5/18,只有該節沒跟上,**與同檔上方的表格自相矛盾**。已修。
+    另驗證 **18/18 個未讀鍵、5/5 個生效鍵全部被標記明確點名**。
+  - Verification Evidence 回填 3/5 條(零行為變更 ✅、複雜度 ✅、欠債清單 🟡);
+    另外 2 條需後測,且**必須逐條歸因**才算數。
 - **六道 gate 前測完成(50 個缺陷)+ 修掉五個標記解決不了的真 bug**。
   ADR-034 升 FIRM 後的第一步:補齊 G1/G3/G6 的不知情執行者基線。
   結果 **G5=6 · G2=8 · G4=9 · G1=9 · G3=10 · G6=8,合計 50**。
