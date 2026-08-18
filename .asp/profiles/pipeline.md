@@ -173,9 +173,12 @@ FUNCTION evaluate_G2(artifacts):
   //   模板已允許標 N/A —— 與 Side Effects 的「若無跨模組影響,填『無』並說明理由」同慣例。
   //   ADR-034 分類上這是升級:judgment(執行者猜隱藏旗標)→ mechanical(區塊存在且非空)。
   IF NOT spec.has_observability:
-    // ⚠️ 嚴重度是本次唯一的裁決點。維持 issues(擋 gate)的理由:模板本來就寫「必填」,
-    //   逃生門只是一行字;改成 YELLOW_FLAG 會讓模板那條「必填」永遠是虛構的(ADR-023 治理劇場)。
-    //   若要改為不擋,把下一行換成 YELLOW_FLAG(...) 即可,其餘不動。
+    // 嚴重度:**擋 gate**。人類 2026-08-18 於 PR #108 明確裁決「維持擋」。
+    //   理由:模板本來就寫「必填」;逃生門只是一行字(`N/A — <理由>`);
+    //   改成 YELLOW_FLAG 會讓模板那條「必填」永遠是虛構的(ADR-023 治理劇場)。
+    //   ⚠️ 這是**嚴格方向**的行為變更——改動前,執行者判 is_user_facing=false 時
+    //   檢查根本不觸發;現在一律評估。若日後要放寬,換成 YELLOW_FLAG(...) 即可,
+    //   但那會推翻一次已裁決的取捨,**應附新的實測資料**(例如逃生門造成的假擋率)。
     issues.append("🔴 缺少 Observability 區塊——不適用時請依 SPEC_Template L187 標 N/A 並說明理由")
   ELSE:
     checks.append("Observability 已定義 ✅")
