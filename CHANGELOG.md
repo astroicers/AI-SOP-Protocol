@@ -40,6 +40,25 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **`tests/test_adr_firm_state.sh` 在背景執行時無限掛住(實測掛了 5 個 `make test`,最久 7 小時)。**
+  `run_audit()` 直接呼叫 `session-audit.sh` 卻**沒有 `</dev/null`**。該 hook 的
+  L98 是 `if [ ! -t 0 ]; then INPUT=$(cat ...); fi` —— 它是 hook,本來就該從 stdin
+  收 Claude Code 的 JSON,那個守衛只擋得住「stdin 是 terminal」:
+  - terminal → `-t 0` 成立 → 跳過 → 正常
+  - CI(stdin=`/dev/null`)→ 立刻 EOF → 正常,**所以 CI 一直是綠的**
+  - **背景工作繼承的管道(無寫入端)→ `cat` 永遠等不到 EOF → 無限掛住**
+
+  **本地前景跑得過、CI 也綠,只有背景執行會中** —— 最難察覺的那種。
+  症狀是 `make test` 偶爾回 exit 2(多個掛住的 run 互相干擾),我一度誤判為
+  「與 `make profile-validate` 併行的干擾」,**那個解釋是錯的**。
+
+  因果已用實驗確立(同檔案、同位置、同背景 shell,唯一差別是 `</dev/null`):
+  修正前 `exit=124`(60s timeout);修正後 `exit=0`,15/15 通過。
+
+  ⚠️ 這與 G4 不知情執行者在 pseudocode 裡找到的是**同一類 bug**
+  (「沒有 path operand 的 grep 會讀 stdin 而卡住」,#106 已修 pseudocode)——
+  只是這次在**真正會執行的程式碼**裡,而且已經默默吃掉背景工作好幾個月沒人發現。
+  掃過 `tests/` 全部 23 處 hook 參照,其餘都有餵 stdin 或只是變數指派,**僅此一處**。
 - **G6 Traceability 三態化(最後一個確認的假綠勾)+ `debt` 清單的輸入契約稽核。**
   - **G6**:`spec.traceability` 存在但兩個 list 解析為空時,兩個 FOR 跑空集合 →
     舊寫法的 `IF NOT issues` 成立 → 蓋「Traceability 檔案全部存在 ✅」,
