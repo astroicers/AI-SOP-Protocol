@@ -148,10 +148,14 @@ expect_deny  "R8" "git checkout main foo 2>/dev/null"     # 真 2 positional + r
 expect_deny  "R9" "git clean -fd >/dev/null"
 expect_deny  "R10" "git stash clear 2>/dev/null"          # clear 仍 first positional
 
-echo ""; echo "GG-SEC-01：超長 command（>8192）→ defer（O(n²) tokenizer DoS 上限）"
+echo ""; echo "GG-SEC-01：超長 command（>8192）→ 截斷後照常分析（略過等於綠燈，補審 BLOCKER-1）"
 BIG="git reset --hard $(head -c 9000 /dev/zero | tr '\0' 'a')"
 rm -f "$METRICS"; OUT=$(run_hook "$BIG")
-denied "$OUT" && fail "GG-SEC-01：超長 command 應 defer（護欄 fail-open）" || pass "GG-SEC-01：超長 command → defer（DoS 上限生效）"
+denied "$OUT" && pass "GG-SEC-01：超長毀滅性 command → deny（截斷後仍命中）" || fail "GG-SEC-01：超長 command 繞過護欄（尾隨填充即可關閉防護）"
+
+BIG_OK="git status $(head -c 9000 /dev/zero | tr '\0' 'a')"
+rm -f "$METRICS"; OUT=$(run_hook "$BIG_OK")
+denied "$OUT" && fail "GG-SEC-01：超長無害 command 不應 deny" || pass "GG-SEC-01：超長無害 command → defer"
 
 echo ""; echo "B4：stdin 空 → defer 靜默（no-op，無 WARN）"
 rm -f "$METRICS"; OUT=$(printf '' | ASP_METRICS_FILE="$METRICS" bash "$HOOK" 2>"$TEST_DIR/err")
