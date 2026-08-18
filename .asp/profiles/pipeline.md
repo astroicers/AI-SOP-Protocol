@@ -52,12 +52,16 @@ SPECIFY ──G1──▶ PLAN ──G2──▶ FOUNDATION ──G3──▶ BU
 >
 > | 標記 | 意思 | 執行者該怎麼做 |
 > |---|---|---|
-> | `⟦mechanical⟧` | 有真實可執行檔/指令,今天就能跑 | 真的去跑。**目標專案沒有該 target 時標 not-applicable,不是 passed** |
+> | `⟦mechanical⟧` | **無需語意理解即可判定**。分兩種,標記會註明是哪種 | (a) **有指令**:真的去跑,**目標專案沒有該 target 時標 not-applicable,不是 passed**;(b) **無指令、可自行機械判定**(檔案存在性、欄位存在性、字串計數、表格解析):自己判,但**在證據裡註明結論來自你自己寫的 grep/腳本,不是 ASP 的儀器** |
 > | `⟦judgment⟧` | 需要語意理解,**且不預期會機械化** | 自行裁量,但**必須寫依據**。這不是缺陷 |
 > | `⟦debt⟧` | 被呼叫、**零實作**,但可機械化 | 依註解描述自行判斷;**回報它未實作是正確的** |
 > | `⟦intent⟧` | config 定義了門檻但**沒有任何一行讀它** | **非生效門檻**,不要當成會被檢查的東西 |
 >
 > 標記**不改變任何 gate 的通過與否**。`debt` / `intent` 兩層是待辦清單,不是現況描述。
+>
+> **標記不會讓缺口消失。** 標了 `debt` 的東西仍然沒實作,標了 `intent` 的門檻仍然沒接線
+> —— 回報它們是**正確的**,那不是誤報。標記只解決一件事:讓你不必猜哪些是裁量、哪些是欠債。
+> (2026-08-18 後測實證:標記後回報數 50 → 60,**沒有下降**。詳見 ADR-034 Verification Evidence。)
 
 ### G1: Architecture Gate（SPECIFY → PLAN）
 
@@ -79,16 +83,26 @@ FUNCTION evaluate_G1(artifacts):
     //   (2) 精確比對讓小寫 `draft` 繞過鐵則 FAIL 再被蓋成 Accepted。
     //       機械後手 `.asp/checks/adr-draft.sh` 用的是 `grep -qiE`（大小寫不敏感、抓得到），
     //       **兩層的比對規則不一致**；此處對齊之。
-    // ⟦mechanical⟧ 機械後手已存在且今天就能跑:`.asp/checks/adr-draft.sh [專案根]`
+    // ⟦mechanical⟧(有指令)機械後手已存在且今天就能跑:`.asp/checks/adr-draft.sh [專案根]`
     //   (狀態錨定「狀態/Status」label、正文 legend 不誤判、無 ADR 目錄 → exit 200 skip)。
-    //   本 gate 目前不呼叫它,但兩層的判定規則自 2026-08-18 起已對齊(皆大小寫不敏感)。
-    adr_status = lowercase(trim(artifacts.adr.status))
-    IF adr_status == "draft":
+    //   本 gate 不呼叫它;**若你要跑它當佐證可以,但兩層衝突時以 gate 的判定為準**。
+    //
+    // ⚠️ **2026-08-18 更正我自己的錯誤宣稱(由 G1 後測抓到)**:#112 在此寫「兩層的判定規則
+    //   已對齊(皆大小寫不敏感)」——**那只對齊了大小寫,沒對齊比對模式,所以宣稱是假的**。
+    //   後手是**在 label cell 值段內做 `\bDraft\b` 詞界子字串搜尋**(adr-draft.sh L39 的
+    //   `grep -qiE "${TABLE_RE}\bDraft\b"`);pseudocode 原本做**整串精確相等**。
+    //   拿該腳本自己 L13 文件化的合法格式當反例:`| 狀態 | Draft(待確認) |`
+    //     → 後手命中 → exit 1 blocker;pseudocode 得 "draft(待確認)" ≠ "draft" → **不 FAIL**。
+    //   **#112 自陳修掉的鐵則 fail-open,在「子字串 vs 精確相等」這個維度上仍然開著。**
+    //   本次改為詞界比對,與後手同一條規則——這是**完成 #112 宣稱過但沒做完的事**,
+    //   不是新決策;方向上只是讓 gate 不再比已上線的機械後手更寬鬆。
+    adr_status = lowercase(trim(artifacts.adr.status))     // 值段可能帶包裝/後綴,故下方用詞界比對
+    IF adr_status CONTAINS_WORD "draft":
       RETURN GATE_FAIL("ADR 為 Draft 狀態，禁止實作（鐵則）")
-    ELIF adr_status == "firm":
+    ELIF adr_status CONTAINS_WORD "firm":
       checks.append("ADR FIRM 🟡（POC 驗證中，允許繼續，記錄 bypass log）")
       YELLOW_FLAG("ADR 尚未正式 Accepted，請盡快升級")
-    ELIF adr_status == "accepted":
+    ELIF adr_status CONTAINS_WORD "accepted":
       checks.append("ADR Accepted ✅")
     ELSE:
       // 不擋（A18 寧漏報不誤報），但**不得宣稱 Accepted**
@@ -279,8 +293,12 @@ FUNCTION evaluate_G3(artifacts):
       issues.append("Done When '{criterion}' 無對應測試")
 
   // 測試全部 FAIL（證明它們在測試東西）
-  // ⟦mechanical⟧ 條件成立:**目標專案須提供 `test-filter` target**,否則整段空轉
-  //   (G4 探測用的 scratch repo 就沒有,G3 在那裡根本跑不起來)。無 target → not-applicable。
+  // ⟦mechanical⟧(有指令)**目標專案須提供 `test-filter` target**。
+  // ⚠️ 但這一行**無守衛**(G3 後測):真的沒有 target 時 `make` 以 "No rule to make target"
+  //   非零退出,`all_passed` 與 `compilation_error` **雙雙為 false**,下面兩個 IF 靜靜地
+  //   什麼都不 append —— 那不是「空轉」,是**產生一段沉默並繼續往下走**,而後續還會對一個
+  //   語意上未定義的 `test_result` 取值。三態守衛遲至下方 `test_state` 才出現。
+  //   (對照 L371 的 lint 有 `IF make_target_exists` 守衛,兩個 mechanical 檢查寫法不對稱。)
   test_result = EXECUTE("make test-filter FILTER={artifacts.spec.filter}")
   IF test_result.all_passed:
     issues.append("測試在實作前就全部通過——測試可能沒有在測東西")
@@ -333,8 +351,12 @@ FUNCTION evaluate_G3(artifacts):
   // v3.2: 場景 ↔ 測試映射驗證
   IF spec.has_scenarios:
     // ⟦debt⟧ `has_test_for_scenario()` / `count_test_cases_for_spec()` 皆未實作。
-    //   與上面的 `has_test_for()` 不同:這兩個比對的是**字面 ID**(場景 id、SPEC id),
-    //   grep 即可,不需要語意理解 → 歸 debt 不歸 judgment。估 ~25 行。
+    //   與上面的 `has_test_for()` 不同:這兩個比對的是**字面 ID**,不需要語意理解 → 歸 debt。估 ~25 行。
+    // ⚠️ **但那 ~25 行寫出來也還不能用**(2026-08-18 G3 後測):`scenario.id` 與 `spec.id`
+    //   **在整個 artifact 契約裡沒有產生來源**——grep 需要一個字串,而沒有東西提供那個字串。
+    //   這與 L68 對 `artifacts.requires_adr` 的註記同類(「全 repo 只出現在本檔」),
+    //   標記 pass 初版漏標。**先補輸入契約,再談實作。**
+    //   實測後果:該次 gate 的 PASS/FAIL 完全懸在這個未定義欄位上。
     FOR scenario IN spec.scenarios:
       IF NOT has_test_for_scenario(scenario.id, artifacts.test_files):
         issues.append("場景 {scenario.id}（{scenario.name}）無對應測試")
@@ -643,9 +665,11 @@ FUNCTION evaluate_G6(artifacts):
     issues.append("asp-ship 有 BLOCKER：{ship_result.blockers}")
 
   // 健康分數不退步
-  // ⚠️ 2026-08-18 修正：#106 在下方加了 `IF artifacts.baseline` 的 null-check，
-  //   但**這一行早 9 行就已無守衛地 dereference `artifacts.baseline.blockers`** ——
-  //   baseline 為 null 時逐字執行者在此就炸，永遠走不到那個優雅降級。守衛要在使用點之前。
+  // ✅ 已修(2026-08-18,#112)：#106 的 null-check 曾放在 dereference 之後 9 行，baseline 為
+  //   null 時逐字執行者會先炸。**守衛現已與使用點同行(下方 `IF artifacts.baseline AND ...`)，
+  //   短路求值下不會炸。此處無待修問題。**
+  //   ⚠️ 措辭教訓(G6 後測抓到):原註解用現在式描述**已修好的** bug，逐字執行者會去找一個
+  //   找不到的東西並回報為缺陷。修正紀錄一律寫完成式。
   // ⟦mechanical⟧ `make audit-quick` 是 ASP 自己提供的 target,可跑。
   // ⟦debt⟧ 但 `load_audit_baseline()`(在下方 execute_pipeline 中)**全 repo 只出現在本檔、
   //   零實作**——沒有它 `artifacts.baseline` 恆為 null,整段降級為 not-applicable。
@@ -676,11 +700,12 @@ FUNCTION evaluate_G6(artifacts):
     IF NOT issues:
       checks.append("Traceability 檔案全部存在 ✅")
 
-  // ⚠️ 2026-08-18 G6 前測發現：上方 Traceability 的兩個 issues.append 位於唯一那道
-  //   `IF issues: RETURN GATE_FAIL` **之後**，而結尾是無條件 RETURN GATE_PASS ——
-  //   SPEC 指向不存在的實作檔會 append issue、**照樣 GATE_PASS**，且因為此時 `IF NOT issues`
-  //   也不成立，連 ✅ 都不 append：那些 issue 既不擋 gate 也不進 evidence，徹底蒸發。
-  //   與 G3 是同一個結構性 bug。
+  // ✅ 已修(2026-08-18,#112)：Traceability 的 issues.append 曾位於**唯一**那道
+  //   `IF issues: RETURN GATE_FAIL` 之後、結尾又是無條件 GATE_PASS，於是那些 issue
+  //   既不擋 gate 也不進 evidence，徹底蒸發(與 G3 同型)。**下面這道就是補上的第二道 guard。**
+  //   ⚠️ 但**尚未修**的同族問題(G6 後測):`spec.traceability` 存在而兩個 list 解析為空時,
+  //   兩個 FOR 跑空集合 → `IF NOT issues` 成立 → append「Traceability 檔案全部存在 ✅」,
+  //   **零個檔案被驗證卻蓋一個 ✅**。三態化需另案處理(會動到判定字串,不在標記 pass 範圍)。
   IF issues:
     RETURN GATE_FAIL(issues)
 
@@ -766,6 +791,9 @@ FUNCTION execute_pipeline(task, team, phases):
       DELIVER:    artifacts.update(run_deliver(task, team))
 
     // 評估品質門（除最後一個階段外）
+    // ⟦debt⟧ `get_gate_for_phase()` / `get_gate_agents()` 皆零實作、全 repo 只出現在此
+    //   (標記 pass 初版漏標,G3 後測抓到)。前者是階段→gate 的固定對照(見 L24 映射表,估 ~10 行);
+    //   後者需 `team_compositions.yaml`,而**該檔不存在**——先補檔再談實作。
     gate = get_gate_for_phase(phase)
     IF gate:
       gate_agents = get_gate_agents(gate, team)
@@ -814,6 +842,10 @@ count_assertions   | > 0             | 未實作    | debt（⟦debt⟧，本次
 本 gate 分布       | mechanical N / judgment N / debt N / intent N
 ```
 
+>   **計數單位:標記項,不是檢查點。** 一個檢查點可能帶多個標記
+>   (例:G4 的 TODO 掃描同時是 ⟦mechanical⟧ 的 grep 與 ⟦debt⟧ 的 `{ext}`),`×2` 的標記算 2。
+>   範圍:**這道 gate 的全部標記項**,不是「本次實際評估到的」——否則同一道 gate 每次分母都不同。
+>
 > **最後一列是必填的。** 一道 gate 的四層分布**就是它有多硬的量測**——
 > 全部 `mechanical` 表示這道門真的擋得住;`intent` 佔多數表示它主要是意圖聲明。
 > 目前這個比例完全看不到,而它是讀者判斷該不該信任這道 gate 的第一個數字。
