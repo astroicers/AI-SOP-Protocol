@@ -275,6 +275,36 @@ FUNCTION evaluate_G5(artifacts):
   checks = []
   issues = []
 
+  // G5_integration 閾值(#101 ③)。六道 gate 中原本只有 G5 不 load thresholds
+  //（對比 evaluate_G2 有 `thresholds = load(...)`），於是 quality-thresholds.yaml 的
+  // G5_integration 四條從未被任何 pseudocode 讀到，只出現在文末的快速參考表裡。
+  //
+  // **適用性由專案型別推導，不由執行者宣稱。** 這很重要：若 N/A 可以被宣稱，
+  // 真正的 web 專案也能宣稱，量化要求就變裝飾品。依據是 quality-thresholds.yaml
+  // 自己的註解——`min_e2e_scenarios` 那行原本就寫著「（全端專案）」。
+  //
+  // ⚠️ 本段**不改變任何 gate 的通過與否**：非 web 專案標 not-applicable（原本就沒跑），
+  // web 專案的未達標走 YELLOW_FLAG 不擋（見下）。純粹讓證據停止沉默。
+  thresholds  = load(".asp/config/quality-thresholds.yaml")
+  ai_profile  = load(".ai_profile")                       // 專案根的型別宣告
+  g5_int = thresholds.gates.G5_integration
+  has_web_surface = (ai_profile.type IN ["web", "fullstack"]) OR artifacts.has_ui_changes
+  IF has_web_surface:
+    FOR name, limit IN g5_int:
+      actual = measure(name, artifacts)                    // 量不到就是 null
+      IF actual == null:
+        checks.append("{name}：skipped（無法量測）")       // 不擋——A18 寧漏報不誤報
+      ELSE IF violates(name, actual, limit):
+        // **不擋 gate**——比照 ADR-033 D1 的先例：新檢查一律先 YELLOW_FLAG。
+        // 這四條從未被任何 pseudocode 執行過，直接改成擋 gate 等於對所有 web 專案
+        // 一次啟用四道未經驗證的阻斷條件。要升為 blocking 是**獨立決策，需 ADR**
+        // （屆時應附「實際擋下的案例 / 假阻率」證據，比照 ADR-033 的做法）。
+        YELLOW_FLAG("G5_integration 未達標：{name} = {actual}（門檻 {limit}）")
+      ELSE:
+        checks.append("{name}：passed（{actual} vs {limit}）")
+  ELSE:
+    checks.append("G5_integration：not-applicable（.ai_profile type={ai_profile.type}，無 web surface）")
+
   // QA 獨立驗證。**三態**：passed / not-applicable / skipped —— 見本節末「證據誠實原則」。
   // 有 SPEC 時逐條驗 Done When;無 SPEC 時(CLAUDE.md 明列的輕量改動路徑,
   // 「可跳 G1-G6 重 gate 但獨立審查不可省」)驗「變更是否符合其自述意圖 + 無 scope 外殘留」。
@@ -547,7 +577,7 @@ Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 | G2 | SPEC 7 欄位；≥3 Done When；≥2 Gherkin 場景；[UNVERIFIED] = 0 |
 | G3 | 所有測試實作前 FAIL；無編譯錯誤 |
 | G4 | 覆蓋率 ≥ 80%；認知複雜度 ≤ 10；Lint 錯誤 = 0 |
-| G5 | ≥1 E2E 場景；頁面載入 ≤ 3000ms；a11y critical = 0 |
+| G5 | **（僅全端／web 專案適用，其餘標 not-applicable）** ≥1 E2E 場景；頁面載入 ≤ 3000ms；a11y critical = 0 |
 | G6 | 文件新鮮度 ≤ 7 天；P0 tech debt = 0；健康分數不退步 |
 
 ---

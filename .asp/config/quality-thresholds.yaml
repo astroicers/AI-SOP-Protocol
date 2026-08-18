@@ -36,6 +36,8 @@ gates:
 
   G5_integration:
     # HARDEN → DELIVER
+    # ⚠️ 本組四條**僅適用於全端／web 專案**。其餘型別（type=system/cli/library/docs）
+    #    由 evaluate_G5 依 profile.type 推導為 not-applicable，不得由執行者自行宣稱（#101 ③）。
     min_e2e_scenarios: 1             # 至少 1 個 E2E happy path（全端專案）
     performance_budget_ms: 3000      # 頁面載入預算（毫秒）
     a11y_violations_critical: 0      # 無 critical a11y 違規（axe-core 標準）
