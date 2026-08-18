@@ -45,7 +45,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
     本檔自己寫「Reality Checker 參與 G2, G5, G6」,缺席是值得記錄的事實。
   - **G2 / G4 快速參考表改為與實作一致**:G2 原稱「≥2 Gherkin 場景」但實作只檢查存在性;
     G4 原稱「覆蓋率 ≥80%、認知複雜度 ≤10」但 `evaluate_G4` 兩者皆未檢查。
-  - **實測:`quality-thresholds.yaml` 19 個鍵約 16 個從未被讀取**。已在該檔與快速參考表
+  - **實測:`quality-thresholds.yaml` 23 個鍵中 18 個從未被讀取**(2026-08-18 更正:初版寫「19 鍵約 16 個」,那是計數腳本的錯——它把 `gates.G2_specification` 出現一次就當整段 7 鍵都被讀。手動列印 config 才得到正確數字:23 鍵、實際解參考 5、未讀 18)。已在該檔與快速參考表
     加誠實聲明;**未刪任何鍵**——那是 16 個鍵的決定,超出本次呈報範圍,留在 #105。
 - **ADR-033 補登 craft 路徑的建構情境驗證證據**(狀態欄維持 `Accepted`,**非狀態變更**)。
   成功指標的「craft 路徑可運作」由 `未驗證` 改為

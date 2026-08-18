@@ -648,8 +648,11 @@ Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 **核心閾值快速參考（詳見 quality-thresholds.yaml）：**
 
 > ⚠️ **本表列的是「意圖」,不等於「pseudocode 實際會檢查的東西」**(2026-08-18 實測)。
-> `quality-thresholds.yaml` 共 19 個 threshold 鍵,而 `evaluate_G*` 真正取用的只有
-> G2 的 `min_acceptance_criteria` 與 G5_integration 整段 —— **其餘約 16 個從未被讀取**。
+> `quality-thresholds.yaml` 共 **23** 個 threshold 鍵(G1:2 G2:7 G3:2 G4:4 G5:4 G6:4),
+> 而 `evaluate_G*` 實際解參考的只有 `min_acceptance_criteria` 與 `G5_integration` 的 4 個
+> = **5 個** —— **其餘 18 個從未被讀取**。
+> (2026-08-18 更正:初版寫「19 鍵、約 16 個未讀」,那是計數腳本的錯——
+>  它把 `gates.G2_specification` 出現一次就當整段被讀。手動列印 config 後才得到正確數字。)
 > 下表已把 G2 / G4 兩列改成與實作一致(原本承諾了不存在的檢查);
 > **其餘各列尚未逐條核對**,引用前請對照對應的 `### G{n}` pseudocode。
 
