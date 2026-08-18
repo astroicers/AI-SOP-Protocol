@@ -13,6 +13,24 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **G2 / G4 不知情執行者實測 → 17 個 pseudocode 缺陷,已修其中零行為變更的部分(issue #105)**。
+  沿用 #101 的方法:只給 `pipeline.md` 與 artifacts,不提任何 skill、不提任何 ADR,
+  情境做成最正常的樣子(不針對已知缺陷調校)。產出 G2 8 條 / G4 9 條,基線 G5 是 6 條。
+  - ⚠️ **更正我在 #103 寫錯的事實**:該註解稱「六道 gate 中原本只有 G5 不 load thresholds」
+    ——**錯的**。全檔只有 G2(L156)與 G5 會 load,G1/G3/G4/G6 同樣不 load。由 G4 實測抓到。
+  - **7 個確定空洞 + 1 個部分的綠勾改三態**(G2×1 / G3×2 / G4×3 / G6×2)。
+    最嚴重的是 G3:零測試檔會印出「測試全部 FAIL(預期行為)✅」——而 G3 是 Test Readiness Gate。
+    **G2 L99 刻意保持 `✅`**:逐行核對後確認它真的被早退守住,不是每個綠勾都要改。
+  - **兩個真 bug**:(a) G2 的矩陣↔場景一致性迴圈迭代 `spec.test_matrix` 卻掛在
+    `IF spec.has_scenarios` 底下——「有場景無矩陣」時會迭代不存在的物件;
+    (b) G4 的 marker grep 在 `modified_files` 為空時沒有 path operand,**會讀 stdin 卡住**,
+    字面執行者會 hang。
+  - **Reality Checker 在 G2/G5/G6 的靜默跳過改為顯式 `skipped`** ——
+    本檔自己寫「Reality Checker 參與 G2, G5, G6」,缺席是值得記錄的事實。
+  - **G2 / G4 快速參考表改為與實作一致**:G2 原稱「≥2 Gherkin 場景」但實作只檢查存在性;
+    G4 原稱「覆蓋率 ≥80%、認知複雜度 ≤10」但 `evaluate_G4` 兩者皆未檢查。
+  - **實測:`quality-thresholds.yaml` 19 個鍵約 16 個從未被讀取**。已在該檔與快速參考表
+    加誠實聲明;**未刪任何鍵**——那是 16 個鍵的決定,超出本次呈報範圍,留在 #105。
 - **ADR-033 補登 craft 路徑的建構情境驗證證據**(狀態欄維持 `Accepted`,**非狀態變更**)。
   成功指標的「craft 路徑可運作」由 `未驗證` 改為
   **`建構情境已驗證;生產觸發仍未發生`** —— 刻意不寫「已驗證」,那會誇大成生產觸發。
