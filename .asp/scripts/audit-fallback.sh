@@ -154,6 +154,34 @@ if [ "$SPEC_COUNT" -gt 0 ]; then
     WARNINGS=$((WARNINGS + 1)); STALE=1
   fi
 fi
+
+# SPEC 宣告的「關聯 ADR」是否真的存在（#105 Q3；advisory，不進 gate）
+#   放在 audit 而非 G2 的理由：實測 18 份 SPEC 有 17 份引用皆存在、0 份斷鏈。
+#   加一條註定零命中的 gate 規則，等於自己製造 ADR-018 的未來待刪候選；
+#   但這裡幾乎免費（本節本來就在逐份掃 SPEC），且 advisory 不會誤擋。
+if [ "$SPEC_COUNT" -gt 0 ] && [ -d "docs/adr" ]; then
+  DANGLING=""
+  for spec in docs/specs/SPEC-*.md; do
+    [ -f "$spec" ] || continue
+    # 只取「關聯 ADR」那一列的儲存格，避免掃到內文提及的 ADR 編號
+    refs=$(sed -n 's/^|[[:space:]]*\*\*關聯 ADR\*\*[[:space:]]*|\([^|]*\)|.*/\1/p' "$spec" \
+           | grep -oE 'ADR-[0-9]+' | sort -u)
+    for r in $refs; do
+      # 逐一 [ -f ] 而非 `ls a b`：ls 只要任一 operand 不存在就回非零，
+      # 即使另一個匹配到了（實測假陽性：ADR-001-xxx.md 存在但 ADR-001.md 不存在 → 誤判斷鏈）。
+      found=0
+      for f in docs/adr/${r}-*.md docs/adr/${r}.md; do
+        [ -f "$f" ] && { found=1; break; }
+      done
+      [ "$found" -eq 1 ] || DANGLING="$DANGLING\n    $(basename "$spec") → $r"
+    done
+  done
+  if [ -n "$DANGLING" ]; then
+    echo "  🟡 WARNING: SPEC 引用了不存在的 ADR："
+    printf "%b\n" "$DANGLING"
+    WARNINGS=$((WARNINGS + 1)); STALE=1
+  fi
+fi
 [ "$STALE" -eq 0 ] && echo "  ✅ OK（或無 SPEC）"
 echo ""
 

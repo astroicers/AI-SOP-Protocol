@@ -40,6 +40,22 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **#105 第 3、4 類落地(grill-with-docs 裁決)**。
+  - **第 3 類:SPEC 的關聯 ADR 無人驗證 → 不加 gate,改進 audit。**
+    **是真缺口但實測 18 份 SPEC 有 17 份引用皆存在、0 份斷鏈**。加一條註定零命中的 gate 規則
+    等於自己製造 ADR-018 的未來待刪候選,也違反 ADR-022 的可推導性與複雜度棘輪。
+    改在 `audit-fallback.sh` 第 7 節(本來就在逐份掃 SPEC)加 advisory 檢查,
+    雙向驗證:現況 0 命中;塞 `ADR-777` 進 fixture 會被抓到且只列它。
+    > 實作時自己寫出一個假陽性:`ls a b` **只要任一 operand 不存在就回非零**,
+    > 即使另一個匹配到了(`ADR-001-xxx.md` 存在但 `ADR-001.md` 不存在 → 全部誤判)。已改逐一 `[ -f ]`。
+  - **第 4 類:G2 三個無來源旗標 → ADR-031 雙重編碼,pipeline 那份沒接上電。**
+    `spec.is_user_facing` / `is_backend_api` / `is_data_processing` 沒有任何資料來源,
+    而且**實測會在 39% 的案例上觸發**(7/18 份真實 SPEC 缺 Observability),
+    決定 🔴 BLOCKER 與 pass。**判準其實已經寫在 `SPEC_Template.md:187`**——
+    pipeline 那三個旗標是它的複本。改為適用性由 SPEC 作者依模板表態、pipeline 只檢查有沒有表態;
+    模板端補上 N/A 逃生門用法(與 Side Effects 的「填『無』並說明理由」同慣例)。
+    ADR-034 分類上是升級:`judgment` → `mechanical`。
+    ⚠️ **嚴格方向的行為變更**,嚴重度(擋 vs YELLOW_FLAG)是唯一裁決點,已在原地標明可一行翻轉。
 - **G2 / G4 不知情執行者實測 → 17 個 pseudocode 缺陷,已修其中零行為變更的部分(issue #105)**。
   沿用 #101 的方法:只給 `pipeline.md` 與 artifacts,不提任何 skill、不提任何 ADR,
   情境做成最正常的樣子(不針對已知缺陷調校)。產出 G2 8 條 / G4 9 條,基線 G5 是 6 條。
@@ -56,7 +72,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
     本檔自己寫「Reality Checker 參與 G2, G5, G6」,缺席是值得記錄的事實。
   - **G2 / G4 快速參考表改為與實作一致**:G2 原稱「≥2 Gherkin 場景」但實作只檢查存在性;
     G4 原稱「覆蓋率 ≥80%、認知複雜度 ≤10」但 `evaluate_G4` 兩者皆未檢查。
-  - **實測:`quality-thresholds.yaml` 19 個鍵約 16 個從未被讀取**。已在該檔與快速參考表
+  - **實測:`quality-thresholds.yaml` 23 個鍵中 18 個從未被讀取**(2026-08-18 更正:初版寫「19 鍵約 16 個」,那是計數腳本的錯——它把 `gates.G2_specification` 出現一次就當整段 7 鍵都被讀。手動列印 config 才得到正確數字:23 鍵、實際解參考 5、未讀 18)。已在該檔與快速參考表
     加誠實聲明;**未刪任何鍵**——那是 16 個鍵的決定,超出本次呈報範圍,留在 #105。
 - **ADR-033 補登 craft 路徑的建構情境驗證證據**(狀態欄維持 `Accepted`,**非狀態變更**)。
   成功指標的「craft 路徑可運作」由 `未驗證` 改為

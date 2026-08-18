@@ -158,12 +158,30 @@ FUNCTION evaluate_G2(artifacts):
         IF scenario.name MATCHES "it works|正常運作|成功|OK|works fine":
           issues.append("場景 {scenario.id} 名稱過於模糊：'{scenario.name}'")
 
-  // v3.3: Observability 驗證（使用者面向功能必填）
-  IF spec.is_user_facing OR spec.is_backend_api OR spec.is_data_processing:
-    IF NOT spec.has_observability:
-      issues.append("🔴 使用者面向功能缺少可觀測性定義（Observability 區塊）")
-    ELSE:
-      checks.append("Observability 已定義 ✅")
+  // v3.3: Observability 驗證
+  // ⚠️ 2026-08-18(#105 Q4):原本寫
+  //     `IF spec.is_user_facing OR spec.is_backend_api OR spec.is_data_processing:`
+  //   那三個旗標**沒有任何資料來源**——SPEC 模板沒有這些欄位、`.ai_profile` 也不對應,
+  //   執行者只能讀內文自行宣稱。實測 7/18 份真實 SPEC 缺 Observability,
+  //   所以這個旗標在 39% 的案例上決定 🔴 BLOCKER 與 pass。
+  //
+  //   更根本的是:**適用性判準已經寫在 SPEC_Template.md L187**——
+  //   「使用者面向功能必填(backend API、資料處理、排程任務)。純 UI 或 config 變更可標注 N/A。」
+  //   pipeline 這三個旗標是那條規則的**複本,而且複本沒接上電**(ADR-031:同一意義兩處編碼會 drift)。
+  //
+  //   改為:**適用性由 SPEC 作者依模板判準表態,pipeline 不重新編碼**,只檢查作者有沒有表態。
+  //   模板已允許標 N/A —— 與 Side Effects 的「若無跨模組影響,填『無』並說明理由」同慣例。
+  //   ADR-034 分類上這是升級:judgment(執行者猜隱藏旗標)→ mechanical(區塊存在且非空)。
+  IF NOT spec.has_observability:
+    // 嚴重度:**擋 gate**。人類 2026-08-18 於 PR #108 明確裁決「維持擋」。
+    //   理由:模板本來就寫「必填」;逃生門只是一行字(`N/A — <理由>`);
+    //   改成 YELLOW_FLAG 會讓模板那條「必填」永遠是虛構的(ADR-023 治理劇場)。
+    //   ⚠️ 這是**嚴格方向**的行為變更——改動前,執行者判 is_user_facing=false 時
+    //   檢查根本不觸發;現在一律評估。若日後要放寬,換成 YELLOW_FLAG(...) 即可,
+    //   但那會推翻一次已裁決的取捨,**應附新的實測資料**(例如逃生門造成的假擋率)。
+    issues.append("🔴 缺少 Observability 區塊——不適用時請依 SPEC_Template L187 標 N/A 並說明理由")
+  ELSE:
+    checks.append("Observability 已定義 ✅")
 
   // v3.7: Done When 數量下限（quality-thresholds.yaml G2_specification.min_acceptance_criteria）
   IF severity != TRIVIAL:
@@ -630,8 +648,11 @@ Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 **核心閾值快速參考（詳見 quality-thresholds.yaml）：**
 
 > ⚠️ **本表列的是「意圖」,不等於「pseudocode 實際會檢查的東西」**(2026-08-18 實測)。
-> `quality-thresholds.yaml` 共 19 個 threshold 鍵,而 `evaluate_G*` 真正取用的只有
-> G2 的 `min_acceptance_criteria` 與 G5_integration 整段 —— **其餘約 16 個從未被讀取**。
+> `quality-thresholds.yaml` 共 **23** 個 threshold 鍵(G1:2 G2:7 G3:2 G4:4 G5:4 G6:4),
+> 而 `evaluate_G*` 實際解參考的只有 `min_acceptance_criteria` 與 `G5_integration` 的 4 個
+> = **5 個** —— **其餘 18 個從未被讀取**。
+> (2026-08-18 更正:初版寫「19 鍵、約 16 個未讀」,那是計數腳本的錯——
+>  它把 `gates.G2_specification` 出現一次就當整段被讀。手動列印 config 後才得到正確數字。)
 > 下表已把 G2 / G4 兩列改成與實作一致(原本承諾了不存在的檢查);
 > **其餘各列尚未逐條核對**,引用前請對照對應的 `### G{n}` pseudocode。
 
