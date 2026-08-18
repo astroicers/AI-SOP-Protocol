@@ -13,6 +13,24 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **G5_integration 閾值:由專案型別推導適用性(issue #101 ③)**。
+  六道 gate 中**只有 G5 不 load `quality-thresholds.yaml`**(對比 `evaluate_G2` 有),
+  於是 `G5_integration` 的四條(≥1 E2E 場景 / 頁面載入 ≤3000ms / a11y critical=0 /
+  security scan critical=0)**從未被任何 pseudocode 讀到**,只出現在文末的快速參考表。
+  - **N/A 是對的,而且設定檔早就這麼說了**——`quality-thresholds.yaml` 的
+    `min_e2e_scenarios` 那行原本就註明「(全端專案)」。真正的 drift 是快速參考表
+    轉抄時**把那個限定拿掉了**,而 pseudocode 又從不載入。
+  - **但適用性改為推導,不由執行者宣稱**:若 N/A 可以被宣稱,真正的 web 專案也能宣稱,
+    量化要求就變裝飾品。改為讀 `.ai_profile` 的 `type`
+    (`web`/`fullstack` 或有 UI 變更才套用),其餘標
+    `not-applicable(.ai_profile type=…,無 web surface)`——**帶理由的標示**,
+    接上本版的三態 checks。
+  - **不改變任何 gate 的通過與否**:非 web 專案原本就沒跑;web 專案的未達標走
+    `YELLOW_FLAG` **不擋**——比照 ADR-033 D1 先例(新檢查一律先不擋)。
+    這四條從未執行過,直接改成擋 gate 等於一次啟用四道未經驗證的阻斷條件;
+    **要升為 blocking 是獨立決策、需 ADR**,屆時應附假阻率證據。
+  - `quality-thresholds.yaml` 的限定條件由單行註解提升為**區塊註解**,
+    避免下次轉抄再弄丟。
 - **G5 證據誠實原則:三態 checks(issue #101)**。實測發現
   「檢查通過」與「無物可檢」在 gate evidence 裡長得一模一樣——一個**零測試**的 repo
   拿到跟「測試齊全且未被竄改」相同的 `偷渡偵測通過 ✅`;`QA 獨立驗證通過 ✅` 同理。
