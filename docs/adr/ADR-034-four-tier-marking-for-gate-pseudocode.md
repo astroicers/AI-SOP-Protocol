@@ -53,16 +53,24 @@ ADR-015(Accepted,2026-06-11)已經為「LLM 被要求在腦中執行偽代碼」
 > 那兩者的處置完全不同,把後者標成「執行者裁量」會是第二次說謊。
 > 量測在人類裁決前完成,所以還來得及改。
 
-`EXECUTE()` 的六個目標**全部指向真實存在的東西**(ASP 自己 `test` / `lint` /
-`test-filter` / `audit-quick` 都有);但 pseudocode 呼叫的**八個判斷 helper,零實作**。
+`EXECUTE()` 的六個目標是**格式良好的外部指令**(不是幽靈函式);
+但 pseudocode 呼叫的**八個判斷 helper,零實作**。
+
+> ⚠️ **修正一個類別錯誤(自審發現)**:本節初稿寫「六個目標全部指向真實存在的東西
+> (ASP 自己 `test`/`lint`/`test-filter`/`audit-quick` 都有)」。**那是把 ASP 當成被 gate 的專案。**
+> gate 評估的是**目標專案**,而目標專案不一定提供那些 target——
+> G4 探測用的 scratch repo 就只有 `test` 與 `lint`,**沒有 `test-filter`,G3 在那裡根本跑不起來**。
+> 所以 `mechanical` 這一層是**條件成立**的:指令格式正確,但能不能跑取決於目標專案。
+> 這正是 #106 為那些「無 target 就空轉」的綠勾加三態的原因。
+
 逐個分類後:
 
 | 層 | 數量 | 實例 | 補救方式 |
 |---|---|---|---|
 | **能跑**(mechanical) | 6 | `make test` / `make lint` / `make test-filter` / `make audit-quick` / grep / `lint_skill.py` | 無須補救 |
-| **靠判斷**(judgment) | ~7 | `is_binary_testable`、`has_test_for`、`pre_commit_checklist`、`qa_agent.independent_verify`、`sec_agent.review`、skill craft、G2 三旗標的資料來源 | **不預期會機械化**;標示即誠實 |
+| **靠判斷**(judgment) | **6** | `is_binary_testable`、`has_test_for`、`pre_commit_checklist`、`qa_agent.independent_verify`、`sec_agent.review`、skill craft<br>(初稿列的第 7 項「G2 三旗標的資料來源」**已由 #108 移除**——那是 ADR-031 雙重編碼,判準本來就在 SPEC 模板裡) | **不預期會機械化**;標示即誠實 |
 | **欠實作**(debt) | **5** | `count_assertions`、`git_diff_files`、`matches_scope`、`test_checksums_changed`、`has_cycle` | **可機械化,而且很便宜** |
-| **只是意圖**(intent) | 16 | `quality-thresholds.yaml` 中從未被任何 pseudocode 讀取的 threshold 鍵 | 要嘛接上、要嘛刪 |
+| **只是意圖**(intent) | **18** | `quality-thresholds.yaml` 共 **23** 鍵,實際被解參考的只有 `min_acceptance_criteria` 與 `G5_integration` 的 4 個 = **5** | 要嘛接上、要嘛刪 |
 
 **「欠實作」那五個是本次量測最有價值的產出。** 它們不是語意難題:
 `count_assertions` 的註解裡連 regex 都寫好了(Go/Python/TS 各一組)、
@@ -178,7 +186,10 @@ G4 的執行者則在表裡填了四個 `⏭ 不適用`。**同一條規則,兩�
 
 **副產物**:摘要表底部自然得出一道 gate 的 `mechanical / judgment / debt / intent` 分布
 ——**那個比例就是這道 gate 有多硬的量測**,而目前完全看不到。
-依本 ADR 的量測,G4 大致是 2 / 2 / 3 / 4。
+
+> ⚠️ **自審移除了一個杜撰的數字**:初稿在此寫「依本 ADR 的量測,G4 大致是 2 / 2 / 3 / 4」。
+> **那個分布我從未量過**,是為了舉例編出來的,卻掛上「依本 ADR 的量測」。
+> 逐 gate 的分布**要等標記 pass 做完才會知道**——那正是標記 pass 的產出,不是它的前提。
 
 ---
 
