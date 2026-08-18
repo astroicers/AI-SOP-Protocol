@@ -158,12 +158,27 @@ FUNCTION evaluate_G2(artifacts):
         IF scenario.name MATCHES "it works|正常運作|成功|OK|works fine":
           issues.append("場景 {scenario.id} 名稱過於模糊：'{scenario.name}'")
 
-  // v3.3: Observability 驗證（使用者面向功能必填）
-  IF spec.is_user_facing OR spec.is_backend_api OR spec.is_data_processing:
-    IF NOT spec.has_observability:
-      issues.append("🔴 使用者面向功能缺少可觀測性定義（Observability 區塊）")
-    ELSE:
-      checks.append("Observability 已定義 ✅")
+  // v3.3: Observability 驗證
+  // ⚠️ 2026-08-18(#105 Q4):原本寫
+  //     `IF spec.is_user_facing OR spec.is_backend_api OR spec.is_data_processing:`
+  //   那三個旗標**沒有任何資料來源**——SPEC 模板沒有這些欄位、`.ai_profile` 也不對應,
+  //   執行者只能讀內文自行宣稱。實測 7/18 份真實 SPEC 缺 Observability,
+  //   所以這個旗標在 39% 的案例上決定 🔴 BLOCKER 與 pass。
+  //
+  //   更根本的是:**適用性判準已經寫在 SPEC_Template.md L187**——
+  //   「使用者面向功能必填(backend API、資料處理、排程任務)。純 UI 或 config 變更可標注 N/A。」
+  //   pipeline 這三個旗標是那條規則的**複本,而且複本沒接上電**(ADR-031:同一意義兩處編碼會 drift)。
+  //
+  //   改為:**適用性由 SPEC 作者依模板判準表態,pipeline 不重新編碼**,只檢查作者有沒有表態。
+  //   模板已允許標 N/A —— 與 Side Effects 的「若無跨模組影響,填『無』並說明理由」同慣例。
+  //   ADR-034 分類上這是升級:judgment(執行者猜隱藏旗標)→ mechanical(區塊存在且非空)。
+  IF NOT spec.has_observability:
+    // ⚠️ 嚴重度是本次唯一的裁決點。維持 issues(擋 gate)的理由:模板本來就寫「必填」,
+    //   逃生門只是一行字;改成 YELLOW_FLAG 會讓模板那條「必填」永遠是虛構的(ADR-023 治理劇場)。
+    //   若要改為不擋,把下一行換成 YELLOW_FLAG(...) 即可,其餘不動。
+    issues.append("🔴 缺少 Observability 區塊——不適用時請依 SPEC_Template L187 標 N/A 並說明理由")
+  ELSE:
+    checks.append("Observability 已定義 ✅")
 
   // v3.7: Done When 數量下限（quality-thresholds.yaml G2_specification.min_acceptance_criteria）
   IF severity != TRIVIAL:
