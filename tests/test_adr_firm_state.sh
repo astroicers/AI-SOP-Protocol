@@ -115,8 +115,15 @@ ADR
 }
 
 # Run session-audit.sh in isolation and capture the briefing JSON
+# ⚠️ `</dev/null` 不可省(2026-08-18,實測掛了 5 個背景 make test,最久 7 小時):
+#   session-audit.sh:98 是 `if [ ! -t 0 ]; then INPUT=$(cat ...); fi` —— 它是 hook,
+#   本來就該從 stdin 收 Claude Code 的 JSON。那個守衛只擋得住「stdin 是 terminal」:
+#     terminal        → -t 0 成立 → 跳過      → 正常
+#     CI(/dev/null)  → 立刻 EOF              → 正常(**所以 CI 一直是綠的**)
+#     背景工作繼承的管道(無寫入端) → cat 永遠等不到 EOF → **無限掛住**
+#   本地前景跑得過、CI 也綠,只有背景執行會中——最難察覺的那種。
 run_audit() {
-  CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$ASP_ROOT/.asp/hooks/session-audit.sh" 2>/dev/null || true
+  CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$ASP_ROOT/.asp/hooks/session-audit.sh" </dev/null 2>/dev/null || true
 }
 
 # ── T1: FIRM ADR not added to DRAFT_ADRS ──
