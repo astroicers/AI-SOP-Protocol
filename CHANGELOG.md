@@ -40,6 +40,25 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **六道 gate 前測完成(50 個缺陷)+ 修掉五個標記解決不了的真 bug**。
+  ADR-034 升 FIRM 後的第一步:補齊 G1/G3/G6 的不知情執行者基線。
+  結果 **G5=6 · G2=8 · G4=9 · G1=9 · G3=10 · G6=8,合計 50**。
+  - **死碼是系統性的,不是個案**。G3 與 G6 都有「唯一的 `IF issues: RETURN GATE_FAIL` 早退在前,
+    後面還繼續 append issues,結尾無條件 `RETURN GATE_PASS`」——**那些條件永遠無法讓 gate 失敗**。
+    G6 更糟:Traceability 的 issue 既不擋 gate、也因 `IF NOT issues` 不成立而不進 evidence,**徹底蒸發**。
+  - **G1 的 `ELSE` 落空蓋章鐵則**。`ELSE` 綁在 FIRM 的 `IF` 上,於是 Proposed / Superseded /
+    空字串 / 拼錯 / **小寫 `draft`** 全部落進 `checks.append("ADR Accepted ✅")` ——
+    **這段從來沒有真的斷言 `status == "Accepted"`**。且精確比對讓小寫繞過鐵則 FAIL,
+    而機械後手 `adr-draft.sh` 用 `grep -qiE` 抓得到 —— **兩層比對規則不一致**,此次對齊。
+  - ⚠️ **#106 的修正有兩處不完整,由前測抓到**:(a) G3 的 `test_state` **從不讀 `test_result`**,
+    「4 failed 1 passed」照樣標 `passed`,而那行字寫「測試**全部** FAIL」;
+    (b) G6 的 null-check 在 `artifacts.baseline.blockers` **dereference 之後 9 行**,
+    baseline 為 null 時先炸、走不到降級。
+  - **G3 的執行者拒簽 pseudocode 要它輸出的證據行** ——「我不背書這個判定,也不會簽那行證據」。
+    六次探測中第一次有執行者在證據誠實與逐字遵循之間選了前者。
+  - **ADR-034 新增後測歸因要求**:先修 bug 會污染後測(污染文件 §3 那個坑的變體),
+    故後測必須逐條分類 `was-marking` / `was-bugfix` / `new` / `persists`,
+    **只有 `was-marking` 的減少數能拿來證明 ADR-034 有效**。
 - **#105 第 3、4 類落地(grill-with-docs 裁決)**。
   - **第 3 類:SPEC 的關聯 ADR 無人驗證 → 不加 gate,改進 audit。**
     **是真缺口但實測 18 份 SPEC 有 17 份引用皆存在、0 份斷鏈**。加一條註定零命中的 gate 規則

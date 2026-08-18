@@ -55,13 +55,25 @@ FUNCTION evaluate_G1(artifacts):
   IF artifacts.requires_adr:
     IF NOT exists(artifacts.adr):
       RETURN GATE_FAIL("ADR 不存在（鐵則）")
-    IF artifacts.adr.status == "Draft":
+    // ⚠️ 2026-08-18 G1 前測發現兩個問題，一併修：
+    //   (1) 原本的 ELSE 綁在 FIRM 那個 IF 上，於是 Proposed / Superseded / Rejected /
+    //       空字串 / 拼錯**全部**落進 `checks.append("ADR Accepted ✅")` ——
+    //       這段**從來沒有真的斷言 status == "Accepted"**。它蓋章的是 ASP 最硬的那條鐵則。
+    //   (2) 精確比對讓小寫 `draft` 繞過鐵則 FAIL 再被蓋成 Accepted。
+    //       機械後手 `.asp/checks/adr-draft.sh` 用的是 `grep -qiE`（大小寫不敏感、抓得到），
+    //       **兩層的比對規則不一致**；此處對齊之。
+    adr_status = lowercase(trim(artifacts.adr.status))
+    IF adr_status == "draft":
       RETURN GATE_FAIL("ADR 為 Draft 狀態，禁止實作（鐵則）")
-    IF artifacts.adr.status == "FIRM":
+    ELIF adr_status == "firm":
       checks.append("ADR FIRM 🟡（POC 驗證中，允許繼續，記錄 bypass log）")
       YELLOW_FLAG("ADR 尚未正式 Accepted，請盡快升級")
-    ELSE:
+    ELIF adr_status == "accepted":
       checks.append("ADR Accepted ✅")
+    ELSE:
+      // 不擋（A18 寧漏報不誤報），但**不得宣稱 Accepted**
+      checks.append("ADR 狀態未辨識：{artifacts.adr.status} —— 未驗證")
+      YELLOW_FLAG("ADR 狀態「{artifacts.adr.status}」不在 Draft/FIRM/Accepted 之列，請人工確認")
 
   IF artifacts.dependency_graph:
     IF has_cycle(artifacts.dependency_graph):
@@ -237,6 +249,10 @@ FUNCTION evaluate_G3(artifacts):
     IF total_assertions < LEN(spec.scenarios):
       issues.append("assertion 總數（{total_assertions}）少於場景數（{LEN(spec.scenarios)}）")
 
+  // ⚠️ 這原本是 G3 唯一的失敗出口，而它**在下方 v3.2 場景區塊之前** ——
+  //   那個區塊還會繼續 append issues，卻永遠不會被檢查，結尾又是無條件 RETURN GATE_PASS。
+  //   等於「場景無對應測試」與「測試數量少於場景數量」兩條**是死碼**（2026-08-18 G3 前測發現）。
+  //   本 guard 保留為早退；尾端另補一道。
   IF issues:
     RETURN GATE_FAIL(issues)
 
@@ -246,8 +262,18 @@ FUNCTION evaluate_G3(artifacts):
   // 「一個零測試的專案拿到『測試全部 FAIL(預期行為)✅』」正好否定這道 gate 的意義。
   dw_state   = "passed" IF LEN(artifacts.spec.done_when) > 0 \
                ELSE "not-applicable（Done When 為空）"
-  test_state = "passed" IF (artifacts.test_files AND make_target_exists("test-filter")) \
-               ELSE "not-applicable（無測試檔或無 test-filter target——**不等於測試正確地失敗中**）"
+  // ⚠️ 2026-08-18 二次修正：初版（#106）只判「有沒有測試檔／target」，**從不讀 test_result**
+  //   —— 於是「4 failed 1 passed」照樣被標成 passed，而這行字寫的是「測試**全部** FAIL」。
+  //   G3 前測的執行者當場拒簽這行證據。partially-green 是假紅燈的主要形態：
+  //   零 assertion 的測試對著 no-op 骨架自然會綠，它不會在 BUILD 期間為了正確的理由轉綠。
+  test_state = "not-applicable（無測試檔或無 test-filter target——**不等於測試正確地失敗中**）"
+  IF artifacts.test_files AND make_target_exists("test-filter"):
+    IF test_result.failed_count == test_result.total_count:
+      test_state = "passed（{test_result.total_count} 個全部 FAIL）"
+    ELSE:
+      // 不擋 gate（維持 #106 的取捨：標示誠實，不新增阻斷），但必須說實話
+      test_state = "partial（{test_result.failed_count}/{test_result.total_count} FAIL —— 未達 must_fail_before_impl）"
+      YELLOW_FLAG("G3 紅燈不完整：有測試在實作前已通過，可能沒在測東西")
   checks.append("Done When 有對應測試：{dw_state}")
   checks.append("測試全部 FAIL（預期行為）：{test_state}")
 
@@ -261,6 +287,10 @@ FUNCTION evaluate_G3(artifacts):
     test_count = count_test_cases_for_spec(spec.id, artifacts.test_files)
     IF test_count < scenario_count:
       issues.append("測試數量（{test_count}）少於場景數量（{scenario_count}）")
+
+  // 第二道 guard：上方 v3.2 區塊新增的 issues 原本無人檢查（死碼）。
+  IF issues:
+    RETURN GATE_FAIL(issues)
 
   RETURN GATE_PASS(evidence=checks)
 ```
@@ -511,8 +541,11 @@ FUNCTION evaluate_G6(artifacts):
     issues.append("asp-ship 有 BLOCKER：{ship_result.blockers}")
 
   // 健康分數不退步
+  // ⚠️ 2026-08-18 修正：#106 在下方加了 `IF artifacts.baseline` 的 null-check，
+  //   但**這一行早 9 行就已無守衛地 dereference `artifacts.baseline.blockers`** ——
+  //   baseline 為 null 時逐字執行者在此就炸，永遠走不到那個優雅降級。守衛要在使用點之前。
   current_audit = EXECUTE("make audit-quick")
-  IF current_audit.blockers > artifacts.baseline.blockers:
+  IF artifacts.baseline AND current_audit.blockers > artifacts.baseline.blockers:
     issues.append("健康審計引入新 blocker（before: {artifacts.baseline.blockers}, after: {current_audit.blockers}）")
 
   IF issues:
@@ -535,6 +568,14 @@ FUNCTION evaluate_G6(artifacts):
         issues.append("Traceability 引用的測試檔案不存在：{test_file}")
     IF NOT issues:
       checks.append("Traceability 檔案全部存在 ✅")
+
+  // ⚠️ 2026-08-18 G6 前測發現：上方 Traceability 的兩個 issues.append 位於唯一那道
+  //   `IF issues: RETURN GATE_FAIL` **之後**，而結尾是無條件 RETURN GATE_PASS ——
+  //   SPEC 指向不存在的實作檔會 append issue、**照樣 GATE_PASS**，且因為此時 `IF NOT issues`
+  //   也不成立，連 ✅ 都不 append：那些 issue 既不擋 gate 也不進 evidence，徹底蒸發。
+  //   與 G3 是同一個結構性 bug。
+  IF issues:
+    RETURN GATE_FAIL(issues)
 
   // Reality Checker 否決權
   IF "reality" IN current_team:
