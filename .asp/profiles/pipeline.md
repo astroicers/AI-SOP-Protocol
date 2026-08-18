@@ -96,15 +96,25 @@ FUNCTION evaluate_G2(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
+  // L99 刻意保持 ✅：它真的被守住——上面的 FOR 對任何缺欄位都會 append issue，
+  // 走到這裡就代表七欄位齊全。不是每個綠勾都要改，只有空轉得出來的才要。
   checks.append("SPEC 七欄位完整 ✅")
-  checks.append("Done When 全部可二元測試 ✅")
+  // 但這條是空轉的：done_when 為空時 FOR 跑 0 次、無 issue，卻宣告「全部可二元測試」。
+  dw_state = "passed" IF LEN(artifacts.spec.done_when) > 0 \
+             ELSE "not-applicable（Done When 為空，無可判定對象）"
+  checks.append("Done When 可二元測試：{dw_state}")
 
   // Reality Checker 參與（如果 team 包含 reality）
   IF "reality" IN current_team:
     reality_verdict = reality_check(artifacts, "G2")
     IF reality_verdict.status == "NEEDS_WORK":
       RETURN GATE_FAIL(reality_verdict.evidence)
-    checks.append("Reality Checker 通過 ✅")
+    checks.append("Reality Checker：passed")
+  ELSE:
+    // 證據誠實原則:原本整段靜默跳過,evidence 一字不提,
+    // 讀者無法分辨「Reality 審過了」與「Reality 從沒進場」。
+    // 本檔 L634 明寫「Reality Checker 參與 G2, G5, G6」,所以缺席本身是值得記錄的事實。
+    checks.append("Reality Checker：skipped（\"reality\" 不在 current_team）")
 
   // v3.2: Gherkin 場景強制驗證
   IF severity != TRIVIAL:
@@ -123,7 +133,11 @@ FUNCTION evaluate_G2(artifacts):
     IF NOT config_only AND NOT spec.has_scenarios:
       issues.append("🔴 缺少 Gherkin 驗收場景（非 trivial 任務必須撰寫）")
 
-    IF spec.has_scenarios:
+    // ⚠️ 守衛修正(2026-08-18,G2 實測):本段迭代 spec.test_matrix,原本卻掛在
+    // `IF spec.has_scenarios` 底下。SPEC「有場景但無矩陣」時,上面的 has_test_matrix
+    // 分支只 append issue、**不 return**,於是這裡會去迭代一個不存在的 test_matrix。
+    // 兩個條件都要成立才做這個交叉比對。
+    IF spec.has_scenarios AND spec.has_test_matrix:
       // 矩陣 ↔ 場景引用一致性
       FOR row IN spec.test_matrix:
         IF row.scenario_ref AND row.scenario_ref NOT IN spec.scenario_ids:
@@ -208,8 +222,16 @@ FUNCTION evaluate_G3(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
-  checks.append("所有 Done When 有對應測試 ✅")
-  checks.append("測試全部 FAIL（預期行為）✅")
+  // 兩條都會空轉：done_when 為空 → 上面的 FOR 跑 0 次；
+  // 無測試檔或無 make test-filter target → all_passed/compilation_error 皆不成立。
+  // 後者尤其嚴重：G3 是 Test Readiness Gate，
+  // 「一個零測試的專案拿到『測試全部 FAIL(預期行為)✅』」正好否定這道 gate 的意義。
+  dw_state   = "passed" IF LEN(artifacts.spec.done_when) > 0 \
+               ELSE "not-applicable（Done When 為空）"
+  test_state = "passed" IF (artifacts.test_files AND make_target_exists("test-filter")) \
+               ELSE "not-applicable（無測試檔或無 test-filter target——**不等於測試正確地失敗中**）"
+  checks.append("Done When 有對應測試：{dw_state}")
+  checks.append("測試全部 FAIL（預期行為）：{test_state}")
 
   // v3.2: 場景 ↔ 測試映射驗證
   IF spec.has_scenarios:
@@ -251,20 +273,37 @@ FUNCTION evaluate_G4(artifacts):
     issues.append("修改了 scope 外的檔案：{out_of_scope}")
 
   // v3.3: TODO/FIXME/HACK 標記檢查
-  marker_result = EXECUTE("grep -rn \"TODO\\|FIXME\\|HACK\\|XXX\" --include=\"*.{ext}\" {modified_files}")
-  IF marker_result.has_matches:
-    FOR match IN marker_result.matches:
-      LOG_TECH_DEBT("code-marker: {match.file}:{match.line} — {match.content}")
-    checks.append("⚠️ 發現 {marker_result.count} 個 TODO/FIXME 標記（已記錄為 tech-debt）")
+  // ⚠️ 空清單防護(2026-08-18,G4 實測):modified_files 為空時,
+  // `grep -rn ... --include=...` 沒有 path operand 會**讀 stdin 而卡住**。
+  // 字面執行者會 hang。必須先判空。
+  IF NOT modified_files:
+    checks.append("TODO/FIXME 標記掃描：not-applicable（無變更檔案可掃）")
   ELSE:
-    checks.append("無新增 TODO/FIXME 標記 ✅")
+    marker_result = EXECUTE("grep -rn \"TODO\\|FIXME\\|HACK\\|XXX\" --include=\"*.{ext}\" {modified_files}")
+    IF marker_result.has_matches:
+      FOR match IN marker_result.matches:
+        LOG_TECH_DEBT("code-marker: {match.file}:{match.line} — {match.content}")
+      // 訊息用「標記」涵蓋四種 pattern——grep 找的是 TODO|FIXME|HACK|XXX,
+      // 原本的字串只寫 TODO/FIXME,命中 HACK/XXX 會被歸在沒提到它的標籤下。
+      checks.append("⚠️ 發現 {marker_result.count} 個 TODO/FIXME/HACK/XXX 標記（已記錄為 tech-debt）")
+    ELSE:
+      checks.append("無新增 TODO/FIXME/HACK/XXX 標記 ✅")
 
   IF issues:
     RETURN GATE_FAIL(issues)
 
-  checks.append("make test 全部通過 ✅")
-  checks.append("make lint 無 error ✅")
-  checks.append("修改範圍在 scope 內 ✅")
+  // 三條都可能空轉：
+  //   - make test / make lint：target 不存在時整段沒跑，卻宣告通過
+  //   - scope：git_diff_files() 在「gate 執行前已 commit」時回空集合，檢查恆真空過
+  test_state  = "passed" IF make_target_exists("test") \
+                ELSE "not-applicable（無 test target）"
+  lint_state  = "passed" IF make_target_exists("lint") \
+                ELSE "not-applicable（無 lint target）"
+  scope_state = "passed" IF (modified_files AND allowed_files) \
+                ELSE "not-applicable（無變更清單或無 task_manifest.scope）"
+  checks.append("make test：{test_state}")
+  checks.append("make lint：{lint_state}")
+  checks.append("修改範圍在 scope 內：{scope_state}")
   RETURN GATE_PASS(evidence=checks)
 ```
 
@@ -275,9 +314,14 @@ FUNCTION evaluate_G5(artifacts):
   checks = []
   issues = []
 
-  // G5_integration 閾值(#101 ③)。六道 gate 中原本只有 G5 不 load thresholds
-  //（對比 evaluate_G2 有 `thresholds = load(...)`），於是 quality-thresholds.yaml 的
-  // G5_integration 四條從未被任何 pseudocode 讀到，只出現在文末的快速參考表裡。
+  // G5_integration 閾值(#101 ③)。quality-thresholds.yaml 的 G5_integration 四條
+  // 原本從未被任何 pseudocode 讀到，只出現在文末的快速參考表裡。
+  //
+  // ⚠️ 更正(2026-08-18，由一次不知情執行者的 G4 實測抓到)：本註解初版寫
+  // 「六道 gate 中原本只有 G5 不 load thresholds」——**那是錯的**。
+  // 全檔只有 G2(L156)與本處會 load；**G1 / G3 / G4 / G6 同樣不 load**，
+  // 而 quality-thresholds.yaml 為它們定義的區塊也就同樣從未被讀到。
+  // 那不是本次修好的東西，是同一個 bug 尚未處理的其餘部分。
   //
   // **適用性由專案型別推導，不由執行者宣稱。** 這很重要：若 N/A 可以被宣稱，
   // 真正的 web 專案也能宣稱，量化要求就變裝飾品。依據是 quality-thresholds.yaml
@@ -426,7 +470,12 @@ FUNCTION evaluate_G5(artifacts):
     reality_verdict = reality_check(artifacts, "G5")
     IF reality_verdict.status == "NEEDS_WORK":
       RETURN GATE_FAIL(reality_verdict.evidence)
-    checks.append("Reality Checker 通過 ✅")
+    checks.append("Reality Checker：passed")
+  ELSE:
+    // 證據誠實原則:原本整段靜默跳過,evidence 一字不提,
+    // 讀者無法分辨「Reality 審過了」與「Reality 從沒進場」。
+    // 本檔 L634 明寫「Reality Checker 參與 G2, G5, G6」,所以缺席本身是值得記錄的事實。
+    checks.append("Reality Checker：skipped（\"reality\" 不在 current_team）")
 
   RETURN GATE_PASS(evidence=checks)
 ```
@@ -451,8 +500,12 @@ FUNCTION evaluate_G6(artifacts):
   IF issues:
     RETURN GATE_FAIL(issues)
 
-  checks.append("asp-ship 7 步全綠 ✅")
-  checks.append("健康分數未退步 ✅")
+  // 兩條都可能空轉:pre_commit_checklist() 不可用、或無 artifacts.baseline 可比對時，
+  // 條件式不成立 → 無 issue → 仍宣告通過。
+  ship_state   = "passed" IF ship_result ELSE "not-applicable（pre_commit_checklist 未回傳結果）"
+  health_state = "passed" IF artifacts.baseline ELSE "not-applicable（無 baseline 可比對）"
+  checks.append("asp-ship 7 步：{ship_state}")
+  checks.append("健康分數未退步：{health_state}")
 
   // v3.3: Traceability 檔案存在驗證
   IF spec.traceability:
@@ -470,7 +523,12 @@ FUNCTION evaluate_G6(artifacts):
     reality_verdict = reality_check(artifacts, "G6")
     IF reality_verdict.status == "NEEDS_WORK":
       RETURN GATE_FAIL(reality_verdict.evidence)
-    checks.append("Reality Checker 通過 ✅")
+    checks.append("Reality Checker：passed")
+  ELSE:
+    // 證據誠實原則:原本整段靜默跳過,evidence 一字不提,
+    // 讀者無法分辨「Reality 審過了」與「Reality 從沒進場」。
+    // 本檔 L634 明寫「Reality Checker 參與 G2, G5, G6」,所以缺席本身是值得記錄的事實。
+    checks.append("Reality Checker：skipped（\"reality\" 不在 current_team）")
 
   RETURN GATE_PASS(evidence=checks)
 ```
@@ -571,12 +629,18 @@ Draft ADR 數      | = 0              | 0         | ✅ PASS（FIRM 不計入）
 
 **核心閾值快速參考（詳見 quality-thresholds.yaml）：**
 
+> ⚠️ **本表列的是「意圖」,不等於「pseudocode 實際會檢查的東西」**(2026-08-18 實測)。
+> `quality-thresholds.yaml` 共 19 個 threshold 鍵,而 `evaluate_G*` 真正取用的只有
+> G2 的 `min_acceptance_criteria` 與 G5_integration 整段 —— **其餘約 16 個從未被讀取**。
+> 下表已把 G2 / G4 兩列改成與實作一致(原本承諾了不存在的檢查);
+> **其餘各列尚未逐條核對**,引用前請對照對應的 `### G{n}` pseudocode。
+
 | Gate | 關鍵閾值 |
 |------|---------|
 | G1 | Draft ADR = 0；FIRM ADR = 🟡（允許但記錄）；依賴圖無環 |
-| G2 | SPEC 7 欄位；≥3 Done When；≥2 Gherkin 場景；[UNVERIFIED] = 0 |
+| G2 | SPEC 7 欄位；≥3 Done When；Gherkin 場景**存在**（`min_gherkin_scenarios: 2` 未被讀取，實作只檢查有無）；測試矩陣正/負向各 ≥1；[UNVERIFIED] = 0 |
 | G3 | 所有測試實作前 FAIL；無編譯錯誤 |
-| G4 | 覆蓋率 ≥ 80%；認知複雜度 ≤ 10；Lint 錯誤 = 0 |
+| G4 | `make test` 通過；`make lint` 無 error（**有 target 時**）；變更在 scope 內；TODO/FIXME/HACK/XXX 記為 tech-debt<br>⚠️ **覆蓋率與認知複雜度雖在 config 有值，`evaluate_G4` 從未檢查** —— 原本列在此處是不實承諾，已移除 |
 | G5 | **（僅全端／web 專案適用，其餘標 not-applicable）** ≥1 E2E 場景；頁面載入 ≤ 3000ms；a11y critical = 0 |
 | G6 | 文件新鮮度 ≤ 7 天；P0 tech debt = 0；健康分數不退步 |
 

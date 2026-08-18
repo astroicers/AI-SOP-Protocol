@@ -7,6 +7,11 @@
 
 gates:
 
+  # ⚠️ 誠實聲明(2026-08-18 實測):本檔共 19 個 threshold 鍵,但 .asp/profiles/pipeline.md
+  #    的 evaluate_G* 真正取用的只有 G2 的 min_acceptance_criteria 與 G5_integration 整段。
+  #    **其餘約 16 個鍵目前沒有任何 pseudocode 讀取它們** —— 它們記錄的是意圖,不是生效中的門檻。
+  #    不要把此處有值當成「該檢查已在執行」。逐條現況見 pipeline.md 快速參考表的表頭註記。
+
   G1_architecture:
     # SPECIFY → PLAN
     max_draft_adrs_blocking: 0        # Draft ADR 數量必須為 0 才能繼續
