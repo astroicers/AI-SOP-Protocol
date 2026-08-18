@@ -111,8 +111,9 @@ FUNCTION evaluate_G1(artifacts):
 
   IF artifacts.dependency_graph:
     // ⟦debt⟧ `has_cycle()` 未實作。標準有向圖環偵測(DFS + 三色標記),估 ~30 行。
-    //   屬 ADR-034 D4 那份 ~150 行清單。**注意 `artifacts.dependency_graph` 同樣無產生來源**,
-    //   所以現況等同這整段從不執行。
+    // 🚫 **輸入被擋**:`dependency_graph` 全 repo 只出現在本檔,**無產生來源、無 schema**
+    //   (不是 adjacency list、不是 DOT,連箭頭語意都沒定義——「依賴」還是「送事件」?)。
+    //   **先補輸入契約再談實作**,否則那 30 行是死碼。現況等同這整段從不執行。
     IF has_cycle(artifacts.dependency_graph):
       RETURN GATE_FAIL("依賴圖存在循環")
     checks.append("依賴圖無環 ✅")
@@ -307,8 +308,12 @@ FUNCTION evaluate_G3(artifacts):
 
   // v3.3: 測試品質檢查（防止空測試）
   FOR test_file IN artifacts.test_files:
-    // ⟦debt⟧ `count_assertions()` 未實作,但**可機械化且很便宜**——regex 下一行就給了。
-    //   估 ~20 行 shell。屬 ADR-034 D4 那份 ~150 行清單。
+    // ⟦debt⟧ `count_assertions()` 未實作,但**可機械化且很便宜**——regex 下一行就給了。估 ~20 行。
+    // ✅ **輸入齊全**(test_files)。
+    // ⚠️ 但**照規格實作出來的是一個已知弱的檢查**(G3 後測):它是**檔**級不是 **test** 級,
+    //   一個檔案只要有 1 個 assertion,配 50 個空 test 也過。實測就撞到:一個零 assertion
+    //   的測試對這道檢查完全隱形,而它的缺口被一個不對應任何場景的測試補貼掉了。
+    //   **實作前先決定要不要改成 test 級**,否則是花 20 行買一個測不到東西的檢查。
     assertion_count = count_assertions(test_file)
     // count_assertions 依語言：
     //   Go: count("assert", "require.")  Python: count("assert")  TS/JS: count("expect(")
@@ -357,6 +362,7 @@ FUNCTION evaluate_G3(artifacts):
     //   這與 L68 對 `artifacts.requires_adr` 的註記同類(「全 repo 只出現在本檔」),
     //   標記 pass 初版漏標。**先補輸入契約,再談實作。**
     //   實測後果:該次 gate 的 PASS/FAIL 完全懸在這個未定義欄位上。
+    // 🚫 **輸入被擋**——那 ~25 行寫出來也沒有東西可 grep。
     FOR scenario IN spec.scenarios:
       IF NOT has_test_for_scenario(scenario.id, artifacts.test_files):
         issues.append("場景 {scenario.id}（{scenario.name}）無對應測試")
@@ -395,8 +401,13 @@ FUNCTION evaluate_G4(artifacts):
     IF lint_result.has_errors:
       issues.append("make lint 有 error")
 
-  // ⟦debt⟧ ×2:`git_diff_files()`(一行 git,估 ~5 行)與 `matches_scope()`(glob 比對,估 ~20 行)
-  //   皆未實作。兩者都屬 ADR-034 D4 那份 ~150 行清單,是其中最便宜的。
+  // ⟦debt⟧ ×2:`git_diff_files()`(一行 git,估 ~5 行)與 `matches_scope()`(glob 比對,估 ~20 行)。
+  // ✅ `git_diff_files()` **輸入齊全**(git 一定在)——但 **diff 的基準未定義**
+  //   (工作區 vs HEAD?本次 BUILD 的 commit?含不含 untracked?)。G4 後測實測:
+  //   三種讀法給三種不同結論,其中一種會多出一條 scope issue。**先定基準再實作。**
+  // 🚫 `matches_scope()` **輸入被擋**:`task_manifest.scope.allow` 無 schema——
+  //   `TASK_COMPLETE.yaml` 只有 `task_manifest: "{manifest_ref}"` 一個字串參照,
+  //   沒有任何地方定義 manifest 內的 scope 結構。
   //   ⚠️ 另注意 `git_diff_files()` 在「gate 執行前已 commit」時回空集合,檢查恆真空過。
   modified_files = git_diff_files()
   allowed_files = artifacts.task_manifest.scope.allow
@@ -414,8 +425,11 @@ FUNCTION evaluate_G4(artifacts):
     // ⟦mechanical⟧ grep 本體可跑。
     // ⟦debt⟧ 但 `{ext}` **沒有定義**——沒有任何一處說它從哪來(專案語言?變更檔副檔名集合?)。
     //   逐字執行者會把它原樣帶進 shell,`--include="*.{ext}"` 匹配不到任何檔案而靜默回空。
-    //   估 ~10 行(取 modified_files 的副檔名集合)。屬 D4 清單。同樣的 `{ext}` 在 G5 的
-    //   全專案 grep 也出現一次。
+    //   估 ~10 行(取 modified_files 的副檔名集合)。同樣的 `{ext}` 在 G5 的全專案 grep 也出現一次。
+    // ✅ **輸入齊全**(可從 modified_files 導出)——這是 debt 清單裡最單純可做的一項。
+    // ⚠️ 但空清單守衛只擋得住 hang,擋不住**假綠勾**(G4 後測):modified_files 非空而
+    //   `{ext}` 未展開時,`--include="*.{ext}"` 匹配不到任何檔案 → **靜默回空** →
+    //   append「無新增 TODO/FIXME/HACK/XXX 標記 ✅」。打勾比 hang 更難察覺。
     marker_result = EXECUTE("grep -rn \"TODO\\|FIXME\\|HACK\\|XXX\" --include=\"*.{ext}\" {modified_files}")
     IF marker_result.has_matches:
       FOR match IN marker_result.matches:
@@ -481,6 +495,8 @@ FUNCTION evaluate_G5(artifacts):
       //   `measure()` **不屬** D4 那份 ~150 行清單——量 e2e 場景數/頁面載入 ms/a11y critical
       //   需要 e2e + lighthouse + axe 工具鏈,那是獨立專案等級,不是一個下午。
       //   現況:回 null 即 skipped(A18 寧漏報不誤報),所以這四條實務上從未擋過任何東西。
+      // 🚫 `violates()` **輸入被擋**:它雖然只是數值比較(~10 行),但**消費 `measure()` 的回傳**,
+      //   而 `measure()` 不屬 D4 量級。單獨實作 `violates()` 沒有意義。
       actual = measure(name, artifacts)                    // 量不到就是 null
       IF actual == null:
         checks.append("{name}：skipped（無法量測）")       // 不擋——A18 寧漏報不誤報
@@ -523,7 +539,9 @@ FUNCTION evaluate_G5(artifacts):
         issues.append("新增 {new_warnings} 個 lint warning")
 
   // 偷渡偵測。**三態**：無 checksum 或 repo 內無測試檔時是 not-applicable，不是 passed。
-  // ⟦debt⟧ `test_checksums_changed()` 未實作。sha256 比對,估 ~15 行。屬 D4 清單。
+  // ⟦debt⟧ `test_checksums_changed()` 未實作。sha256 比對,估 ~15 行。
+  // 🚫 **輸入被擋**:`original_checksums` 無產生來源(`current_checksums` 在
+  //   `reality_checker.md` 有,`original_` 沒有)。**沒有基準快照就沒有偷渡可偵測。**
   //   (`.asp/checks/test-fresh.sh` 做的是**測試痕跡新鮮度**,不是 checksum 比對,不能替代。)
   IF test_checksums_changed(artifacts.original_checksums, artifacts.current_checksums):
     issues.append("測試檔案 checksum 已變更（偷渡風險）")
@@ -672,8 +690,9 @@ FUNCTION evaluate_G6(artifacts):
   //   找不到的東西並回報為缺陷。修正紀錄一律寫完成式。
   // ⟦mechanical⟧ `make audit-quick` 是 ASP 自己提供的 target,可跑。
   // ⟦debt⟧ 但 `load_audit_baseline()`(在下方 execute_pipeline 中)**全 repo 只出現在本檔、
-  //   零實作**——沒有它 `artifacts.baseline` 恆為 null,整段降級為 not-applicable。
-  //   估 ~15 行(讀上一次 audit 輸出取 blockers 數)。屬 D4 清單。
+  //   零實作**——沒有它 `artifacts.baseline` 恆為 null,整段降級為 not-applicable。估 ~15 行。
+  // ✅ **輸入齊全**(`make audit-quick` 的輸出)——但**沒有任何一行定義怎麼從文字裡
+  //   抽出 `blockers` 這個整數**(G6 後測)。`EXECUTE()` 回的是文字,不是結構。
   current_audit = EXECUTE("make audit-quick")
   IF artifacts.baseline AND current_audit.blockers > artifacts.baseline.blockers:
     issues.append("健康審計引入新 blocker（before: {artifacts.baseline.blockers}, after: {current_audit.blockers}）")
@@ -697,8 +716,19 @@ FUNCTION evaluate_G6(artifacts):
     FOR test_file IN spec.traceability.test_files:
       IF NOT exists(test_file):
         issues.append("Traceability 引用的測試檔案不存在：{test_file}")
-    IF NOT issues:
-      checks.append("Traceability 檔案全部存在 ✅")
+    // 三態(2026-08-18,G6 後測):`spec.traceability` 存在但兩個 list 解析為空時,
+    //   兩個 FOR 跑空集合 → 舊寫法的 `IF NOT issues` 成立 → 蓋「檔案全部存在 ✅」,
+    //   **零個檔案被驗證卻拿到綠勾**。形狀同 #102 / #106 已核准的三態化。
+    //   ⚠️ 空 list 很可能不是「沒有檔案」而是**解析失敗**:SPEC-021 的 Traceability 是自由格式
+    //   中文 bullet(`- 實作:` / `- 測試:`),沒有任何規則說「實作」映射到 `impl_files`——
+    //   換個標籤字就靜默抓不到東西。
+    n_trace = LEN(spec.traceability.impl_files) + LEN(spec.traceability.test_files)
+    trace_state = "passed（{n_trace} 個檔案全部存在）" IF n_trace > 0 \
+                  ELSE "not-applicable（Traceability 區塊存在但解析不出檔案清單——" \
+                       "**不等於檔案都在**,請確認標籤與 SPEC_Template 一致）"
+    IF n_trace == 0:
+      YELLOW_FLAG("G6 Traceability 解析為空:區塊存在卻取不到任何檔案路徑,可能是標籤不匹配")
+    checks.append("Traceability 檔案存在性：{trace_state}")
 
   // ✅ 已修(2026-08-18,#112)：Traceability 的 issues.append 曾位於**唯一**那道
   //   `IF issues: RETURN GATE_FAIL` 之後、結尾又是無條件 GATE_PASS，於是那些 issue
@@ -793,7 +823,9 @@ FUNCTION execute_pipeline(task, team, phases):
     // 評估品質門（除最後一個階段外）
     // ⟦debt⟧ `get_gate_for_phase()` / `get_gate_agents()` 皆零實作、全 repo 只出現在此
     //   (標記 pass 初版漏標,G3 後測抓到)。前者是階段→gate 的固定對照(見 L24 映射表,估 ~10 行);
-    //   後者需 `team_compositions.yaml`,而**該檔不存在**——先補檔再談實作。
+    // 🚫 `get_gate_agents()` **輸入被擋**:它需要 `team_compositions.yaml`,而**該檔不存在**
+    //   (`.asp/` 全域無此檔,`task_orchestrator.md` 也引用了它)。
+    // ✅ `get_gate_for_phase()` **輸入齊全**——L24 的階段↔gate 映射表就是它的全部內容。
     gate = get_gate_for_phase(phase)
     IF gate:
       gate_agents = get_gate_agents(gate, team)
@@ -845,6 +877,32 @@ count_assertions   | > 0             | 未實作    | debt（⟦debt⟧，本次
 >   **計數單位:標記項,不是檢查點。** 一個檢查點可能帶多個標記
 >   (例:G4 的 TODO 掃描同時是 ⟦mechanical⟧ 的 grep 與 ⟦debt⟧ 的 `{ext}`),`×2` 的標記算 2。
 >   範圍:**這道 gate 的全部標記項**,不是「本次實際評估到的」——否則同一道 gate 每次分母都不同。
+>
+> **`debt` 標記的讀法**(2026-08-18 契約稽核):每個具名 `debt` helper 旁標了
+> `✅ 輸入齊全` 或 `🚫 輸入被擋`。**被擋的先補輸入契約,寫實作只會產出死碼。**
+> 下表就是可核對的清單——每一列都能在上面的 pseudocode 內文找到對應的 🚫 / ✅ 標記。
+> (刻意不在此放 grep 指令:寫在散文裡的 pattern 會命中自己,算出來的數字比表格還不可靠。)
+>
+> | 🚫 被擋(7) | 擋在哪 |
+> |---|---|
+> | `has_cycle()` | `dependency_graph` 無產生來源、無 schema |
+> | `has_test_for_scenario()` | `scenario.id` 無產生來源 |
+> | `count_test_cases_for_spec()` | `spec.id` 無產生來源 |
+> | `matches_scope()` | `task_manifest.scope.allow` 無 schema |
+> | `test_checksums_changed()` | `original_checksums` 無產生來源 |
+> | `violates()` | 消費 `measure()`,而 `measure()` 不屬此量級 |
+> | `get_gate_agents()` | `team_compositions.yaml` 不存在 |
+>
+> | ✅ 輸入齊全(5) | 但實作前要先決定的事 |
+> |---|---|
+> | `git_diff_files()` | **diff 基準未定義**——三種讀法給三種結論(G4 後測實測) |
+> | `count_assertions()` | 照規格是**檔**級,一個 assertion 掩護 50 個空 test |
+> | `{ext}` | 無 |
+> | `load_audit_baseline()` | `EXECUTE()` 回文字,**沒有一行定義怎麼抽出 `blockers` 整數** |
+> | `get_gate_for_phase()` | 無(L24 的映射表就是全部內容) |
+>
+> ADR-034 D3 說「意圖紀錄就是未來機械化的需求清單」——**補完輸入契約之後才是**;
+> 在那之前它是願望清單。**7 擋 / 5 通,而通的那 5 個裡有 3 個還要先做設計決定。**
 >
 > **最後一列是必填的。** 一道 gate 的四層分布**就是它有多硬的量測**——
 > 全部 `mechanical` 表示這道門真的擋得住;`intent` 佔多數表示它主要是意圖聲明。

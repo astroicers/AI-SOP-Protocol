@@ -40,6 +40,23 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - 前置依賴：`~/.claude/skills/skill-reviewer/` 需存在（未安裝時走降級路徑，不擋 gate）。
 
 ### Fixed
+- **G6 Traceability 三態化(最後一個確認的假綠勾)+ `debt` 清單的輸入契約稽核。**
+  - **G6**:`spec.traceability` 存在但兩個 list 解析為空時,兩個 FOR 跑空集合 →
+    舊寫法的 `IF NOT issues` 成立 → 蓋「Traceability 檔案全部存在 ✅」,
+    **零個檔案被驗證卻拿到綠勾**。形狀同已核准兩次的 #102 / #106。
+    空 list 很可能不是「沒有檔案」而是**解析失敗**——Traceability 是自由格式中文 bullet,
+    沒有任何規則說「實作」映射到 `impl_files`,換個標籤字就靜默抓不到東西,故加 YELLOW_FLAG。
+  - **契約稽核**:每個具名 `debt` helper 旁標上 `✅ 輸入齊全` 或 `🚫 輸入被擋`。
+    結果 **7 擋 / 5 通**——`dependency_graph`、`scenario.id`、`spec.id`、
+    `task_manifest.scope.allow`、`original_checksums`、`team_compositions.yaml` **全部無產生來源**,
+    `violates()` 則消費已排除的 `measure()`。
+    **那份 ~150 行的 D4 清單有一半以上寫出來會是死碼。**
+    ADR-034 D3 說「意圖紀錄就是未來機械化的需求清單」——**補完輸入契約之後才是**,
+    在那之前它是願望清單。而通過的 5 個裡還有 3 個要先做設計決定
+    (`git_diff_files` 的 diff 基準未定義、`count_assertions` 照規格是檔級一個 assertion
+    掩護 50 個空 test、`load_audit_baseline` 沒有一行定義怎麼從文字抽出 `blockers` 整數)。
+  - 一個順手的自我勘誤:D5 那段原本寫「用 `grep -c ... ` 可自行核對」——**寫在散文裡的
+    pattern 會命中自己**,算出來的數字比表格還不可靠。已改為只留表格並註明原因。
 - **⚠️ ADR-034 後測:主指標證偽。回報數 50 → 60(+20%),沒有下降。**
   同六個情境 repo、**從 session transcript 撈出前測派工單的逐字原文**重派六位不知情執行者。
   G1 9→9 · G2 8→10 · G3 10→11 · G4 9→10 · G5 6→**10** · G6 8→10。
