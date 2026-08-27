@@ -83,10 +83,36 @@ packaging 全部 0–5/14 卻 craft 全部 approved,實證了這一點。
 
 | 訊號 | 處置 | 理由 |
 |------|------|------|
-| hygiene error | `issues` → **擋** | 確定性判定(frontmatter 有無合規 name/description),無假陽性疑慮 |
+| hygiene error | `issues` → **擋** | 確定性判定(frontmatter 有無合規 name/description)。⚠️ 原寫「無假陽性疑慮」,**已被否證**,見下方事實更正 1 |
 | 安全紅旗 | `YELLOW_FLAG` → **不擋** | 靜態 regex 有**實證**假陽性 |
 | craft | `YELLOW_FLAG` → **不擋** | craft 是判斷不是事實,符合「AI proposes, human reviews」 |
 | 工具缺席/JSON 非法 | `YELLOW_FLAG` | 工具沒裝不該阻斷別人的管線 |
+
+> ### ⚠️ 事實更正 1(2026-08-27):「hygiene error 無假陽性疑慮」已被否證
+>
+> 這句話是 hygiene error 被授權為**唯一 auto-fail、唯一擋 gate** 者的理由,
+> 而它有了第一個實測反例:**`obra/superpowers-marketplace`** ——
+> 該 repo 共 4 個檔(README / LICENSE / marketplace.json / settings),
+> 10 個 plugin 全 `source: url`,**它是純發佈清單,設計上不含 skill**。
+> H-001(`skill_md_compliant_count ≥ 1`)對它判 error。
+>
+> **精確地說,錯的不是判定而是分類。** H-001 條文說「存在 ≥1 個合規 SKILL.md」,
+> 而該 repo 確實沒有 —— **條文為真**。問題在於輸出無法區分
+> 「這不是 skill repo」與「這是壞掉的 skill repo」,兩者處置完全相反。
+>
+> **gate 曝險實測為零**(這一點也要一併記,免得高估):`pipeline.md` 的守衛是
+> `IF artifacts.changed_files MATCHES "**/SKILL.md"` —— 一個 `skill_md_count == 0`
+> 的 repo 不可能有變更觸及 `**/SKILL.md`;一旦新增了,H-001 就變成正當檢查。
+> 所以真正的傷害是**輸出說錯話**,不是擋住誰。
+>
+> **上游處置**(`skill-quality-research` PR #13,rubric 3.1.0):
+> `skill-reviewer/SKILL.md` 步驟 3 的形狀表新增「純發佈清單型」一列、
+> 修掉步驟 2 的「不必往下」(否則執行者根本走不到步驟 3)、H-001 加 `scope_note` 限定適用範圍。
+> **刻意不給 H-001 加豁免** —— 那要求 lint 解析一份 schema 不由該專案控制的 `marketplace.json`,
+> 換來的是修一個在 gate 上不可達的問題。
+>
+> ⇒ 本表的「擋」不變;**變的是「無假陽性疑慮」這個授權理由不再成立**。
+> 若日後要擴充 auto-fail 的範圍,不能再引用這一句。
 
 **「安全不擋」是刻意取捨,不是疏漏——這是本 ADR 最需要被記錄的一點。**
 實證:`S-001` 的 regex 會誤中 `anthropics/skills` 正當文件裡的
@@ -159,10 +185,35 @@ pseudocode 原寫 `skill_reviewer.review(...)`,但 `skill_reviewer` 既不符合
 |------|--------|----------|----------|
 | 未觸及 SKILL.md 的任務零影響 | G5 行為與現況完全相同 | 讀 pipeline.md 確認整段包在 `IF ... MATCHES "**/SKILL.md"` 內 | 已驗證 ✅ |
 | hygiene error 正確擋 | 68 個 SKILL.md 全無 frontmatter 的 repo → 擋 | eval 案例實跑 | 已驗證 ✅ |
-| 已知假陽性不擋 | `anthropics/skills` 的 S-001 → 只 flag | eval 案例實跑 | 已驗證 ✅ |
+| 已知假陽性不擋 | `anthropics/skills` 的 S-001 → 只 flag | eval 案例實跑 | **2026-08-27 起真的驗證了**(原「已驗證 ✅」是空過的斷言,見事實更正 2)|
 | H-005 誤報率 | ≤5% | 54 個研究樣本回歸掃描 | 已驗證 ✅(1/54) |
 | craft 路徑可運作 | 執行者確實觸發 skill-reviewer | 首次真實 G5 觸發時觀察 | **建構情境已驗證;生產觸發仍未發生**(見下) |
 | 無 flag 疲勞 | YELLOW_FLAG 不會被使用者自動略過 | 使用一段時間後主觀評估 | 待觀察 |
+
+> ### ⚠️ 事實更正 2(2026-08-27):「已知假陽性不擋」的那個 ✅ 原本是空過的
+>
+> 上表第三列與下方 POC 記錄的第 1 點都宣稱這一格由「eval 案例實跑」驗證。
+> 實查:該 eval 斷言的是 `blocks(d) is False`,而 `blocks()` 的定義是
+>
+> ```python
+> return any(h["severity"] == "error" and h["pass"] is False for h in d["hygiene"])
+> ```
+>
+> —— **它只看 hygiene,完全不看 security。** 對任何沒有 hygiene error 的 repo 恆為真,
+> **即使 S-001 完全不再被偵測到,這個斷言照樣綠。**
+> 它驗到的是「anthropics 沒有 hygiene error」,不是「一個已知的 S-001 假陽性不會擋 gate」。
+> 這格 ✅ 因此是**空過的**:指標宣稱的內容與斷言驗的內容不是同一件事。
+>
+> **已補實**(`skill-quality-research` PR #13,工具 2.1.0):
+> `evals.json` 的 `security` 欄位改為物件陣列 `{id, flag, review, source}`,
+> `review` 必填、取值 `confirmed` / `false-positive`;新增
+> `c_security_field_matches_lint()` —— **凡標了 `security`,lint 必須真的在該 repo 命中該 flag**。
+> `anthropics/skills` 因此第一次能被標成 `review: false-positive` 並被實際對帳。
+> (在舊 schema 下 `bool(security)` 會把「lint 命中」等同「複核確認成立」,
+> 這個標註根本不敢寫 —— 寫了會讓一個 T3 官方 baseline 被算成 needs-revision。)
+>
+> **本更正不改判定**:結論(已知假陽性不擋)仍然成立,而且現在有東西會在它不成立時轉紅。
+> 改的是「憑什麼說已驗證」。
 
 **craft 路徑的建構情境驗證(2026-08-18 補登,不改變上表判定)**
 
@@ -257,6 +308,9 @@ ADR-031 的教訓是「兩處編碼會 drift」,但它同時示範了正確解�
 1. **擋/不擋分界正確**——5 個 eval 案例逐一實跑:
    `24kchengYe/human-skill-tree`(68 個 SKILL.md 全無 frontmatter)→ 擋;
    `anthropics/skills`(S-001 假陽性)→ 不擋只 flag;
+   ⚠️ **這一句在 2026-08-27 前是空過的**:eval 只斷言 `blocks(d) is False`,而
+   `blocks()` 只看 hygiene,對沒有 hygiene error 的 repo 恆為真 —— 它從來沒驗過
+   「S-001 有被偵測到且不擋」。已於 `skill-quality-research` 工具 2.1.0 補實,見事實更正 2;
    `ayghri/i-have-adhd`(craft 佳 packaging 低)→ 不擋;
    `NevaMind-AI/memU`(真 S-001)→ 不擋只 flag(刻意取捨);
    未觸及 SKILL.md → 整段跳過
