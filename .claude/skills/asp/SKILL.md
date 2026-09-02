@@ -9,11 +9,13 @@ description: |
   Triggers: asp-plan, asp-ship, asp-audit, asp-review, asp-autopilot,
   asp-dev-qa-loop, asp-reality-check, asp-impact, asp-gate,
   plan feature, new feature, create ADR, write SPEC, pre-commit check, ready to commit,
-  code review, health audit, check project health, autopilot, run roadmap,
-  verify, qa, security, reality check, impact analysis,
-  計劃功能, 新功能, 建立 ADR, 寫規格, 提交前, 準備提交, 程式碼審查, 審查,
-  健康審計, 健康檢查, 自動執行, 跑 roadmap, 審計,
-  驗證, 品質, 安全, 影響分析.
+  asp review, asp code review, health audit, check project health, autopilot, run roadmap,
+  asp verify, asp qa, asp security review, reality check, impact analysis,
+  計劃功能, 新功能, 建立 ADR, 寫規格, 提交前, 準備提交, ASP 審查, ASP 程式碼審查,
+  健康審計, 健康檢查, 自動執行, 跑 roadmap, ASP 審計,
+  ASP 驗證, ASP 品質關, ASP 安全審查, 影響分析.
+  NOT for generic code review / QA / security questions outside ASP-governed
+  workflows —— 一般的審查、驗證、品質、安全問題不經此 skill,直接處理即可。
 ---
 
 # ASP Skill Router
