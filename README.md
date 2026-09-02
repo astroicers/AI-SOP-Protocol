@@ -65,7 +65,7 @@ irm https://raw.githubusercontent.com/astroicers/AI-SOP-Protocol/main/.asp/scrip
 
 > 需要 Git for Windows、Python 3.10+、jq 1.6+。詳見 [docs/install-windows.md](docs/install-windows.md)。
 
-安裝後：`~/.claude/asp/`（profiles/hooks）和 `~/.claude/skills/asp/`（15 個 skills）即可用於所有專案。
+安裝後：`~/.claude/asp/`（profiles/hooks）和 `~/.claude/skills/asp/`（asp-* skills，清單見下方功能矩陣與 `make help`）即可用於所有專案。
 
 #### Step 2 — Project-level 設定（每個專案一次，在專案根目錄執行）
 
@@ -163,6 +163,13 @@ ASP 用三個狀態管理架構決策的生命週期：
 
 ---
 
+## 回報與維護
+
+- 裝不起來、gate 誤擋、行為與文件不符 → 開 [GitHub Issues](https://github.com/astroicers/AI-SOP-Protocol/issues)
+- 維護者：[@astroicers](https://github.com/astroicers)
+
+---
+
 ## 更新 ASP
 
 ### 這台電腦（有 repo）
@@ -191,7 +198,7 @@ make asp-update
 
 | 分類 | 內容 | 安裝方式 |
 |------|------|---------|
-| **Core**（daily-driver） | hooks（session-audit + 動態 deny）、15 個 asp-* skills、gates G1-G6、12 個 profiles、asp-compile、orchestrator 確定性腳本、levels（loose/standard/autonomous） | `install.sh` 預設 |
+| **Core**（daily-driver） | hooks（session-audit + 動態 deny）、asp-* skills（`~/.claude/skills/asp/`）、gates G1-G6、profiles（`.asp/profiles/`）、asp-compile、orchestrator 確定性腳本、levels（loose/standard/autonomous） | `install.sh` 預設 |
 | **Experimental**（凍結） | multi-agent worktree 並行（8 腳本 + 10 角色 + 3 skills + Part G profile + SPEC-004 測試） | 不安裝；見 [experimental/multi-agent/](experimental/multi-agent/README.md)（解凍條件 + 手動啟用） |
 | **Showcase**（展示/研究） | telemetry、RAG（本地向量知識庫）、ai-performance 月度回顧 | `install.sh --with-showcase`；見 [showcase/](showcase/README.md) |
 
