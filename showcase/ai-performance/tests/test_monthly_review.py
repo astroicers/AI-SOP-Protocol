@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / ".asp" / "ai-performance" / "monthly-review.py"
+SCRIPT = REPO_ROOT / "monthly-review.py"
 
 
 def _load_module():
