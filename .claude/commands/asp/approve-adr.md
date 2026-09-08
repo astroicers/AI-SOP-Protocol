@@ -25,4 +25,4 @@ ASP 鐵則：**AI 不可自行升級 ADR 狀態，只能人類變更**。本指�
    - 若檔頭有 `<!-- ... Status: ... -->` HTML 註解 → 同步把 `Status:` 改 `Accepted`；若沒有（如 ADR-020）→ 略過。
    - 若該 ADR 有「採納日期」欄位 → 更新為今天；沒有 → 不強加。
 4. 提示使用者：跑 `make asp-refresh` 重新審計，清掉 session-audit A3.2 對該 ADR（升級前 FIRM 狀態殘留）的 🟡 黃旗。
-5. **不要自動 commit**——commit 走 `/asp-ship`，且屬人類確認範疇。**但要主動提醒使用者**：此時工作樹與 HEAD 不一致（HEAD 仍是舊狀態），升級尚未持久化，請盡快走 `/asp-ship` + commit，否則升級可能因後續 git 操作（checkout / stash / reset）被丟棄。最後回報這次改了哪些欄位即可。
+5. **不要自動 commit**——commit 屬人類確認範疇。**但要主動提醒使用者**：此時工作樹與 HEAD 不一致（HEAD 仍是舊狀態），升級尚未持久化，請盡快乾淨 commit（ADR 狀態變更屬純文件改動，依 2026-08-19 land 校準直接 commit 即可，不必跑 `/asp-ship`），否則升級可能因後續 git 操作（checkout / stash / reset）被丟棄。最後回報這次改了哪些欄位即可。

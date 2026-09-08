@@ -27,7 +27,7 @@ argument-hint: [session|fix（可省略，省略則依 context 自動判斷）]
 派一個 `reality-checker` subagent（預設懷疑、唯讀），回顧**整個本次對話 / session**：
 
 - 做了哪些工作、決策鏈是否合理、有無偷工或未完成項。
-- 是否符合 ASP 鐵則與過程義務：commit 前跑測試 / asp-ship、實作前 ADR 須 Accepted/FIRM、bug 修復後**全專案 grep** 同類問題、外部事實查證並記錄 `.asp-fact-check.md`、假設未明先 Assumption Checkpoint。
+- 是否符合 ASP 鐵則與過程義務：commit 前跑測試（`test-fresh` gate）、密鑰掃描（`gitleaks` gate）、實作前 ADR 須 Accepted/FIRM、bug 修復後**全專案 grep** 同類問題、外部事實查證並記錄 `.asp-fact-check.md`、假設未明先 Assumption Checkpoint。
 - 列出風險、遺漏、未驗證的宣稱，依嚴重度排序。
 
 ## 若範圍為 `fix`

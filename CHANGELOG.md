@@ -263,9 +263,13 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **SPEC-016 測試矩陣兩格翻轉**：B5→N15、B8b→N16（皆 defer→deny），新增 B10 釘住 push 的刻意放行面、N17 釘住 deny 訊息須切合損害面。`test_pretooluse_git_guardrails.sh` 101→**116 綠**。
   - **hook deny 訊息依損害面分流**：push 命中時不再套用「銷毀本地成果／改用 git stash」這類對不上的建議（人照著做也解不了，等於把 deny 訊息變成雜訊）。
 
+- **「敏感資訊保護」鐵則取得機械承接**：新增 `asp-gate.yaml` 的 `gitleaks` 檢查（blocker，`protect --staged --config .asp/gitleaks.toml`），規則庫自 asp-ng v0.41.0 vendoring 並納入 `VENDOR.lock` 竄改偵測（改一個位元組即判紅，已實測）。此前這條鐵則掛在 `/asp-ship` Step 9，而 2026-08-19 校準把 `/asp-ship` 降為選用自檢——於是「純文件 / config 直接乾淨 commit」這條路徑上密鑰掃描整條消失、鐵則只剩散文。移進 gate 後與 commit 同生命週期，不再依賴人記得跑哪支 skill。gitleaks 8.30.1 的子命令契約經一手實測（FC-016：`protect` 已自 Available Commands 隱藏但保留且支援 `--staged`；**空 staging 時 rc=0 且「0 commits scanned」，綠燈不等於掃過東西**，故以「staged 假密鑰 → rc=1」為驗收證據）。gate 端到端實測：`✅ test-fresh` → `❌ BLOCKER gitleaks`。
+
 ### Fixed
 
 - **CLAUDE.md 版本字串 drift**：第 1 行 `v5.0.0` → `v5.1.0`（v5.1.0 release 時漏改，非 ADR-032 造成，順修）。
+- **land 政策在 repo 內有兩套**：`CLAUDE.md`、`.claude/commands/asp/approve-adr.md`、`review-work.md` 仍寫「任何 git commit 前 → `/asp-ship`」「跳過須…見 `asp-ship` Step 10」，與 2026-08-19 校準相反。已改為校準語意，並把 `/asp-ship` 原本扛的兩件事各自安置：Step 9 密鑰掃描 → `gitleaks` gate；Step 10 bypass 留痕 → PreToolUse hook 的 `ASP_GIT_OK`/`ASP_ADR_OK` escape hatch（寫 `~/.asp/bypass-log.ndjson`）。
+- **`CLAUDE.md` 鐵則表對 push 的敘述與家目錄／上游相反**：原寫「`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許」，而家目錄鐵則表的 `git push` 無限定詞、asp-ng `skills/asp-merge` §四寫「`git push`(任何遠端分支)」。已收斂至嚴格側，並寫明機械層只覆蓋強制推送／刪遠端分支／直推預設分支，一般推送刻意放行故屬散文層義務。
 - **VENDOR.lock 上游身分錯指 fork**（FC-015）：三列的「上游 repo」欄原記 `astroicers/asp-ng`，實查為 `Aries-Crew/asp-ng` 的 **fork** 且已落後 13 天（fork 末次推送 08-26 vs 上游 09-08）。來源標記指向過期副本時，上游對帳會拿舊內容比而給出**假綠燈**——這一欄正是 `vendor-upstream.sh` 未來要吃的輸入。已更正為真上游。
 - **`asp-gate.yaml` vendor-verify notes 記載已失效的計畫**：原寫「上游同步偵測待 asp-ng 轉 public 後以 raw 比對」，該路徑因 2026-08-25 人裁維持 free/private 而失效（兩 repo 實查皆 `private=true`）。改記真實現況：缺口由上游 `vendor-upstream.sh` 承接，本 repo 尚未 vendoring。
 

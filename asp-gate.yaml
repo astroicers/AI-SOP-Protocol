@@ -12,6 +12,21 @@ checks:
     origin: "pretooluse-ship-gate.sh 檢查本體(SPEC-013/ADR-020)"
     notes: "腳本 .asp/checks/test-fresh.sh;由 hook 以 ASP_GATE_HOME 錨定呼叫"
 
+  - id: gitleaks
+    layer: gate
+    tool: gitleaks
+    args: [protect, --staged, --config, .asp/gitleaks.toml]
+    severity: blocker
+    origin: "asp-ship step 9 / CLAUDE-IR-2(敏感資訊保護);規則庫 .asp/gitleaks.toml 自 asp-ng v0.41.0 vendoring,受 VENDOR.lock 竄改偵測"
+    notes: >-
+      **2026-09-08 補進來的理由**:此前這條鐵則的機械支撐掛在 `/asp-ship` Step 9,
+      而 2026-08-19 校準把 /asp-ship 降為「大型碼改動的選用自檢」——於是
+      「純文件 / config 直接乾淨 commit」這條路徑上,密鑰掃描整條消失,鐵則只剩散文。
+      移進 gate 後它與 commit 同生命週期,不再依賴人記得跑哪支 skill。
+      工具缺席時 `run_check` 走 `command -v` skip(消費端零波及);gitleaks 8.30.1 實測
+      `protect --staged` 仍可用(該子命令已自 Available Commands 隱藏但保留),
+      並實證能攔下 staged 的假密鑰(rc=1),見 .asp-fact-check.md FC-016。
+
   - id: vendor-verify
     layer: gate
     tool: builtin-script

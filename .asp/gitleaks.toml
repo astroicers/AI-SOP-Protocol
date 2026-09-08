@@ -1,0 +1,43 @@
+# asp-ng 附加密鑰偵測規則(ADR-000 §16 決策 51:Gitleaks 規則庫納入模型金鑰 pattern,封 skill 誘導 exfil)
+# 與 gitleaks 內建規則全集併用;由 asp-gate.yaml 的 gitleaks check 引用。
+title = "asp-ng additional secret rules"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "claude-code-oauth-token"
+description = "Claude Code OAuth token(CLAUDE_CODE_OAUTH_TOKEN 值格式)"
+regex = '''sk-ant-oat01-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-ant-oat01-"]
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-api03-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-ant-api03-"]
+
+[[rules]]
+id = "openai-api-key-scoped"
+description = "OpenAI scoped API key(project/service account 前綴,降誤報)"
+regex = '''sk-(proj|svcacct)-[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-proj-", "sk-svcacct-"]
+
+[[rules]]
+id = "google-ai-api-key"
+description = "Google AI API key"
+regex = '''AIza[0-9A-Za-z_-]{35}'''
+keywords = ["AIza"]
+
+[[rules]]
+id = "claude-oauth-var-assignment"
+description = "CLAUDE_CODE_OAUTH_TOKEN 變數賦值——值任意即報,防「任何包裝方式」"
+regex = '''CLAUDE_CODE_OAUTH_TOKEN\s*[=:]\s*['"]?[A-Za-z0-9_-]{8,}'''
+keywords = ["CLAUDE_CODE_OAUTH_TOKEN"]
+
+[allowlist]
+description = "規則庫自身與其測試不觸發"
+paths = [
+  '''\.asp/gitleaks\.toml''',
+  '''tests/test_gate_schema\.sh''',
+]
