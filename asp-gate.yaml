@@ -35,9 +35,36 @@ checks:
     severity: blocker
     origin: "asp-ng issue #43:vendored 檢查本體與上游對帳(本 repo 為消費端)"
     notes: >-
-      本地竄改偵測(比「本機檔案 vs 本機 VENDOR.lock」)。**上游同步偵測仍是缺口**:
-      原定「asp-ng 轉 public 後以 raw 比對」之路已失效——2026-08-25 人裁維持
-      free/private。上游現有 `vendor-upstream.sh` 補這一格(比「lock 記錄 vs 上游現況」,
-      可用本機 checkout 當 adapter、零憑證零網路),本 repo 尚未 vendoring。
-      2026-09-08 實例:git-guard.sh/vendor-verify.sh 落後上游兩版而本檢查全綠,
-      是靠人工比對才發現——這正是本格缺席的代價。
+      本地竄改偵測(比「本機檔案 vs 本機 VENDOR.lock」),天生看不見上游變更。
+      上游同步偵測那一格由同目錄的 `vendor-upstream.sh` 承接(2026-09-08 已 vendoring,
+      見下方條目)。原定「asp-ng 轉 public 後以 raw 比對」之路已失效——2026-08-25
+      人裁維持 free/private。
+      2026-09-08 的代價實例:git-guard.sh 落後 3 個 release、vendor-verify.sh 落後
+      至少 10 個(逐 tag 實查 v0.32.0–v0.41.0),而本檢查一路全綠、零訊號,
+      最後是靠人工比對雜湊才發現。
+
+  - id: vendor-upstream
+    layer: gate
+    tool: builtin-script
+    args:
+      inputs: "env:ASP_GATE_PROJ 的 .asp/checks/VENDOR.lock;無 lock 或取不到上游→skip 200"
+    severity: warning
+    origin: "asp-ng issue #43 AC-3:比「lock 記錄 vs 上游現況」,補 vendor-verify 天生看不見的那一格"
+    notes: >-
+      **layer 刻意選 gate 而非上游的 ci**:本 repo 的 CI(.github/workflows/asp-ci.yml)
+      只跑 make test / audit-quick / gitleaks action,**不呼叫 .asp/gate.sh**,亦無
+      `asp render ci` 渲染物——`layer: ci` 的條目在此等於永不執行。
+      **severity 選 warning**:上游漂移不該擋住當下這次 commit(那是另一件事的工),
+      但必須看得見。
+      **adapter**:預設走 `gh api`(2026-09-08 實測可讀私有 repo 的 contents endpoint,
+      `repos/Aries-Crew/asp-ng/contents/...?ref=v0.41.0` 回 6638 bytes/base64)。
+      本機另有 checkout 者可改走零憑證零網路的路徑:
+      `ASP_VENDOR_UPSTREAM_DIR=~/projects/asp-ng ASP_VENDOR_UPSTREAM_REPO=Aries-Crew/asp-ng`
+      ——但該 adapter 讀的是 `<branch>:<path>`,預設 branch 為 `main` 即**本機** main,
+      未 fetch 時會拿舊內容比而給假綠;走這條請一併設
+      `ASP_VENDOR_UPSTREAM_BRANCH=origin/main`。
+      **取不到 ≠ 通過**:一項都判不成時 exit 200(skip),但會印「本次零比對項」
+      與 lock 上 `# upstream-checked:` 的年齡,對帳沒在跑這件事本身看得見。
+      漂移偵測能力已實測(把 lock 的 sha 改成舊值 → 同時報「來源標記對不上」與
+      「上游已變更而本地未同步」,rc=1);另實測「只放檔未加 lock 列」會被
+      vendor-verify 當場判紅,故三步順序記於 VENDOR.lock 檔頭。

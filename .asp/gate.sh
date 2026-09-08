@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ⚠️ 由 `asp render gate` 產生 — 勿手改(單一事實源:asp-gate.yaml)
-# source sha256: d31a2a735efce25cafa91914ad1e7552ad776846358651003ffc18d92a764a03
-# gate 子集:test-fresh, gitleaks, vendor-verify
+# source sha256: 2855b339a4a0f20175aaf3f36fad8a18f0a5c1a561d9ede04b91cf78218fddde
+# gate 子集:test-fresh, gitleaks, vendor-verify, vendor-upstream
 set -u
 STRICT="${ASP_GATE_STRICT:-0}"
 WARNINGS=0
-ALL_CHECKS=('test-fresh' 'gitleaks' 'vendor-verify')
+ALL_CHECKS=('test-fresh' 'gitleaks' 'vendor-verify' 'vendor-upstream')
 _SUM_SEEN=" "
 
 # ---- 可觀測性(全部 env-guarded;未設 GITHUB_* 時本機輸出逐字不變)----
@@ -90,6 +90,11 @@ if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/vendor-verify.sh" ]; then
   run_check 'vendor-verify' blocker bash 1 bash "${ASP_GATE_HOME:-.}/.asp/checks/vendor-verify.sh"
 else
   missing_blocker 'vendor-verify' '.asp/checks/vendor-verify.sh'
+fi
+if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/vendor-upstream.sh" ]; then
+  run_check 'vendor-upstream' warning bash 1 bash "${ASP_GATE_HOME:-.}/.asp/checks/vendor-upstream.sh"
+else
+  skip 'vendor-upstream' '檢查腳本未落地(.asp/checks/vendor-upstream.sh)'
 fi
 
 echo "gate 通過(warnings=$WARNINGS)"
