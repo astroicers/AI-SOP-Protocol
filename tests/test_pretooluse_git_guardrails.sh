@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# test_pretooluse_git_guardrails.sh — SPEC-016 / ADR-030 PreToolUse 本地毀資料護欄
+# test_pretooluse_git_guardrails.sh — SPEC-016 / ADR-030 PreToolUse 毀滅性 git 護欄
 #
 # hook 讀 stdin JSON（{tool_name, tool_input.command}），以 M0 tokenize + M1 逐子命令
-# 謂詞判定本地毀滅性 git；命中→ permissionDecision:deny（FC-002 方式 A）+ GIT-GUARD block
+# 謂詞判定毀滅性 git；命中→ permissionDecision:deny（FC-002 方式 A）+ GIT-GUARD block
 # 遙測；ASP_GIT_OK=1（hook env）→ defer + bypass；jq 缺/stdin 空 → fail-open defer。
-# 測試矩陣＝SPEC-016：P1-12（defer）/ N1-14（deny）/ B1-9（邊界）。
+# 測試矩陣＝SPEC-016：P1-12（defer）/ N1-14（deny）/ B1-9（邊界）；
+# asp-ng v0.41.0 re-vendor 補 N15（第十類 push）/ N16（GG-SEC-02 包裝前綴）/
+# N17（deny 訊息切合損害面）/ B10（push 的刻意放行面）。
 # Run: bash tests/test_pretooluse_git_guardrails.sh
 set -uo pipefail
 source "$(dirname "$0")/lib/common.sh"
@@ -77,7 +79,7 @@ if denied "$OUT"; then fail "P8：escape hatch 仍被擋"; else
   metric_has bypass && pass "P8：escape hatch defer + bypass 遙測" || fail "P8：defer 但未寫 bypass 遙測"
 fi
 
-echo ""; echo "════ 負向（N1-N14）：本地毀滅性 → deny + block ════"
+echo ""; echo "════ 負向（N1-N17）：毀滅性（本地 + 遠端） → deny + block ════"
 expect_deny "N1a" "git reset --hard"
 expect_deny "N1b" "git reset --hard HEAD~3"
 expect_deny "N2a" "git clean -fd"
@@ -124,15 +126,51 @@ expect_deny "N13a" "git --git-dir /tmp/o.git reset --hard"   # 空白分隔全�
 expect_deny "N13b" "git --git-dir=/tmp/o.git reset --hard"   # = 形
 expect_deny "N14" "FOO=bar git reset --hard"             # VAR=val 前綴須跳過
 
+# ── N15：第十類「遠端」push（asp-ng v0.41.0 re-vendor，2026-09-08）──
+# 原 B5 曾釘「push 屬既有層職責，本 hook 不重複」——那個既有層是 GitHub 分支保護，
+# 2026-08-26 實查 free 方案根本沒有（私有 repo 拿不到），故 push 一直無任何機械承接。
+expect_deny "N15a" "git push --force"                    # 覆寫遠端歷史
+expect_deny "N15b" "git push -f origin feature"          # 短旗標 bundle
+expect_deny "N15c" "git push --delete origin feature"    # 刪遠端分支
+expect_deny "N15d" "git push origin :feature"            # 刪遠端分支（舊寫法）
+expect_deny "N15e" "git push origin main"                # 直推預設分支（ADR-000 §10）
+expect_deny "N15f" "git push origin HEAD:main"           # refspec 的**目的地**才是危險處
+
+# ── N16：GG-SEC-02 包裝前綴剝離（原 B8b 已知漏擋，本次 re-vendor 關閉）──
+# 觸發點：rtk 的 PreToolUse hook 把**每一條** Bash 改寫成 `rtk <cmd>`，
+# 「沒有東西會例行地包裝指令」這個原始前提已不成立。
+expect_deny "N16a" "env git reset --hard"                # env 包裝
+expect_deny "N16b" "rtk git reset --hard"                # rtk 包裝（洞的實際來源）
+expect_deny "N16c" "rtk proxy git reset --hard"          # proxy 的定義就是不過濾
+expect_deny "N16d" "sudo git clean -fd"                  # sudo 包裝
+expect_deny "N16e" "rtk env FOO=1 git reset --hard"      # 包裝與 VAR=val 交錯
+
+echo ""; echo "════ N17：deny 訊息須切合損害面（本地 vs 遠端）════"
+# 第十類進來後，一律套「銷毀本地成果 / 改用 git stash」會在 push 命中時給出對不上的
+# 建議——人照著做也解不了，等於把 deny 訊息變成雜訊。
+_out=$(run_hook "git push --force")
+{ grep -q "遠端歷史" <<<"$_out" && grep -q "force-with-lease" <<<"$_out"; } \
+  && pass "N17a：push 命中 → 遠端損害面 + 遠端替代" \
+  || fail "N17a：push 命中卻給本地說法/本地替代 — 「$_out」"
+_out=$(run_hook "git reset --hard")
+{ grep -q "本地成果" <<<"$_out" && grep -q "git stash" <<<"$_out"; } \
+  && pass "N17b：本地命中 → 本地損害面 + 本地替代" \
+  || fail "N17b：本地命中訊息不對 — 「$_out」"
+
 echo ""; echo "════ 邊界（B1-B9）════"
 expect_defer "B1" 'git log --grep="reset --hard"'        # 字串內（引號感知）
 expect_defer "B2" 'git commit -m "wip: git reset --hard notes"'  # 引號內危險字串
-expect_defer "B5" "git push --force"                     # 既有層職責，本 hook 不重複
 expect_defer "B6" "git reset --har"                      # 長選項前綴補全（已知漏擋釘樁）
 expect_defer "B7" 'git commit -m "$(git reset --hard)"'  # 命令替換內巢狀（已知漏擋釘樁）
-expect_defer "B8a" '\git reset --hard'                   # 反斜線包裝前綴（已知漏擋釘樁）
-expect_defer "B8b" "env git reset --hard"                # env 包裝（首 token 非 git）
+expect_defer "B8a" '\git reset --hard'                   # 反斜線包裝前綴（仍為已知漏擋：只認無參數的簡單前綴形）
 expect_defer "B9" "git checkout f2.txt"                  # 單 positional 為已追蹤檔（已知漏擋釘樁）
+
+# ── B10：push 的刻意放行面。護欄要能長住就不能擋掉每天做幾十次的事；
+# 這幾條若哪天變 deny，人會整條關掉護欄，故與漏擋同等重要，一併釘住。
+expect_defer "B10a" "git push --force-with-lease"        # 遠端被動過就失敗＝安全變體，擋它只會逼人改用真 --force
+expect_defer "B10b" "git push --force --dry-run"         # 什麼都不做，擋它純屬過度攔截
+expect_defer "B10c" "git push origin feature"            # 一般推送：非預設分支
+expect_defer "B10d" "git push origin main:feature"       # refspec 來源是 main 但目的地不是
 
 echo ""; echo "════ R（redirect 剝除）：shell redirect 不得算 positional（OB-02 over-block 修復）════"
 # 誤擋修復：redirect token 曾被當 positional → checkout 誤判 ≥2 → deny

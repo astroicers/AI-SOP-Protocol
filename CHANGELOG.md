@@ -255,9 +255,19 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **ASP 側**：ADR-012 + SPEC-007/008/009 provenance 閘標 **dormant**（保留不刪備解凍）；蒸餾（零 code）新增 `docs/contracts/inbox-task-schema.md`（含 drift 註）、`docs/security/github-app-least-privilege-reference.md`、threat-model「生產者↔閘一致性原則」；`CONTEXT.md`/`GLOSSARY.md` 新增 Operator（FROZEN）術語。
   - **可逆解凍**：取消 `poll-issues.yml` schedule 註解 + 重裝 App + 移除 dormant 註 + 取消 archive。三柱架構收斂為單一治理核心。
 
+- **vendored 檢查本體同步至 asp-ng v0.41.0**（`Aries-Crew/asp-ng` tag v0.41.0 ＝ main 943d897）。本 repo 的副本落後上游兩版，而 `vendor-verify` 全綠——它比的是「本機檔案 vs 本機 lock」，天生看不見上游變更（缺口記於 `asp-gate.yaml` notes 與 FC-015）。
+  - **`git-guard.sh` 第十類：遠端 push**。擋強制推送 / 刪除遠端分支（`--delete`、`-d`、`origin :branch`）/ 直推 `main`。原 SPEC-016 B5 釘「push 屬既有層職責」，那個既有層是 GitHub 分支保護——**2026-08-26 實查 free 方案沒有此功能**，故 push 一直零機械承接。`--force-with-lease` 與 `--dry-run` **刻意放行**：擋掉安全變體只會逼人改用真 `--force`，或整條關掉護欄。
+  - **`git-guard.sh` GG-SEC-02：剝離指令包裝前綴**（`rtk`／`rtk proxy|run`、`sudo`、`env`、`command`、`nice`、`nohup`、`stdbuf`、`time`）。原判定要求首 token 為 `git`，前提是「沒有東西會例行地包裝指令」——而 rtk 的 PreToolUse hook 正是把**每一條** Bash 改寫成 `rtk <cmd>`，前提已不成立。殘留漏擋（`\git`、`sudo -u x`、`sh -c`、`xargs`）仍為誠實釘樁。
+  - **`vendor-verify.sh`**：VENDOR.lock 新增選填第五欄 `<ref>`（上游版本座標，缺 ref 於 `ASP_VENDOR_REF_DEADLINE`＝2026-09-30 後判紅）；對帳器自身須列於 lock 內（否則竄改它即可無痕停用整套對帳）。
+  - **`.asp/gate.sh` 以 v0.41.0 渲染器重出**：新增 `missing_blocker`（blocker 級檢查腳本缺席改為判紅，原為靜默略過＝fail-open）、skip-200 契約收斂為僅 `builtin-script` 適用（issue #46：第三方工具回 200 曾靜默 fail-open）、GitHub Actions annotation／step-summary（皆 env-guarded，本機輸出逐字不變）。
+  - **SPEC-016 測試矩陣兩格翻轉**：B5→N15、B8b→N16（皆 defer→deny），新增 B10 釘住 push 的刻意放行面、N17 釘住 deny 訊息須切合損害面。`test_pretooluse_git_guardrails.sh` 101→**116 綠**。
+  - **hook deny 訊息依損害面分流**：push 命中時不再套用「銷毀本地成果／改用 git stash」這類對不上的建議（人照著做也解不了，等於把 deny 訊息變成雜訊）。
+
 ### Fixed
 
 - **CLAUDE.md 版本字串 drift**：第 1 行 `v5.0.0` → `v5.1.0`（v5.1.0 release 時漏改，非 ADR-032 造成，順修）。
+- **VENDOR.lock 上游身分錯指 fork**（FC-015）：三列的「上游 repo」欄原記 `astroicers/asp-ng`，實查為 `Aries-Crew/asp-ng` 的 **fork** 且已落後 13 天（fork 末次推送 08-26 vs 上游 09-08）。來源標記指向過期副本時，上游對帳會拿舊內容比而給出**假綠燈**——這一欄正是 `vendor-upstream.sh` 未來要吃的輸入。已更正為真上游。
+- **`asp-gate.yaml` vendor-verify notes 記載已失效的計畫**：原寫「上游同步偵測待 asp-ng 轉 public 後以 raw 比對」，該路徑因 2026-08-25 人裁維持 free/private 而失效（兩 repo 實查皆 `private=true`）。改記真實現況：缺口由上游 `vendor-upstream.sh` 承接，本 repo 尚未 vendoring。
 
 ## [5.1.0] - 2026-08-04
 

@@ -1,7 +1,17 @@
 # .asp/checks/VENDOR.lock — vendored 檢查本體來源記錄(asp-ng issue #43)
-# 格式:<檔名> <上游 repo> <上游路徑> <sha256>
-# 更新方式:自上游重新 vendoring 後,以 sha256sum 更新對應列;勿就地改檔。
+# 格式:<檔名> <上游 repo> <上游路徑> <sha256> [<ref>]
+# 更新方式:自上游重新 vendoring 後,以 sha256sum 更新對應列並改 ref;勿就地改檔。
+#
+# 第五欄 <ref>(2026-09-08 補):vendoring 當下的上游版本座標(tag/commit)。四欄格式
+# 沒有任何版本資訊,消費端無從得知自己停在哪一版——那正是「本地竄改偵測全綠、上游
+# 早已修補」的結構成因(#43 AC-3)。vendor-verify.sh 自 ASP_VENDOR_REF_DEADLINE
+# (預設 2026-09-30)起對缺 ref 的列判紅。
+#
+# 上游 repo 更正(2026-09-08):原記 `astroicers/asp-ng`,實查為 `Aries-Crew/asp-ng`
+# 的 **fork**,且已落後上游(fork 末次推送 08-26 vs 上游 09-08)。來源標記指向過期
+# 副本時,上游對帳會拿舊內容比而給出假綠燈,故更正為真上游。
+#
 # 註:test-fresh.sh 為本 repo 自有(P0-5 自 ship-gate hook 抽出),非 vendored,不列入。
-git-guard.sh astroicers/asp-ng .asp/checks/git-guard.sh e6cab79fbd4be9890f8719502b7746ba55824113c6da1090c0251d795d58de29
-adr-draft.sh astroicers/asp-ng .asp/checks/adr-draft.sh f27c53c2360ca455290ee1434a7f60ce00bc1b30da3f2b03294a78f6e217f384
-vendor-verify.sh astroicers/asp-ng .asp/checks/vendor-verify.sh 4c4dc4333b6156684cc3a5f5a3538d3eea35d3b2083923e249eb2bb5df825c9f
+git-guard.sh Aries-Crew/asp-ng .asp/checks/git-guard.sh 0c4333db131e27568789c2de68b01b79b841aa76c343fea78dd6b149d4d87051 v0.41.0
+adr-draft.sh Aries-Crew/asp-ng .asp/checks/adr-draft.sh f27c53c2360ca455290ee1434a7f60ce00bc1b30da3f2b03294a78f6e217f384 v0.41.0
+vendor-verify.sh Aries-Crew/asp-ng .asp/checks/vendor-verify.sh 43099717701b18f1b933a0b186af4cb5213d6e53ef81105d0f983b41f7065564 v0.41.0

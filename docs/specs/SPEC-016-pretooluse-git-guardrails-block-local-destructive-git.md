@@ -157,6 +157,9 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 - **長選項前綴自動補全**：git 接受唯一前綴（`git reset --har`＝`--hard`、`git clean --for`＝`--force`、`git branch --delet`＝`--delete`；**FC-013 一手實測：`reset --har` 真的以 `--hard` 執行並毀 dirty 變更**）。M0.5 以字面 token 比對、不做前綴正規化 → 這類縮寫漏擋。此為跨子命令問題；緩解僅靠 escape hatch 不受影響 + 未來可加「每子命令選項唯一前綴白名單」正規化（POC 不納，避免 FP-prone 的前綴消歧）。
 - **命令替換／子 shell 內的巢狀 git**：`git commit -m "$(git reset --hard)"`、反引號同理——雙引號內 `$(...)` **先於**外層執行，外層 `commit` 不在 DENY 表 → defer。本 hook **不遞迴解析**命令替換內容（遞迴會顯著增加剖析複雜度，且此形態偏向蓄意而非意外）。
 - **執行檔包裝前綴**：`\git reset --hard`（反斜線抑制 shell 別名）、`env git …`、`command git …`、`sudo git …`、`nice/time/nohup git …`。M0.3 以字面**首 token** `git` 判定，這類包裝的首 token 非 `git` → 漏判。
+  > **[2026-09-08 更新：本項大部分已關閉]** 自 asp-ng **v0.41.0**（GG-SEC-02）起，M0.3 於跳 `VAR=val` 的同一迴圈內剝離指令包裝器（`rtk`／`rtk proxy|run`、`sudo`、`doas`、`env`、`command`、`nice`、`nohup`、`stdbuf`、`time`），故 `env git …`、`sudo git …`、`rtk git …` **現已擋下**（測試 N16a-e）。
+  > 促成原因不是理論補強：原判定的前提是「沒有東西會例行地包裝指令」，而 **rtk 的 PreToolUse hook 正是把每一條 Bash 改寫成 `rtk <cmd>`**——前提已不成立，這條邊界從「罕見寫法」變成「預設路徑」。
+  > **殘留（仍為誠實漏擋）**：只認**無參數的簡單前綴形**，故 `\git …`（反斜線，測試 B8a 釘樁）、`sudo -u x git …`、`sh -c "git …"`、`xargs git …`、`eval …` 仍可繞。剝不出 `git` 者照樣放行，故本剝離不擴大誤擋面。
 - **單一 positional 為「已追蹤檔路徑」而非分支**：`git checkout <trackedfile>`（無 `--`、無 `-b`）git 會**靜默丟棄該檔工作區改動**；本 hook **無法查 repo state** 分辨「positional 是分支還是檔路徑」，一律當分支切換 defer → 這類漏擋。（對照：`git restore <path>` 已由「既無 `-S` 亦無 `-W`」擋下；`checkout <path>` 因「單 positional＝分支」假設而漏，屬同根因的殘留。）
 - **`git branch -f <name> [<start>]` 移動既有 ref**：可孤立未合併 commit。因 hook 無法由字串分辨 `create`（對不存在分支＝安全建立）vs `move`（對既有分支＝毀 ref），且此操作 **reflog 可復原**，選擇**不擋**——避免對常見的 `branch -f <新名>` 建立/冪等式**誤擋**（本 SPEC 核心即在杜絕 false-positive）。對照 `switch -C`／`--force-create` 採**保守擋下**，因其**另含工作區切換**（風險面較 `branch -f` 純 ref 移動大）。此不對稱為刻意、已揭露之取捨。
 
@@ -209,11 +212,20 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 | B2 | 🔶 邊界 | `git commit -m "wip: git reset --hard notes"`（引號內 && / 危險字串） | defer（**不 false-positive**，修正 C2） | S3 |
 | B3 | 🔶 邊界 | jq 缺 | defer + WARN（harness 若有 jq 則 SKIP 此格） | S3 |
 | B4 | 🔶 邊界 | stdin 空 / 無法解析 JSON | defer（**靜默**，無 WARN，同 ship-gate） | S3 |
-| B5 | 🔶 邊界 | `git push --force`（既有層職責） | defer（本 hook 不重複） | S3 |
+| ~~B5~~ → **N15** | ❌ 負向 | `git push --force` / `--delete` / `origin :branch` / 直推 `main` | **deny**（2026-09-08 翻轉，見下方註） | S3 |
+| B10 | 🔶 邊界 | `git push --force-with-lease` / `--dry-run` / 推非預設分支 | defer（**刻意放行**，見下方註） | S3 |
 | B6 | 🔶 邊界 | `git reset --har`（長選項唯一前綴補全＝`--hard`） | defer（**已知漏擋釘樁**，非安全宣稱；見誠實能力邊界） | S3 |
 | B7 | 🔶 邊界 | `git commit -m "$(git reset --hard)"`（命令替換內巢狀，`$()` 先執行、外層 `commit` 不在 DENY） | defer（**已知漏擋釘樁**，非安全宣稱） | S3 |
-| B8 | 🔶 邊界 | `\git reset --hard` / `env git reset --hard`（執行檔包裝前綴，首 token 非 `git`） | defer（**已知漏擋釘樁**，非安全宣稱） | S3 |
+| B8a | 🔶 邊界 | `\git reset --hard`（反斜線包裝前綴） | defer（**已知漏擋釘樁**，非安全宣稱） | S3 |
+| ~~B8b~~ → **N16** | ❌ 負向 | `env git …` / `sudo git …` / `rtk git …`（無參數的簡單包裝前綴） | **deny**（2026-09-08 翻轉，見下方註） | S3 |
 | B9 | 🔶 邊界 | `git checkout f2.txt`（單 positional 為已追蹤檔而非分支，git 靜默丟工作區改動） | defer（**已知漏擋釘樁**，無法查 repo state 分辨；非安全宣稱） | S3 |
+
+> **[2026-09-08 矩陣翻轉記錄]** 自 asp-ng **v0.41.0** re-vendor `git-guard.sh` 起，兩格由 defer 翻為 deny：
+>
+> - **B5 → N15（第十類：遠端 push）**。原判定「push 屬既有層職責，本 hook 不重複」——那個「既有層」是 GitHub 分支保護，而 **2026-08-26 實查 free 方案根本沒有此功能**（分支保護與 rulesets 皆付費、私有 repo 拿不到）。也就是說 push 一直**沒有任何機械承接**，B5 的 defer 建立在一個不存在的前提上。第十類只擋三種不可逆形態（強制推送／刪遠端分支／直推預設分支），**不擋一般推送**——護欄要能長住，擋掉每天做幾十次的事只會逼人整條關掉；`--force-with-lease` 與 `--dry-run` 亦刻意放行（B10 釘住）。
+> - **B8b → N16（GG-SEC-02：包裝前綴剝離）**。理由見上方「執行檔包裝前綴」條的更新註。
+>
+> 殘留邊界（B6/B7/B8a/B9）未變，仍為誠實漏擋釘樁。此二格的翻轉**擴大了攔截面**，故一併補 B10 釘住刻意放行面：若哪天連安全變體都被擋，人會整條關掉護欄，那比漏擋更糟。
 
 ## 🎭 驗收場景（Acceptance Scenarios）
 
@@ -283,10 +295,11 @@ Feature: PreToolUse git-guardrails（本地毀資料操作硬強制）
       | commit -m 含引號內 git reset --hard   | defer        |
       | jq 缺                                 | defer+WARN   |
       | stdin 空                              | defer（靜默）|
-      | git push --force                      | defer（既有層）|
+      | git push --force-with-lease（B10）    | defer（刻意放行安全變體）|
+      | git push origin feature（B10）        | defer（一般推送不擋）|
       | git reset --har（前綴補全，B6 釘樁）  | defer（已知漏擋非安全宣稱）|
       | $(git reset --hard) 巢狀（B7 釘樁）   | defer（已知漏擋非安全宣稱）|
-      | \git / env git 包裝前綴（B8 釘樁）    | defer（已知漏擋非安全宣稱）|
+      | \git 反斜線包裝前綴（B8a 釘樁）       | defer（已知漏擋非安全宣稱）|
       | git checkout 已追蹤檔（B9 釘樁）      | defer（已知漏擋非安全宣稱）|
 ```
 

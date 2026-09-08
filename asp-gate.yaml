@@ -19,4 +19,10 @@ checks:
       inputs: "env:ASP_GATE_PROJ 的 .asp/checks/VENDOR.lock;無 lock→skip 200"
     severity: blocker
     origin: "asp-ng issue #43:vendored 檢查本體與上游對帳(本 repo 為消費端)"
-    notes: "本地竄改偵測;上游同步偵測待 asp-ng 轉 public 後以 raw 比對(#43 第二段)"
+    notes: >-
+      本地竄改偵測(比「本機檔案 vs 本機 VENDOR.lock」)。**上游同步偵測仍是缺口**:
+      原定「asp-ng 轉 public 後以 raw 比對」之路已失效——2026-08-25 人裁維持
+      free/private。上游現有 `vendor-upstream.sh` 補這一格(比「lock 記錄 vs 上游現況」,
+      可用本機 checkout 當 adapter、零憑證零網路),本 repo 尚未 vendoring。
+      2026-09-08 實例:git-guard.sh/vendor-verify.sh 落後上游兩版而本檢查全綠,
+      是靠人工比對才發現——這正是本格缺席的代價。
