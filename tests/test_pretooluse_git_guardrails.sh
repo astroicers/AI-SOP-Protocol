@@ -25,10 +25,17 @@ run_hook() {
 denied() { grep -q '"permissionDecision":[[:space:]]*"deny"' <<<"$1"; }
 metric_has() { grep -q "\"rule_id\":\"GIT-GUARD\".*\"action\":\"$1\"" "$METRICS" 2>/dev/null; }
 
-# defer 案：期望「不 deny」（方式 A：defer＝無 deny JSON）
+# defer 案：期望「不 deny」（方式 A：defer＝無 deny JSON）**且不得寫 block 遙測**——
+# 只驗「沒擋」的話，誤記遙測會讓 rule-hits 統計虛胖而測試照樣綠。
 expect_defer() { # $1=label $2=cmd
   rm -f "$METRICS"; local out; out=$(run_hook "$2")
-  denied "$out" && fail "$1：應 defer 卻被 deny — 「$2」" || pass "$1：defer — 「$2」"
+  if denied "$out"; then
+    fail "$1：應 defer 卻被 deny — 「$2」"
+  elif metric_has block; then
+    fail "$1：defer 但誤寫 block 遙測 — 「$2」"
+  else
+    pass "$1：defer — 「$2」"
+  fi
 }
 # deny 案：期望 deny + block 遙測
 expect_deny() { # $1=label $2=cmd
@@ -148,13 +155,20 @@ expect_deny "N16e" "rtk env FOO=1 git reset --hard"      # 包裝與 VAR=val 交
 echo ""; echo "════ N17：deny 訊息須切合損害面（本地 vs 遠端）════"
 # 第十類進來後，一律套「銷毀本地成果 / 改用 git stash」會在 push 命中時給出對不上的
 # 建議——人照著做也解不了，等於把 deny 訊息變成雜訊。
+# ⚠ 斷言字串**只能**取自 _HARM/_ALT 專有詞，不得取自 MATCHED。git-guard 的
+# MATCHED 本身就含「覆寫遠端歷史」「--force-with-lease」，而 MATCHED 被原樣嵌進
+# REASON——拿那兩詞當斷言會恆真：把 hook 的 case 分流整段刪掉照樣綠（已實測）。
+# 故正面詞取 _HARM 專有的「已取用的 ref」與 _ALT 專有的「一律走 PR」，
+# 並補反面斷言：本地專用詞不得出現在 push 的 REASON 裡。
 _out=$(run_hook "git push --force")
-{ grep -q "遠端歷史" <<<"$_out" && grep -q "force-with-lease" <<<"$_out"; } \
-  && pass "N17a：push 命中 → 遠端損害面 + 遠端替代" \
+{ grep -q "已取用的 ref" <<<"$_out" && grep -q "一律走 PR" <<<"$_out" \
+  && ! grep -q "本地成果" <<<"$_out" && ! grep -q "git stash" <<<"$_out"; } \
+  && pass "N17a：push 命中 → 遠端損害面 + 遠端替代，且無本地專用建議" \
   || fail "N17a：push 命中卻給本地說法/本地替代 — 「$_out」"
 _out=$(run_hook "git reset --hard")
-{ grep -q "本地成果" <<<"$_out" && grep -q "git stash" <<<"$_out"; } \
-  && pass "N17b：本地命中 → 本地損害面 + 本地替代" \
+{ grep -q "本地成果" <<<"$_out" && grep -q "git stash" <<<"$_out" \
+  && ! grep -q "已取用的 ref" <<<"$_out" && ! grep -q "一律走 PR" <<<"$_out"; } \
+  && pass "N17b：本地命中 → 本地損害面 + 本地替代，且無遠端專用建議" \
   || fail "N17b：本地命中訊息不對 — 「$_out」"
 
 echo ""; echo "════ 邊界（B1-B9）════"
@@ -171,6 +185,16 @@ expect_defer "B10a" "git push --force-with-lease"        # 遠端被動過就失
 expect_defer "B10b" "git push --force --dry-run"         # 什麼都不做，擋它純屬過度攔截
 expect_defer "B10c" "git push origin feature"            # 一般推送：非預設分支
 expect_defer "B10d" "git push origin main:feature"       # refspec 來源是 main 但目的地不是
+
+# ── B11：第十類的已知漏擋釘樁（2026-09-08 複審揪出，屬上游 _pred_push 缺口）──
+# 這幾條與已擋下的形態**等效**，卻整條穿過。釘住是為了讓「擋強制推送」不被讀成全稱，
+# 也讓上游補上時測試轉紅而提醒改記錄（比照 B6/B7/B8a/B9 的處置）。
+expect_defer "B11a" "git push origin +main"              # `+` 前綴＝force refspec，等效 --force origin main
+expect_defer "B11b" "git push --mirror origin"           # remote 端多餘 ref 一併刪除
+expect_defer "B11c" "git push --prune origin"            # 刪除 remote 上本地已無的分支
+# 對照：帶冒號的 `+HEAD:main` 反而擋得住（dst 取 `${a##*:}` 後＝main），故漏的是
+# 「無冒號的 +<branch>」這一形；此不對稱本身就是上游該修的訊號。
+expect_deny  "B11d" "git push origin +HEAD:main"
 
 echo ""; echo "════ R（redirect 剝除）：shell redirect 不得算 positional（OB-02 over-block 修復）════"
 # 誤擋修復：redirect token 曾被當 positional → checkout 誤判 ≥2 → deny

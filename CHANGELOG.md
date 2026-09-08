@@ -256,7 +256,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **可逆解凍**：取消 `poll-issues.yml` schedule 註解 + 重裝 App + 移除 dormant 註 + 取消 archive。三柱架構收斂為單一治理核心。
 
 - **vendored 檢查本體同步至 asp-ng v0.41.0**（`Aries-Crew/asp-ng` tag v0.41.0 ＝ main 943d897）。本 repo 的副本落後上游兩版，而 `vendor-verify` 全綠——它比的是「本機檔案 vs 本機 lock」，天生看不見上游變更（缺口記於 `asp-gate.yaml` notes 與 FC-015）。
-  - **`git-guard.sh` 第十類：遠端 push**。擋強制推送 / 刪除遠端分支（`--delete`、`-d`、`origin :branch`）/ 直推 `main`。原 SPEC-016 B5 釘「push 屬既有層職責」，那個既有層是 GitHub 分支保護——**2026-08-26 實查 free 方案沒有此功能**，故 push 一直零機械承接。`--force-with-lease` 與 `--dry-run` **刻意放行**：擋掉安全變體只會逼人改用真 `--force`，或整條關掉護欄。
+  - **`git-guard.sh` 第十類：遠端 push**。擋強制推送（**限 `--force`／`-f` 旗標形，不含 `+refspec` 形——見 SPEC-016 B11 釘樁**）/ 刪除遠端分支（`--delete`、`-d`、`origin :branch`）/ 直推 `main`。原 SPEC-016 B5 釘「push 屬既有層職責」，那個既有層是 GitHub 分支保護——**2026-08-26 實查 free 方案沒有此功能**，故 push 一直零機械承接。`--force-with-lease` 與 `--dry-run` **刻意放行**：擋掉安全變體只會逼人改用真 `--force`，或整條關掉護欄。
   - **`git-guard.sh` GG-SEC-02：剝離指令包裝前綴**（`rtk`／`rtk proxy|run`、`sudo`、`env`、`command`、`nice`、`nohup`、`stdbuf`、`time`）。原判定要求首 token 為 `git`，前提是「沒有東西會例行地包裝指令」——而 rtk 的 PreToolUse hook 正是把**每一條** Bash 改寫成 `rtk <cmd>`，前提已不成立。殘留漏擋（`\git`、`sudo -u x`、`sh -c`、`xargs`）仍為誠實釘樁。
   - **`vendor-verify.sh`**：VENDOR.lock 新增選填第五欄 `<ref>`（上游版本座標，缺 ref 於 `ASP_VENDOR_REF_DEADLINE`＝2026-09-30 後判紅）；對帳器自身須列於 lock 內（否則竄改它即可無痕停用整套對帳）。
   - **`.asp/gate.sh` 以 v0.41.0 渲染器重出**：新增 `missing_blocker`（blocker 級檢查腳本缺席改為判紅，原為靜默略過＝fail-open）、skip-200 契約收斂為僅 `builtin-script` 適用（issue #46：第三方工具回 200 曾靜默 fail-open）、GitHub Actions annotation／step-summary（皆 env-guarded，本機輸出逐字不變）。
