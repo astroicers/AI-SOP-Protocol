@@ -233,7 +233,8 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 | B4 | 🔶 邊界 | stdin 空 / 無法解析 JSON | defer（**靜默**，無 WARN，同 ship-gate） | S3 |
 | ~~B5~~ → **N15** | ❌ 負向 | `git push --force` / `--delete` / `origin :branch` / 直推 `main` | **deny**（2026-09-08 翻轉，見下方註） | S3 |
 | B10 | 🔶 邊界 | `git push --force-with-lease` / `--dry-run` / 推非預設分支 | defer（**刻意放行**，見下方註） | S3 |
-| B11 | 🔶 邊界 | `git push origin +main`（`+` 前綴 force refspec）／`--mirror`／`--prune` | defer（**已知漏擋釘樁**，非安全宣稱；見下方註） | S3 |
+| ~~B11a-c~~ → **N15g-j** | ❌ 負向 | `git push origin +main` / `+feature` / `--mirror` / `--prune` | **deny**（2026-09-09 上游 v0.42.0 補上後翻轉，見下方註） | S3 |
+| B11 | 🔶 邊界 | `git push origin feature+x`（`+` 非前綴）／`refs/heads/x+y`／`--dry-run origin +main` | defer（**修補後的不得誤擋面**） | S3 |
 | B6 | 🔶 邊界 | `git reset --har`（長選項唯一前綴補全＝`--hard`） | defer（**已知漏擋釘樁**，非安全宣稱；見誠實能力邊界） | S3 |
 | B7 | 🔶 邊界 | `git commit -m "$(git reset --hard)"`（命令替換內巢狀，`$()` 先執行、外層 `commit` 不在 DENY） | defer（**已知漏擋釘樁**，非安全宣稱） | S3 |
 | B8a | 🔶 邊界 | `\git reset --hard`（反斜線包裝前綴） | defer（**已知漏擋釘樁**，非安全宣稱） | S3 |
@@ -258,6 +259,15 @@ hook 解析 `tool_input.command`，輸出 **方式 A**（FC-002：`exit 0` + JSO
 > 成因：`+` 前綴的 refspec 不以 `-` 開頭，`_arg_has`／`_bundle_has` 都看不到它；而 `dst` 取 `${a##*:}` 後為 `+main`，與字面 `main` 不等。**不對稱的證據**：帶冒號的 `git push origin +HEAD:main` 反而**擋得住**（dst 解析後＝`main`），釘樁 B11d。
 >
 > **處置**：本檔為 vendored 副本，**不得就地修補**（會破 `VENDOR.lock` 的 sha256 而讓竄改偵測轉紅，且下次 re-vendoring 即被覆蓋）。故：① 釘樁 B11a-c 記錄現況、B11d 記錄不對稱；② 回報上游 `Aries-Crew/asp-ng`；③ **CHANGELOG 與本檔的「擋強制推送」一律不得讀成全稱**——它擋的是 `--force`／`-f` 旗標形，不含 `+refspec` 形。
+>
+> **✅ [2026-09-09 已結案]** 上游修復於 `Aries-Crew/asp-ng` [#576](https://github.com/Aries-Crew/asp-ng/issues/576) / [PR #577](https://github.com/Aries-Crew/asp-ng/pull/577)，隨 **v0.42.0** 發布；本 repo re-vendoring 後 B11a-c 釘樁如預期轉紅，遷至 **N15g-j** 記為 deny。
+> `v0.41.0 → v0.42.0` 的 `git-guard.sh` 差異**只有這一筆**，無夾帶（逐行比對確認）。
+> 上方第 ③ 點的收窄敘述隨之解除：「擋強制推送」現已含 `+refspec` 形。
+>
+> **這一輪值得記的不是修好了，而是釘樁機制真的按設計運作**：本 repo 記錄漏擋 → 回報上游 →
+> 上游修復發版 → re-vendoring → **釘樁自己轉紅、逼人回來改記錄**。整條迴路上沒有一步靠人記得。
+> 順帶一提，這次 re-vendoring 的觸發也不是靠人：是 `.asp/gate.sh` 的 `vendor-upstream` 檢查
+> （本輪才裝上）在 commit 時報 warning「上游已變更而本地未同步」抓到的。
 
 ## 🎭 驗收場景（Acceptance Scenarios）
 

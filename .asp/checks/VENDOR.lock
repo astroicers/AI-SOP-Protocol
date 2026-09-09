@@ -30,8 +30,8 @@
 # 適用「被就地改了沒人發現」這個風險——把一條 rule 刪掉,gitleaks 照樣 exit 0,
 # 密鑰掃描就無聲失效。檔名以相對路徑寫(lock 位於 .asp/checks/,規則庫在 .asp/),
 # 這是刻意:規則庫路徑須與上游一致(asp-gate.yaml 的 --config 引用 .asp/gitleaks.toml)。
-../gitleaks.toml Aries-Crew/asp-ng .asp/gitleaks.toml dab22e69cad09a8c5283d8185f84ac9ed861044dd18912c392a45cb4171d6f05 v0.41.0
-git-guard.sh Aries-Crew/asp-ng .asp/checks/git-guard.sh 0c4333db131e27568789c2de68b01b79b841aa76c343fea78dd6b149d4d87051 v0.41.0
-adr-draft.sh Aries-Crew/asp-ng .asp/checks/adr-draft.sh f27c53c2360ca455290ee1434a7f60ce00bc1b30da3f2b03294a78f6e217f384 v0.41.0
-vendor-verify.sh Aries-Crew/asp-ng .asp/checks/vendor-verify.sh 43099717701b18f1b933a0b186af4cb5213d6e53ef81105d0f983b41f7065564 v0.41.0
-vendor-upstream.sh Aries-Crew/asp-ng .asp/checks/vendor-upstream.sh 4b7b38721152105f99f904df3d306d692da7623cfcfaf1004a9afdd2954d5771 v0.41.0
+../gitleaks.toml Aries-Crew/asp-ng .asp/gitleaks.toml dab22e69cad09a8c5283d8185f84ac9ed861044dd18912c392a45cb4171d6f05 v0.42.0
+git-guard.sh Aries-Crew/asp-ng .asp/checks/git-guard.sh 75fa674ec61055ceaded99a1edf1e971421afda3155633d324ab518b593a2d51 v0.42.0
+adr-draft.sh Aries-Crew/asp-ng .asp/checks/adr-draft.sh f27c53c2360ca455290ee1434a7f60ce00bc1b30da3f2b03294a78f6e217f384 v0.42.0
+vendor-verify.sh Aries-Crew/asp-ng .asp/checks/vendor-verify.sh 43099717701b18f1b933a0b186af4cb5213d6e53ef81105d0f983b41f7065564 v0.42.0
+vendor-upstream.sh Aries-Crew/asp-ng .asp/checks/vendor-upstream.sh 4b7b38721152105f99f904df3d306d692da7623cfcfaf1004a9afdd2954d5771 v0.42.0

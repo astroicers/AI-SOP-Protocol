@@ -142,6 +142,14 @@ expect_deny "N15c" "git push --delete origin feature"    # 刪遠端分支
 expect_deny "N15d" "git push origin :feature"            # 刪遠端分支（舊寫法）
 expect_deny "N15e" "git push origin main"                # 直推預設分支（ADR-000 §10）
 expect_deny "N15f" "git push origin HEAD:main"           # refspec 的**目的地**才是危險處
+# ── N15g-j：原 B11 的已知漏擋，上游 v0.42.0 補上後由 defer 翻為 deny（2026-09-09）──
+# 這幾條與 N15a/N15c 語意等效卻曾整條穿過：`+main` 不以 `-` 開頭，兩層旗標比對都看不到，
+# 而 dst 取 `${a##*:}` 後為 `+main` 與字面 main 不等。釘樁在本 repo 記錄現況、回報上游，
+# 上游修好後 re-vendoring 使釘樁轉紅——這正是釘樁該有的作用，不是測試壞了。
+expect_deny "N15g" "git push origin +main"               # `+` 前綴＝強制更新該 ref
+expect_deny "N15h" "git push origin +feature"            # 非預設分支一樣覆寫遠端歷史
+expect_deny "N15i" "git push --mirror origin"            # 成批刪除遠端多餘 ref
+expect_deny "N15j" "git push --prune origin"             # 刪除遠端已無本地對應的分支
 
 # ── N16：GG-SEC-02 包裝前綴剝離（原 B8b 已知漏擋，本次 re-vendor 關閉）──
 # 觸發點：rtk 的 PreToolUse hook 把**每一條** Bash 改寫成 `rtk <cmd>`，
@@ -186,15 +194,13 @@ expect_defer "B10b" "git push --force --dry-run"         # 什麼都不做，擋
 expect_defer "B10c" "git push origin feature"            # 一般推送：非預設分支
 expect_defer "B10d" "git push origin main:feature"       # refspec 來源是 main 但目的地不是
 
-# ── B11：第十類的已知漏擋釘樁（2026-09-08 複審揪出，屬上游 _pred_push 缺口）──
-# 這幾條與已擋下的形態**等效**，卻整條穿過。釘住是為了讓「擋強制推送」不被讀成全稱，
-# 也讓上游補上時測試轉紅而提醒改記錄（比照 B6/B7/B8a/B9 的處置）。
-expect_defer "B11a" "git push origin +main"              # `+` 前綴＝force refspec，等效 --force origin main
-expect_defer "B11b" "git push --mirror origin"           # remote 端多餘 ref 一併刪除
-expect_defer "B11c" "git push --prune origin"            # 刪除 remote 上本地已無的分支
-# 對照：帶冒號的 `+HEAD:main` 反而擋得住（dst 取 `${a##*:}` 後＝main），故漏的是
-# 「無冒號的 +<branch>」這一形；此不對稱本身就是上游該修的訊號。
-expect_deny  "B11d" "git push origin +HEAD:main"
+# ── B11 已結案（2026-09-09）：三條漏擋於上游 v0.42.0 補上，釘樁隨 re-vendoring 轉紅後
+# 遷至 N15g-j 記為 deny。此處保留 `+` 的**不得誤擋**面——修補擴大了攔截面，
+# 得同時釘住「`+` 非前綴時只是分支名的一個字元」。
+expect_defer "B11a" "git push origin feature+x"          # `+` 在中間，非 force refspec
+expect_defer "B11b" "git push origin refs/heads/x+y"
+expect_defer "B11c" "git push --dry-run origin +main"    # dry-run 勝過 `+`
+expect_deny  "B11d" "git push origin +HEAD:main"         # 帶冒號亦擋（此形態修補前後皆擋）
 
 echo ""; echo "════ R（redirect 剝除）：shell redirect 不得算 positional（OB-02 over-block 修復）════"
 # 誤擋修復：redirect token 曾被當 positional → checkout 誤判 ≥2 → deny

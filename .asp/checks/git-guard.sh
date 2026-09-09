@@ -13,7 +13,9 @@
 #   checkout 丟工作區(-f/--/<ref> <pathspec>/.)|restore 丟工作區|
 #   switch 強制(-C/-f/--discard-changes)|stash clear/drop|
 #   worktree remove --force|rm --force
-#   〔遠端〕push 強制/刪除遠端分支/直推預設分支(第十類,2026-09-05 新增;見 _pred_push)
+#   〔遠端〕push 強制(--force/-f/refspec 前綴 +)/刪除遠端分支(--delete/-d/:branch/
+#           --mirror/--prune)/直推預設分支(第十類,2026-09-05 新增;+/--mirror/--prune
+#           三形態 2026-09-08 補;見 _pred_push)
 #   通過 → exit 0。超長(>8192)→ exit 200(GG-SEC-01:純 bash tokenizer O(n²),
 #   上限防 DoS;v4 為靜默放行,本版同為 allow 決策、加印跳過訊息)。
 #   判定純由指令語法/argv 決定(無狀態);能力邊界見 SPEC-016 與 FC-013
@@ -148,9 +150,16 @@ _pred_rm()     { { _arg_has "--force" || _bundle_has f; } && { MATCHED="rm --for
 #      「別蓋掉別人」的安全變體;擋它只會逼人改用真正的 `--force`。
 #      機制上不必特判:`_arg_has` 是精確 token 比對(`--force` ≠ `--force-with-lease`),
 #      而 `_bundle_has` 跳過 `--` 開頭者。
-#   2. 刪除遠端分支(`--delete` / `-d` / 舊寫法 `origin :branch`):
+#      **refspec 的 `+` 前綴同屬本類**(2026-09-08 補):`git push origin +main` 與
+#      `git push --force origin main` 等效,且**無 lease**。它先前整條穿過——
+#      `+main` 不以 `-` 開頭,`_arg_has`/`_bundle_has` 都看不到;而 dst 取
+#      `${a##*:}` 後為 `+main`,與字面 `main` 不等。不對稱的反證:帶冒號的
+#      `+HEAD:main` 反而擋得住(dst 解析後＝`main`)。
+#   2. 刪除遠端分支(`--delete` / `-d` / 舊寫法 `origin :branch` / `--mirror` / `--prune`):
 #      租約還活著時刪掉 worker 的 ref,下一 tick 的 QA 前置就抓不到分支而誤貼
 #      needs-human(#400/#429 兩次實錄)。
+#      `--mirror` 把遠端多餘的 ref 一併刪除、`--prune` 刪掉遠端已無本地對應者——
+#      兩者都是**成批**刪 ref,損害面比單支 `--delete` 更大卻先前不受檢(2026-09-08 補)。
 #   3. 直推預設分支(`main`/`master`):ADR-000 §10「merge main 由人親手」。
 #      2026-08-26 實查 GitHub **free** 方案無分支保護/rulesets(私有 repo 拿不到),
 #      故這是該規則**唯一的**機械承接——在此之前它只有散文層。
@@ -167,9 +176,14 @@ _pred_push() {
   { _arg_has "--dry-run" || _bundle_has n; } && return 1
   { _arg_has "--force" || _bundle_has f; } && { MATCHED="push --force(覆寫遠端歷史;安全變體請用 --force-with-lease)"; return 0; }
   { _arg_has "--delete" || _bundle_has d; } && { MATCHED="push --delete(刪除遠端分支)"; return 0; }
+  _arg_has "--mirror" && { MATCHED="push --mirror(遠端多餘 ref 一併刪除)"; return 0; }
+  _arg_has "--prune"  && { MATCHED="push --prune(刪除遠端已無本地對應的分支)"; return 0; }
   _positionals
   for a in ${POS[@]+"${POS[@]}"}; do
     case "$a" in
+      # refspec 的 `+` 前綴 = 強制更新該 ref(git 文法),與 `--force` 等效且無 lease。
+      # 放在 `:*` 之前:`+:branch` 這種同時帶兩者的寫法,force 是更強的訊號。
+      +*) MATCHED="push +<refspec>(前綴 + 即強制更新該 ref,等效 --force;安全變體請用 --force-with-lease)"; return 0 ;;
       :*) MATCHED="push <remote> :<branch>(刪除遠端分支的舊寫法)"; return 0 ;;
     esac
     # refspec 為 `src:dst`,危險的是**目的地**;`main:feature` 不危險,`HEAD:main` 危險。
