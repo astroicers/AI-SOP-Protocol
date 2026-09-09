@@ -43,7 +43,7 @@ write_draft_adr() {
     > "$TEST_DIR/docs/adr/ADR-001-x.md"
 }
 
-run_audit() { CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$AUDIT" >/dev/null 2>&1 || true; }
+run_audit() { CLAUDE_PROJECT_DIR="$TEST_DIR" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" >/dev/null 2>&1 || true; }
 
 local_deny_has() {  # $1 = string → count in settings.local.json
   [ -f "$(LOCAL)" ] || { echo 0; return; }

@@ -15,7 +15,7 @@ mk_test_dir
 S()  { echo "$TEST_DIR/.claude/settings.json"; }
 SL() { echo "$TEST_DIR/.claude/settings.local.json"; }
 reset() { rm -rf "${TEST_DIR:?}"; mkdir -p "$TEST_DIR/.claude"; }
-run() { CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$HOOK" >/dev/null 2>&1 || true; }
+run() { CLAUDE_PROJECT_DIR="$TEST_DIR" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$HOOK" >/dev/null 2>&1 || true; }
 deny_has()  { jq --arg s "$1" '[.permissions.deny[]?  | select(. == $s)] | length' "$2" 2>/dev/null || echo 0; }
 allow_has() { jq --arg s "$1" '[.permissions.allow[]? | select(. == $s)] | length' "$2" 2>/dev/null || echo 0; }
 

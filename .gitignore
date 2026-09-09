@@ -28,6 +28,7 @@
 
 # 測試結果（asp-ship 寫入，session-audit 讀取）
 .asp-test-result.json
+.asp-upstream-checked
 
 # Bypass log（v3.5 新增，append-only skip 事件）
 .asp-bypass-log.json

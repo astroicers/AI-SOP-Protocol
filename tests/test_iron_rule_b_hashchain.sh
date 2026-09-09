@@ -81,7 +81,7 @@ mkproj() { # $1=dir
   printf 'version: 1\nrules:\n  - when: "type=system"\n    load: "global_core"\nlevel_aliases:\n  - "0=loose"\n' > "$1/.asp/config/profile-map.yaml"
   printf 'type: system\n' > "$1/.ai_profile"
 }
-run_hook(){ CLAUDE_PROJECT_DIR="$1" bash "$AUDIT" >/dev/null 2>&1; RC=$?; }
+run_hook(){ CLAUDE_PROJECT_DIR="$1" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" >/dev/null 2>&1; RC=$?; }
 BJ(){ echo "$1/.asp-session-briefing.json"; }
 
 echo ""; echo "整合-正常: chained log 完整 → 無 chain BLOCKER"

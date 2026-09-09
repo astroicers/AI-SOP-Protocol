@@ -102,7 +102,7 @@ case "$_FAILED" in
   test-fresh)     _WHY="commit 前未見新鮮測試痕跡（.asp-test-result.json）"; _FIX="先跑 make test 再 commit" ;;
   gitleaks)       _WHY="staged 內容命中密鑰規則"; _FIX="把密鑰移出 staged 內容——**這一項不該用 ASP_SHIP_OK 繞過**" ;;
   vendor-verify)  _WHY="vendored 檢查本體與 VENDOR.lock 不符（就地改動或 lock 未更新）"; _FIX="自上游重新 vendoring 並更新 lock，勿就地改檔" ;;
-  vendor-upstream) _WHY="上游對帳失敗"; _FIX="依 gate 輸出重新 vendoring" ;;
+  vendor-upstream|upstream-drift) _WHY="上游對帳失敗"; _FIX="依 gate 輸出重新 vendoring" ;;
   # 未列名的 id 仍**保留抽到的名字**——原本無條件覆寫成 unknown，等於把
   # 「gate 加了新檢查」與「完全認不出」混為一談，診斷價值一起丟掉。
   ?*)             _WHY="gate 的 $_FAILED 檢查未通過"; _FIX="直接跑 bash .asp/gate.sh 看該檢查的完整輸出" ;;

@@ -12,7 +12,11 @@
 # 的 **fork**,且已落後上游(fork 末次推送 08-26 vs 上游 09-08)。來源標記指向過期
 # 副本時,上游對帳會拿舊內容比而給出假綠燈,故更正為真上游。
 #
-# 註:test-fresh.sh 為本 repo 自有(P0-5 自 ship-gate hook 抽出),非 vendored,不列入。
+# 註:本目錄內**非 vendored 的本 repo 自有腳本**(不列入本檔,故不受 lock 的竄改偵測;
+#     它們的竄改由 Iron Rule A 承接——session-audit 以 `git ls-tree .asp/checks/` 動態枚舉):
+#       test-fresh.sh        P0-5 自 ship-gate hook 抽出
+#       gitleaks.sh          2026-09-09 新增,錨定 ASP_GATE_HOME/PROJ 的薄包裝
+#       upstream-drift.sh    2026-09-09 新增,vendor-upstream.sh 的節流＋逾時包裝
 #
 # ── vendoring 一份新檔的完整順序(2026-09-08 補;漏任一步都有具名後果)──
 #   1. 放檔到 .asp/checks/(或規則庫路徑),內容**逐位元**取自上游某個 tag。

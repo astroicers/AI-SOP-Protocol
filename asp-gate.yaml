@@ -55,13 +55,15 @@ checks:
       也就是它落後了**兩代**。先前記「至少 10 個」是抽樣 v0.32.0 起算的下界,
       **低估了五倍以上**。而本檢查一路全綠、零訊號,最後是靠人工比對雜湊才發現。
 
-  - id: vendor-upstream
+  - id: upstream-drift
     layer: gate
     tool: builtin-script
     args:
       inputs: "env:ASP_GATE_PROJ 的 .asp/checks/VENDOR.lock;無 lock 或取不到上游→skip 200"
     severity: warning
-    origin: "asp-ng issue #43 AC-3:比「lock 記錄 vs 上游現況」,補 vendor-verify 天生看不見的那一格"
+    origin: "asp-ng issue #43 AC-3:比「lock 記錄 vs 上游現況」,補 vendor-verify 天生看不見的那一格;\
+      本 repo 以 .asp/checks/upstream-drift.sh 包裝 vendored 的 vendor-upstream.sh(節流＋逾時)"
+
     notes: >-
       **layer 刻意選 gate 而非上游的 ci**:本 repo 的 CI(.github/workflows/asp-ci.yml)
       只跑 make test / audit-quick / gitleaks action,**不呼叫 .asp/gate.sh**,亦無

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ⚠️ 由 `asp render gate` 產生 — 勿手改(單一事實源:asp-gate.yaml)
-# source sha256: 19e849a26fd60f950f1d3aef70e525f4238ce61864415faef84fcdbd86b5cdf3
-# gate 子集:test-fresh, gitleaks, vendor-verify, vendor-upstream
+# source sha256: 509b835120cfc94fdda40c60ed49c42ea6066cab63739a74e58f5e5cfb7f48b4
+# gate 子集:test-fresh, gitleaks, vendor-verify, upstream-drift
 set -u
 STRICT="${ASP_GATE_STRICT:-0}"
 WARNINGS=0
-ALL_CHECKS=('test-fresh' 'gitleaks' 'vendor-verify' 'vendor-upstream')
+ALL_CHECKS=('test-fresh' 'gitleaks' 'vendor-verify' 'upstream-drift')
 _SUM_SEEN=" "
 
 # ---- 可觀測性(全部 env-guarded;未設 GITHUB_* 時本機輸出逐字不變)----
@@ -95,10 +95,10 @@ if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/vendor-verify.sh" ]; then
 else
   missing_blocker 'vendor-verify' '.asp/checks/vendor-verify.sh'
 fi
-if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/vendor-upstream.sh" ]; then
-  run_check 'vendor-upstream' warning bash 1 bash "${ASP_GATE_HOME:-.}/.asp/checks/vendor-upstream.sh"
+if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/upstream-drift.sh" ]; then
+  run_check 'upstream-drift' warning bash 1 bash "${ASP_GATE_HOME:-.}/.asp/checks/upstream-drift.sh"
 else
-  skip 'vendor-upstream' '檢查腳本未落地(.asp/checks/vendor-upstream.sh)'
+  skip 'upstream-drift' '檢查腳本未落地(.asp/checks/upstream-drift.sh)'
 fi
 
 echo "gate 通過(warnings=$WARNINGS)"

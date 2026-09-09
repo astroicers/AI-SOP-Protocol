@@ -33,7 +33,7 @@ level_aliases:
   - "0=loose"
 EOF
 }
-run_hook() { CLAUDE_PROJECT_DIR="$1" bash "$HOOK" >/dev/null 2>&1; RC=$?; }
+run_hook() { CLAUDE_PROJECT_DIR="$1" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$HOOK" >/dev/null 2>&1; RC=$?; }
 
 echo ""
 echo "T1: 正常組態 → exit 0 + 產物生成 + briefing 欄位"
