@@ -256,7 +256,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **可逆解凍**：取消 `poll-issues.yml` schedule 註解 + 重裝 App + 移除 dormant 註 + 取消 archive。三柱架構收斂為單一治理核心。
 
 - **vendored 檢查本體同步至 asp-ng v0.41.0**（`Aries-Crew/asp-ng` tag v0.41.0 ＝ main 943d897）。而 `vendor-verify` 一路全綠——它比的是「本機檔案 vs 本機 lock」，天生看不見上游變更（缺口記於 `asp-gate.yaml` notes 與 FC-015）。
-  - **落後幅度（2026-09-08 逐 tag 實查更正）**：初版本條目寫「落後兩版」，**低估了**。實際比對 v0.32.0–v0.41.0 每個 tag 的檔案 sha256：`git-guard.sh` 的舊副本最後有效到 **v0.38.2**，新內容自 **v0.39.0** 起落地 → 落後 **3 個 release**；`vendor-verify.sh` 的舊副本（`4c4dc433…`）在抽樣最舊的 **v0.32.0** 上就已不是上游的樣子 → 落後 **至少 10 個 release**。兩者都沒有任何機制發出過訊號。
+  - **落後幅度（2026-09-09 全 tag 掃描，第二次更正）**：初版寫「落後兩版」，第一次更正為「3 個 / 至少 10 個」——**後半仍是低估**。改掃全部 59 個 tag 後：`git-guard.sh` 的舊副本最後有效到 **v0.38.2**、新內容自 **v0.39.0** 起落地 → 落後 **3 個 release**（此數不變）；`vendor-verify.sh` 的舊副本 `4c4dc433…` **只存在於 v0.2.0**，v0.3.0 換過一次、v0.28.0 再換一次 → 落後 **56 個 release、且是兩代**。第一次更正只抽樣到 v0.32.0，得出的是下界而非實數，**低估五倍以上**。同一個錯犯兩次的成因是一樣的：用抽樣下界代替完整掃描，而完整掃描只需一條迴圈指令。兩者全程都沒有任何機制發出過訊號。
   - **`git-guard.sh` 第十類：遠端 push**。擋強制推送（`--force`／`-f`／**refspec 的 `+` 前綴**）/ 刪除遠端分支（`--delete`、`-d`、`origin :branch`、`--mirror`、`--prune`）/ 直推 `main`。
     - **2026-09-09 更新至 v0.42.0**：`+refspec` / `--mirror` / `--prune` 三個漏擋原記於 SPEC-016 B11 釘樁（初版 CHANGELOG 據此把「擋強制推送」收窄為「限 `--force`/`-f` 旗標形」），已回報上游並修復（[asp-ng #576](https://github.com/Aries-Crew/asp-ng/issues/576) / [PR #577](https://github.com/Aries-Crew/asp-ng/pull/577)），隨 v0.42.0 發布後 re-vendoring，釘樁如預期轉紅並遷為 deny（N15g-j）。收窄敘述據此解除。`v0.41.0 → v0.42.0` 的 `git-guard.sh` 差異只有這一筆，無夾帶。
     - **這次 re-vendoring 是被機器叫起來的**：本輪才裝上的 `vendor-upstream` 檢查在 commit 時報 warning「上游已變更而本地未同步」——它上線幾小時就抓到一次真實漂移，而先前那次落後 3–10 個 release 的漂移，全程零訊號。原 SPEC-016 B5 釘「push 屬既有層職責」，那個既有層是 GitHub 分支保護——**2026-08-26 實查 free 方案沒有此功能**，故 push 一直零機械承接。`--force-with-lease` 與 `--dry-run` **刻意放行**：擋掉安全變體只會逼人改用真 `--force`，或整條關掉護欄。
@@ -266,10 +266,17 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **SPEC-016 測試矩陣兩格翻轉**：B5→N15、B8b→N16（皆 defer→deny），新增 B10 釘住 push 的刻意放行面、N17 釘住 deny 訊息須切合損害面。`test_pretooluse_git_guardrails.sh` 101→**116 綠**。
   - **hook deny 訊息依損害面分流**：push 命中時不再套用「銷毀本地成果／改用 git stash」這類對不上的建議（人照著做也解不了，等於把 deny 訊息變成雜訊）。
 
+- **`vendor-upstream` 檢查進 gate（gate 三項→四項）**：補上 `vendor-verify` 天生看不見的那一格——比「lock 記錄 vs 上游現況」。`layer: gate`（**不是**上游的 `ci`：本 repo 的 CI 不呼叫 `.asp/gate.sh`、亦無 `asp render ci` 渲染物，`layer: ci` 在此等於永不執行）、`severity: warning`（上游漂移不該擋住當下這次 commit，但必須看得見）、skip-200 契約（取不到上游 ≠ 通過，會印「本次零比對項」與 lock 時戳年齡）。adapter 預設 `gh api`，本機有 checkout 者可改 `ASP_VENDOR_UPSTREAM_DIR`（須一併設 `ASP_VENDOR_UPSTREAM_BRANCH=origin/main`，否則讀本機 main 會給假綠）。**上線幾小時即抓到一次真實漂移**，觸發了本輪的 v0.42.0 re-vendoring。
+  - ⚠️ **已知上游缺陷（複審 F3，已回報）**：`JUDGED` 把「①來源真確性」與「②上游漂移」合併計數，故只要 ① 成功，即使 ② **全部取不到**也會報 `✅ N 項與上游一致`。實測 `ASP_VENDOR_UPSTREAM_BRANCH=nosuchbranch`：② 5 次全滅仍 rc=0 報綠——**這支檢查存在的唯一理由可以一次都沒量到而報綠**。vendored 檔不得就地修，已記於 `asp-gate.yaml` notes；看到綠燈請一併看 `ℹ️` 那行。
 - **「敏感資訊保護」鐵則取得機械承接**：新增 `asp-gate.yaml` 的 `gitleaks` 檢查（blocker，`protect --staged --config .asp/gitleaks.toml`），規則庫自 asp-ng v0.41.0 vendoring 並納入 `VENDOR.lock` 竄改偵測（改一個位元組即判紅，已實測）。此前這條鐵則掛在 `/asp-ship` Step 9，而 2026-08-19 校準把 `/asp-ship` 降為選用自檢——於是「純文件 / config 直接乾淨 commit」這條路徑上密鑰掃描整條消失、鐵則只剩散文。移進 gate 後與 commit 同生命週期，不再依賴人記得跑哪支 skill。gitleaks 8.30.1 的子命令契約經一手實測（FC-016：`protect` 已自 Available Commands 隱藏但保留且支援 `--staged`；**空 staging 時 rc=0 且「0 commits scanned」，綠燈不等於掃過東西**，故以「staged 假密鑰 → rc=1」為驗收證據）。gate 端到端實測：`✅ test-fresh` → `❌ BLOCKER gitleaks`。
 
 ### Fixed
 
+- **`gitleaks` 檢查吃 CWD 而非 `ASP_GATE_HOME`/`ASP_GATE_PROJ`（複審 F1）**：原以 `tool: gitleaks` 直接渲染，args 內兩個路徑都是裸相對路徑，而同一份 `gate.sh` 的其餘三支皆以 `${ASP_GATE_HOME:-.}` 錨定。實測兩個後果：CWD 不在 repo 根時規則庫載入失敗 → **假紅**；更嚴重的是 `protect --staged` 掃的是 **CWD 的 repo** 而非 `ASP_GATE_PROJ` → **掃錯 repo 卻報綠（假綠）**，而 hook 呼叫 gate 時全程不 cd，故該路徑真實可觸發。改走薄包裝 `.asp/checks/gitleaks.sh`（`tool: builtin-script`），兩個路徑皆錨定，並補「規則庫缺席即 fail-closed」（不靜默降級成 gitleaks 內建規則）。
+- **ship-gate hook 的 deny 訊息在 gate 由 1 支長到 4 支後未同步（複審 F2）**：hook 把 gate 輸出全丟 `/dev/null`、deny 理由寫死「未見新鮮測試痕跡…請先跑 `make test`」。於是 **staged 密鑰命中時使用者被叫去跑 `make test`**，跑一百次也不會綠；vendored 檔被竄改、規則庫路徑失敗亦同。改為捕捉 gate 輸出、由 `❌ BLOCKER <id>` 判定是哪一支擋的，給出對應的損害面與修法，並把 gate 的診斷行原樣帶進 reason；`SHIP-GATE` 的 block 遙測補上 `check` 欄（原本看不出被擋的是哪一支）。密鑰那一格另明寫「不該用 `ASP_SHIP_OK` 繞過」——該旗標會連密鑰掃描一起關掉。
+- **`gitleaks` gate 在 `tests/` 零覆蓋（複審 F5）**：「有 staged 密鑰 → gate 判紅」原本只活在 `.asp-fact-check.md` FC-016 的散文裡，是一次性人工 probe。新增 `tests/test_gate_gitleaks.sh` 9 條，含 CWD 迴歸、掃錯 repo 的假綠面、規則庫缺席 fail-closed、工具缺席 skip-200 與 `ASP_GATE_STRICT` 轉 fail-closed、gate 端到端。
+  - ⚠️ **fixture 必須高熵**：規則庫 `useDefault = true` 會帶進預設 allowlist，低熵 dummy（`sk-ant-oat01-abcdefghij…`）會被當測試資料濾掉而 rc=0——照 FC-016 初版字面複驗的人會得到相反結論，或寫出一支恆綠的測試。測試改以 `/dev/urandom` 產 token，並**先自我驗證 fixture 真的會被抓到**才往下驗；FC-016 亦補上此陷阱。
+- **安裝器標記比對把「讀不到」當成「沒有標記」**：`head -5 | grep -q` 的退出碼不被區分，目標檔不可讀時會判為無標記而進入覆寫。改為 `[ -r ]` 不可讀即保守讓位；子目錄一律跳過（`cp -r <dir> <existing-dir>` 會巢狀成 `sub/sub`，且目錄無從帶標記）。三支腳本一致。
 - **CLAUDE.md 版本字串 drift**：第 1 行 `v5.0.0` → `v5.1.0`（v5.1.0 release 時漏改，非 ADR-032 造成，順修）。
 - **land 政策在 repo 內有兩套**：`CLAUDE.md`、`.claude/commands/asp/approve-adr.md`、`review-work.md` 仍寫「任何 git commit 前 → `/asp-ship`」「跳過須…見 `asp-ship` Step 10」，與 2026-08-19 校準相反。已改為校準語意，並把 `/asp-ship` 原本扛的兩件事各自安置：Step 9 密鑰掃描 → `gitleaks` gate；Step 10 bypass 留痕 → PreToolUse hook 的 `ASP_GIT_OK`/`ASP_ADR_OK` escape hatch（寫 `~/.asp/bypass-log.ndjson`）。
 - **`CLAUDE.md` 鐵則表對 push 的敘述與家目錄／上游相反**：原寫「`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許」，而家目錄鐵則表的 `git push` 無限定詞、asp-ng `skills/asp-merge` §四寫「`git push`(任何遠端分支)」。已收斂至嚴格側，並寫明機械層只覆蓋強制推送／刪遠端分支／直推預設分支，一般推送刻意放行故屬散文層義務。
@@ -278,7 +285,7 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
   - **改為條件式讓位，而非停掉本側**：asp-ng 產生的檔案第 2 行帶 `asp-ng-install:` 標記，見標記即跳過不覆寫；目標不存在時照裝，且一律逐檔複製、不再 `--delete` 或整個 `rm`。
   - **不採「本側整個停掉」的理由**：`tests/test_asp_commands_sync.sh` 釘的是一個真實 bugfix——自訂 slash 指令過去只在原作者本機，新電腦安裝後缺指令。停掉本側等於把那個 bug 放回給「只裝本 repo、未裝 asp-ng」的人。新測試 (4) 與原測試 (2) **必須同時綠**，這條約束寫進測試註解。
   - 三支腳本（`install.sh`、`.claude/scripts/asp-sync.sh`、`install.ps1`）同步處置；`asp-sync` 的「需同步」判定亦改為只看本側真的會寫的檔，否則每跑一次都報 Changes detected 卻什麼也不做。
-- **`asp-gate.yaml` vendor-verify notes 記載已失效的計畫**：原寫「上游同步偵測待 asp-ng 轉 public 後以 raw 比對」，該路徑因 2026-08-25 人裁維持 free/private 而失效（兩 repo 實查皆 `private=true`）。改記真實現況：缺口由上游 `vendor-upstream.sh` 承接，本 repo 尚未 vendoring。
+- **`asp-gate.yaml` vendor-verify notes 記載已失效的計畫**：原寫「上游同步偵測待 asp-ng 轉 public 後以 raw 比對」，該路徑因 2026-08-25 人裁維持 free/private 而失效（兩 repo 實查皆 `private=true`）。改記真實現況：缺口由上游 `vendor-upstream.sh` 承接——**該檢查已於本輪 vendoring 並掛進 gate**（見上方 Added），notes 的時態亦已同步（2026-09-09 修正：此句原停在「尚未 vendoring」，與同一未發布區塊內已完成的事實矛盾）。
 
 ## [5.1.0] - 2026-08-04
 

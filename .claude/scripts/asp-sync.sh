@@ -106,8 +106,12 @@ DIFF_SKILLS=$(diff -rq \
 # 【2026-09-09】此路徑有**兩個**安裝器在寫：本同步器與 asp-ng 的 `asp install`。
 # asp-ng 產生的檔案第 2 行帶 `asp-ng-install:` 標記，本同步器讓位不覆寫——那些檔案的
 # 差異因此不算「需同步」，否則每跑一次都報 Changes detected 卻什麼也不做。
-cmds_owned_by_aspng() {   # $1=目標檔;回 0 表示由 asp-ng 擁有
-  [ -f "$1" ] && head -5 "$1" 2>/dev/null | grep -q 'asp-ng-install:'
+cmds_owned_by_aspng() {   # $1=目標檔;回 0 表示由 asp-ng 擁有(= 本同步器讓位)
+  [ -e "$1" ] || return 1                 # 不存在 → 不是別人的,照裝
+  [ -d "$1" ] && return 0                 # 目錄:本同步器只處理檔案,一律不動(見下方複製迴圈)
+  [ -r "$1" ] || return 0                 # **讀不到就當作別人的**——不確定時保守讓位,
+                                          # 否則 head 失敗與「沒有標記」會被混為一談而覆寫他人檔案
+  head -5 "$1" 2>/dev/null | grep -q 'asp-ng-install:'
 }
 DIFF_CMDS=""
 if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
@@ -222,8 +226,11 @@ if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
   for _src in "$ASP_REPO/.claude/commands/asp/"*; do
     [ -e "$_src" ] || continue
     _dst="$USER_CMDS/$(basename "$_src")"
+    # 只處理一般檔:`cp -r <dir> <existing-dir>` 會巢狀成 sub/sub,而目錄也無從帶標記。
+    # 目前來源只有三個 .md;此分支是防未來新增子目錄時無聲出錯。
+    [ -d "$_src" ] && { echo "  skip $(basename "$_src")（子目錄:本同步器只處理檔案）"; continue; }
     cmds_owned_by_aspng "$_dst" && { echo "  skip $(basename "$_dst")（由 asp-ng 的 asp install 擁有）"; continue; }
-    cp -r "$_src" "$_dst"
+    cp "$_src" "$_dst"
   done
 fi
 

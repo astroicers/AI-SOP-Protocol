@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ⚠️ 由 `asp render gate` 產生 — 勿手改(單一事實源:asp-gate.yaml)
-# source sha256: 2855b339a4a0f20175aaf3f36fad8a18f0a5c1a561d9ede04b91cf78218fddde
+# source sha256: 19e849a26fd60f950f1d3aef70e525f4238ce61864415faef84fcdbd86b5cdf3
 # gate 子集:test-fresh, gitleaks, vendor-verify, vendor-upstream
 set -u
 STRICT="${ASP_GATE_STRICT:-0}"
@@ -85,7 +85,11 @@ if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/test-fresh.sh" ]; then
 else
   missing_blocker 'test-fresh' '.asp/checks/test-fresh.sh'
 fi
-run_check 'gitleaks' blocker 'gitleaks' 0 'gitleaks' 'protect' '--staged' '--config' '.asp/gitleaks.toml'
+if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/gitleaks.sh" ]; then
+  run_check 'gitleaks' blocker bash 1 bash "${ASP_GATE_HOME:-.}/.asp/checks/gitleaks.sh"
+else
+  missing_blocker 'gitleaks' '.asp/checks/gitleaks.sh'
+fi
 if [ -f "${ASP_GATE_HOME:-.}/.asp/checks/vendor-verify.sh" ]; then
   run_check 'vendor-verify' blocker bash 1 bash "${ASP_GATE_HOME:-.}/.asp/checks/vendor-verify.sh"
 else

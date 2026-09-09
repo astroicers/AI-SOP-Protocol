@@ -14,18 +14,28 @@ checks:
 
   - id: gitleaks
     layer: gate
-    tool: gitleaks
-    args: [protect, --staged, --config, .asp/gitleaks.toml]
+    tool: builtin-script
+    args:
+      inputs: "env:ASP_GATE_HOME(規則庫 .asp/gitleaks.toml 的位置)、env:ASP_GATE_PROJ(受檢 repo);工具未安裝→skip 200"
     severity: blocker
-    origin: "asp-ship step 9 / CLAUDE-IR-2(敏感資訊保護);規則庫 .asp/gitleaks.toml 自 asp-ng v0.41.0 vendoring,受 VENDOR.lock 竄改偵測"
+    origin: "asp-ship step 9 / CLAUDE-IR-2(敏感資訊保護);規則庫 .asp/gitleaks.toml 自 asp-ng vendoring,受 VENDOR.lock 竄改偵測"
     notes: >-
       **2026-09-08 補進來的理由**:此前這條鐵則的機械支撐掛在 `/asp-ship` Step 9,
       而 2026-08-19 校準把 /asp-ship 降為「大型碼改動的選用自檢」——於是
       「純文件 / config 直接乾淨 commit」這條路徑上,密鑰掃描整條消失,鐵則只剩散文。
       移進 gate 後它與 commit 同生命週期,不再依賴人記得跑哪支 skill。
-      工具缺席時 `run_check` 走 `command -v` skip(消費端零波及);gitleaks 8.30.1 實測
-      `protect --staged` 仍可用(該子命令已自 Available Commands 隱藏但保留),
-      並實證能攔下 staged 的假密鑰(rc=1),見 .asp-fact-check.md FC-016。
+      **2026-09-09 改走薄包裝 `.asp/checks/gitleaks.sh`(複審 F1)**:原以
+      `tool: gitleaks` 直接渲染,args 內兩個路徑都是**裸相對路徑**,而同檔其餘三支
+      皆以 `${ASP_GATE_HOME:-.}` 錨定。實測後果:CWD 不在 repo 根時規則庫載入失敗
+      而誤判 BLOCKER(假紅);更嚴重的是 `protect --staged` 掃的是 **CWD 的 repo**
+      而非 ASP_GATE_PROJ——掃錯 repo 卻報綠(假綠),而 hook 呼叫 gate 時全程不 cd,
+      故該路徑真實可觸發。包裝後兩個路徑都錨定,並多一格「規則庫缺席即 fail-closed」。
+      **fail-open 明說**:gitleaks 未安裝 → skip 200,依據＝消費端可用性優先;
+      設 `ASP_GATE_STRICT=1` 轉 fail-closed。沒裝 gitleaks 的機器上這條鐵則只剩散文,
+      該事實不隱形。
+      工具行為經一手實測(gitleaks 8.30.1,見 .asp-fact-check.md FC-016);
+      端到端由 `tests/test_gate_gitleaks.sh` 釘住(**須用高熵假 token**,低熵 dummy
+      會被 `useDefault` 帶進來的預設 allowlist 濾掉而讓測試恆綠)。
 
   - id: vendor-verify
     layer: gate
@@ -39,9 +49,11 @@ checks:
       上游同步偵測那一格由同目錄的 `vendor-upstream.sh` 承接(2026-09-08 已 vendoring,
       見下方條目)。原定「asp-ng 轉 public 後以 raw 比對」之路已失效——2026-08-25
       人裁維持 free/private。
-      2026-09-08 的代價實例:git-guard.sh 落後 3 個 release、vendor-verify.sh 落後
-      至少 10 個(逐 tag 實查 v0.32.0–v0.41.0),而本檢查一路全綠、零訊號,
-      最後是靠人工比對雜湊才發現。
+      2026-09-08 的代價實例(2026-09-09 全 tag 掃描後更正數字):git-guard.sh 落後
+      **3 個 release**(舊 sha 末見於 v0.38.2);vendor-verify.sh 落後 **56 個**
+      ——舊 sha `4c4dc433` **只存在於 v0.2.0**,v0.3.0 就換過一次、v0.28.0 再換一次,
+      也就是它落後了**兩代**。先前記「至少 10 個」是抽樣 v0.32.0 起算的下界,
+      **低估了五倍以上**。而本檢查一路全綠、零訊號,最後是靠人工比對雜湊才發現。
 
   - id: vendor-upstream
     layer: gate
@@ -65,6 +77,13 @@ checks:
       `ASP_VENDOR_UPSTREAM_BRANCH=origin/main`。
       **取不到 ≠ 通過**:一項都判不成時 exit 200(skip),但會印「本次零比對項」
       與 lock 上 `# upstream-checked:` 的年齡,對帳沒在跑這件事本身看得見。
+      ⚠️ **上游缺陷(2026-09-09 複審 F3,已回報,本檔為 vendored 不得就地修)**:
+      `JUDGED` 把 ①來源真確性 與 ②上游漂移 **合併計數**,故只要 ① 成功,
+      即使 ② **全部取不到**也會印 `✅ N 項與上游一致` 並勸人回填 `upstream-checked` 時戳。
+      實測 `ASP_VENDOR_UPSTREAM_BRANCH=nosuchbranch`:② 5 次全滅、仍 rc=0 報綠。
+      也就是**這支檢查存在的唯一理由(漂移偵測)可以一次都沒量到而報綠**。
+      在上游修好前,看到綠燈請一併看 `ℹ️` 那行有沒有列出「取不到上游,未判定」。
+      同理 `N 項` 是雙重計數(5 條記錄 × 兩道 = 10),不等於「對了 10 個檔」。
       漂移偵測能力已實測(把 lock 的 sha 改成舊值 → 同時報「來源標記對不上」與
       「上游已變更而本地未同步」,rc=1);另實測「只放檔未加 lock 列」會被
       vendor-verify 當場判紅,故三步順序記於 VENDOR.lock 檔頭。

@@ -300,12 +300,15 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
     mkdir -p "$USER_CMDS"
     for _src in "$TMP_DIR/.claude/commands/asp/"*; do
       [ -e "$_src" ] || continue
+      # 只處理一般檔：`cp -r <dir> <existing-dir>` 會巢狀成 sub/sub，且目錄無從帶標記
+      [ -d "$_src" ] && { warn "跳過 $(basename "$_src")（子目錄：本安裝器只處理檔案）"; continue; }
       _dst="$USER_CMDS/$(basename "$_src")"
-      if [ -f "$_dst" ] && head -5 "$_dst" 2>/dev/null | grep -q 'asp-ng-install:'; then
-        warn "跳過 $(basename "$_dst")（由 asp-ng 的 asp install 擁有，不覆寫）"
+      # 讀不到就當作別人的——不確定時保守讓位，否則 head 失敗與「沒有標記」會被混為一談
+      if [ -e "$_dst" ] && { [ ! -r "$_dst" ] || [ -d "$_dst" ] || head -5 "$_dst" 2>/dev/null | grep -q 'asp-ng-install:'; }; then
+        warn "跳過 $(basename "$_dst")（由 asp-ng 的 asp install 擁有或不可讀，不覆寫）"
         continue
       fi
-      cp -r "$_src" "$_dst"
+      cp "$_src" "$_dst"
     done
     success "~/.claude/commands/asp/（自訂 slash 指令；asp-ng 擁有者已讓位）"
   fi
@@ -381,8 +384,11 @@ DIFF2=$(diff -rq "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
 # 【2026-09-09】asp-ng 的 `asp install` 也寫這個路徑。帶 `asp-ng-install:` 標記的檔案
 # 由它擁有，本同步器讓位不覆寫——那些檔案的差異因此**不算**「需同步」，否則每跑一次
 # 都報 Changes detected 卻什麼也不做。故 DIFF3 只看「本側真的會寫的那些檔」。
-cmds_owned_by_aspng() {   # $1=目標檔;回 0 表示由 asp-ng 擁有
-  [ -f "$1" ] && head -5 "$1" 2>/dev/null | grep -q 'asp-ng-install:'
+cmds_owned_by_aspng() {   # $1=目標檔;回 0 表示由 asp-ng 擁有(= 本同步器讓位)
+  [ -e "$1" ] || return 1                 # 不存在 → 照裝
+  [ -d "$1" ] && return 0                 # 目錄:只處理檔案,一律不動
+  [ -r "$1" ] || return 0                 # 讀不到就當作別人的(保守讓位)
+  head -5 "$1" 2>/dev/null | grep -q 'asp-ng-install:'
 }
 DIFF3=""
 if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
@@ -408,9 +414,10 @@ if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
   mkdir -p "$USER_CMDS"
   for _src in "$ASP_REPO/.claude/commands/asp/"*; do
     [ -e "$_src" ] || continue
+    [ -d "$_src" ] && { echo "  skip $(basename "$_src")（子目錄:只處理檔案）"; continue; }
     _dst="$USER_CMDS/$(basename "$_src")"
-    cmds_owned_by_aspng "$_dst" && { echo "  skip $(basename "$_dst")（由 asp-ng 擁有）"; continue; }
-    cp -r "$_src" "$_dst"
+    cmds_owned_by_aspng "$_dst" && { echo "  skip $(basename "$_dst")（由 asp-ng 擁有或不可讀）"; continue; }
+    cp "$_src" "$_dst"
   done
 fi
 chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
