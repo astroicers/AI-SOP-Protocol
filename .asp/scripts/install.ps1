@@ -262,11 +262,27 @@ try {
     Copy-Item -Recurse -Force (Join-Path $TmpDir '.claude\skills\asp\*') $UserSkills
 
     # ~/.claude/commands/asp/（自訂 slash 指令，namespaced → /asp:approve-adr 等）
-    # 清空僅限 ASP 專屬子目錄，不碰共用頂層 commands\
+    #
+    # 【2026-09-09：改為條件式讓位，不再清空整個目錄】與 install.sh 同一裁定。
+    # 這個路徑有兩個安裝器在寫（本安裝器與 asp-ng 的 `asp install`），原本兩側都
+    # 先清空再覆蓋，任一側跑一次就把另一側洗掉。asp-ng 產生的檔案第 2 行帶
+    # `asp-ng-install:` 標記，見到標記就跳過不覆寫；目標不存在時照裝。
+    # 不採「本側整個停掉」——那會讓只裝本 repo 的人回到「新電腦沒有 /asp:* 指令」那個 bug。
     if (Test-Path (Join-Path $TmpDir '.claude\commands\asp')) {
         New-Item -ItemType Directory -Path $UserCmds -Force | Out-Null
-        Get-ChildItem $UserCmds -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
-        Copy-Item -Recurse -Force (Join-Path $TmpDir '.claude\commands\asp\*') $UserCmds
+        Get-ChildItem (Join-Path $TmpDir '.claude\commands\asp') -File | ForEach-Object {
+            $dst = Join-Path $UserCmds $_.Name
+            $ownedByAspNg = $false
+            if (Test-Path $dst) {
+                $head = Get-Content $dst -TotalCount 5 -ErrorAction SilentlyContinue
+                if ($head -match 'asp-ng-install:') { $ownedByAspNg = $true }
+            }
+            if ($ownedByAspNg) {
+                Write-Host "  ⚠  跳過 $($_.Name)（由 asp-ng 的 asp install 擁有，不覆寫）"
+            } else {
+                Copy-Item -Force $_.FullName $dst
+            }
+        }
     }
 
     $UserClaudeMd = Join-Path $UserClaude 'CLAUDE.md'

@@ -52,6 +52,37 @@ fi
 out=$(HOME="$HOME_DIR" ASP_REPO="$ASP_ROOT" bash "$SYNC" --yes 2>&1)
 echo "$out" | grep -q "Already in sync" && pass "第二次同步冪等 (Already in sync)" || fail "第二次同步非冪等"
 
+# ── (4) 讓位給 asp-ng：帶 asp-ng-install: 標記的檔案不得被覆寫（2026-09-09）──
+# 這個路徑有**兩個**安裝器在寫：本同步器與 asp-ng 的 `asp install`。原本兩側都
+# 「先清空再覆蓋」，於是任一側跑一次就把另一側洗掉——實測家目錄 / 本 repo HEAD /
+# asp-ng skills 三側 sha256 互不相同即為此。改為見標記即跳過。
+#
+# 為何不是「本側整個停掉」：那會讓只裝本 repo（未裝 asp-ng）的人回到 (2) 當初要修的
+# 那個 bug——新電腦安裝後沒有 /asp:* 指令。(2) 與本案必須同時綠。
+MARKED="$HOME_DIR/.claude/commands/asp/merge.md"
+mkdir -p "$(dirname "$MARKED")"
+printf '%s\n' '---' '# asp-ng-install: 由 `asp install` 產生——勿手改' 'ASPNG-SENTINEL' > "$MARKED"
+UNMARKED="$HOME_DIR/.claude/commands/asp/approve-adr.md"
+: > "$UNMARKED"                                   # 清空但無標記 → 應被同步回來
+
+HOME="$HOME_DIR" ASP_REPO="$ASP_ROOT" bash "$SYNC" --yes >/dev/null 2>&1
+
+if grep -q "ASPNG-SENTINEL" "$MARKED"; then
+  pass "帶 asp-ng-install: 標記的 merge.md 未被覆寫（讓位成立）"
+else
+  fail "帶標記的檔案被覆寫——兩個安裝器仍會互相抹掉"
+fi
+if [ -s "$UNMARKED" ] && grep -q "argument-hint\|^---" "$UNMARKED"; then
+  pass "無標記的 approve-adr.md 照常被同步（讓位不等於整個停掉）"
+else
+  fail "無標記的檔案未被同步——本側的安裝責任被誤停"
+fi
+if [ -f "$SIBLING" ] && grep -q "keep-me" "$SIBLING"; then
+  pass "讓位邏輯下共用頂層 sibling 仍未被誤刪"
+else
+  fail "讓位邏輯破壞了共用頂層安全契約"
+fi
+
 # ── 三腳本 parity 守護（防未來回退）──────────────────────────────
 grep -q "commands/asp" "$ASP_ROOT/.asp/scripts/install.sh"      && pass "install.sh 含 commands/asp 複製邏輯"      || fail "install.sh 缺 commands/asp 邏輯"
 grep -q "commands.asp" "$ASP_ROOT/.asp/scripts/install.ps1"     && pass "install.ps1 含 commands\\asp 複製邏輯"    || fail "install.ps1 缺 commands\\asp 邏輯"

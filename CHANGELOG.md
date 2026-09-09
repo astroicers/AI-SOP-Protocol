@@ -272,6 +272,10 @@ All notable changes to AI-SOP-Protocol will be documented in this file.
 - **land 政策在 repo 內有兩套**：`CLAUDE.md`、`.claude/commands/asp/approve-adr.md`、`review-work.md` 仍寫「任何 git commit 前 → `/asp-ship`」「跳過須…見 `asp-ship` Step 10」，與 2026-08-19 校準相反。已改為校準語意，並把 `/asp-ship` 原本扛的兩件事各自安置：Step 9 密鑰掃描 → `gitleaks` gate；Step 10 bypass 留痕 → PreToolUse hook 的 `ASP_GIT_OK`/`ASP_ADR_OK` escape hatch（寫 `~/.asp/bypass-log.ndjson`）。
 - **`CLAUDE.md` 鐵則表對 push 的敘述與家目錄／上游相反**：原寫「`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許」，而家目錄鐵則表的 `git push` 無限定詞、asp-ng `skills/asp-merge` §四寫「`git push`(任何遠端分支)」。已收斂至嚴格側，並寫明機械層只覆蓋強制推送／刪遠端分支／直推預設分支，一般推送刻意放行故屬散文層義務。
 - **VENDOR.lock 上游身分錯指 fork**（FC-015）：三列的「上游 repo」欄原記 `astroicers/asp-ng`，實查為 `Aries-Crew/asp-ng` 的 **fork** 且已落後 13 天（fork 末次推送 08-26 vs 上游 09-08）。來源標記指向過期副本時，上游對帳會拿舊內容比而給出**假綠燈**——這一欄正是 `vendor-upstream.sh` 未來要吃的輸入。已更正為真上游。
+- **兩個安裝器爭 `~/.claude/commands/asp/`、方向相反、還帶 `--delete`**：本 repo 的 `install.sh` / `asp-sync.sh` / `install.ps1` 與 asp-ng 的 `asp install` 都寫這個路徑，且都「先清空再覆蓋」——任一側跑一次就把另一側洗掉。可觀察後果：家目錄（`01238ae3`）／本 repo HEAD（`ff4e76ef`）／asp-ng `skills/asp-merge/SKILL.md`（`8465ad4f`）三側 sha256 互不相同，並已造成一筆錯誤的「零差異」複驗記錄（拿未提交的工作樹比出來的，已於 asp-ng 側作廢）。
+  - **改為條件式讓位，而非停掉本側**：asp-ng 產生的檔案第 2 行帶 `asp-ng-install:` 標記，見標記即跳過不覆寫；目標不存在時照裝，且一律逐檔複製、不再 `--delete` 或整個 `rm`。
+  - **不採「本側整個停掉」的理由**：`tests/test_asp_commands_sync.sh` 釘的是一個真實 bugfix——自訂 slash 指令過去只在原作者本機，新電腦安裝後缺指令。停掉本側等於把那個 bug 放回給「只裝本 repo、未裝 asp-ng」的人。新測試 (4) 與原測試 (2) **必須同時綠**，這條約束寫進測試註解。
+  - 三支腳本（`install.sh`、`.claude/scripts/asp-sync.sh`、`install.ps1`）同步處置；`asp-sync` 的「需同步」判定亦改為只看本側真的會寫的檔，否則每跑一次都報 Changes detected 卻什麼也不做。
 - **`asp-gate.yaml` vendor-verify notes 記載已失效的計畫**：原寫「上游同步偵測待 asp-ng 轉 public 後以 raw 比對」，該路徑因 2026-08-25 人裁維持 free/private 而失效（兩 repo 實查皆 `private=true`）。改記真實現況：缺口由上游 `vendor-upstream.sh` 承接，本 repo 尚未 vendoring。
 
 ## [5.1.0] - 2026-08-04
