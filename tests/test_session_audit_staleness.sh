@@ -31,7 +31,7 @@ level_aliases:
 EOF
   printf 'type: system\n' > "$1/.ai_profile"
 }
-run_hook() { CLAUDE_PROJECT_DIR="$1" bash "$HOOK" >/dev/null 2>&1; RC=$?; }
+run_hook() { CLAUDE_PROJECT_DIR="$1" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$HOOK" >/dev/null 2>&1; RC=$?; }
 B() { echo "$1/.asp-session-briefing.json"; }
 
 # ── T1: 過期 fact-check（超過 180 天）→ A17.1 INFO + stale_fact_count ≥ 1 ──

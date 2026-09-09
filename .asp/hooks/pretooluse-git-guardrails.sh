@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# pretooluse-git-guardrails.sh — PreToolUse 本地毀資料護欄（SPEC-016 / ADR-030）
+# pretooluse-git-guardrails.sh — PreToolUse 毀滅性 git 護欄（SPEC-016 / ADR-030）
 #
 # 【薄包裝】檢查本體已遷至 asp-ng 單一事實源（asp-ng issue #32 G1 裁定；ADR-000 §7
 # 「強制困在 hooks」為 v4 病灶）。判定邏輯＝ .asp/checks/git-guard.sh（M0 分段/tokenize
-# 與 M1 九類謂詞逐行遷出）。本 hook 只留：攔截骨架（stdin/jq）、escape hatch、遙測、
+# 與 M1 十類謂詞逐行遷出）。本 hook 只留：攔截骨架（stdin/jq）、escape hatch、遙測、
 # deny 輸出。擴充謂詞＝改 asp-ng 的檢查本體後同步至本 repo，不改本檔。
 #
 # 攔截點說明：本 hook 為 PreToolUse（逐指令），與 commit 時的 .asp/gate.sh 聚合物攔截點
@@ -13,14 +13,19 @@
 # 檢查本體契約（asp-ng 定義）：exit 0＝無命中；exit 1＝命中（stdout 末段為命中謂詞）；
 # exit 200＝自跳過（無指令／超長 GG-SEC-01）。stdout 一律由本 hook 吸收，不外洩至使用者。
 #
-# 於 Bash 執行前攔截「本地毀滅性 git 操作」（不可逆銷毀未提交/未合併/未追蹤本地成果）：
-# reset --hard / clean(force,!dry-run,!interactive) / branch force-delete /
-# checkout|restore|switch 丟工作區 / stash clear|drop / worktree remove --force / rm --force。
+# 於 Bash 執行前攔截「毀滅性 git 操作」（不可逆銷毀成果）：
+# 〔本地〕reset --hard / clean(force,!dry-run,!interactive) / branch force-delete /
+#   checkout|restore|switch 丟工作區 / stash clear|drop / worktree remove --force / rm --force。
+# 〔遠端〕push 強制 / 刪除遠端分支 / 直推預設分支（第十類，asp-ng v0.41.0 引入；
+#   `--force-with-lease` 與 `--dry-run` 刻意放行——擋掉安全變體只會逼人改用真 --force）。
 # 命中 → permissionDecision:deny（FC-002 方式 A）+ GIT-GUARD block 遙測；ASP_GIT_OK=1（hook
 # env）→ defer + bypass 遙測；jq 缺 → defer+WARN；stdin 空/無 command → defer 靜默（no-op）。
-# 把 CLAUDE-IR-1（破壞性操作前須人類確認）的本地 git 子集從散文升硬強制。
+# 把 CLAUDE-IR-1（破壞性操作前須人類確認）的 git 子集從散文升硬強制。
 #
-# 誠實能力邊界（前綴補全/命令替換/包裝前綴/checkout 檔路徑）見 SPEC-016 與 FC-013。
+# 誠實能力邊界（前綴補全/命令替換/checkout 檔路徑）見 SPEC-016 與 FC-013。包裝前綴
+# 自 v0.41.0 起剝離（GG-SEC-02），但只認**無參數**的簡單前綴形：`sudo -u x git …`、
+# `sh -c "git …"`、`xargs git …`、`\git …` 仍可繞（測試 B8a 釘住）。
+# 無狀態檢查推不出當前分支，故人站在 main 上時裸 `git push` 擋不到。
 # 本腳本受 Iron Rule A 保護（改它即繞過 → session-audit 偵測）。
 set -uo pipefail
 
@@ -51,7 +56,7 @@ case "$_RC" in
 esac
 
 MATCHED="${_OUT##*操作: }"           # 契約：stdout 末段為命中謂詞
-[ -n "$MATCHED" ] && [ "$MATCHED" != "$_OUT" ] || MATCHED="本地毀滅性 git 操作"
+[ -n "$MATCHED" ] && [ "$MATCHED" != "$_OUT" ] || MATCHED="毀滅性 git 操作"
 
 METRICS_FILE="${ASP_METRICS_FILE:-$HOME/.claude/asp/metrics/rule-hits.jsonl}"
 write_metric() {                     # $1=action(block|bypass)
@@ -69,6 +74,13 @@ if [ "${ASP_GIT_OK:-}" = "1" ]; then
 fi
 
 write_metric block
-REASON="ASP git-guardrails：偵測到本地毀滅性操作（${MATCHED}），將不可逆銷毀本地成果（未提交變更/未合併分支/未追蹤檔）。破壞性操作前須人類確認（鐵則 CLAUDE-IR-1）。確認要執行 → 在 Claude Code 啟動環境設 ASP_GIT_OK=1 後重試（會留 GIT-GUARD 遙測）；否則請改用非破壞替代（git stash 代 reset --hard、git clean -n 先預覽、git branch -d 代 -D）。"
+# 損害面與替代手段依本地/遠端而異；一律套本地說法會在 push 命中時給出對不上的建議。
+case "$MATCHED" in
+  push*) _HARM="將不可逆改寫遠端歷史或刪除他人已取用的 ref"
+         _ALT="git push --force-with-lease 代 --force、git push --dry-run 先預覽、main 一律走 PR 由人親手合併" ;;
+  *)     _HARM="將不可逆銷毀本地成果（未提交變更/未合併分支/未追蹤檔）"
+         _ALT="git stash 代 reset --hard、git clean -n 先預覽、git branch -d 代 -D" ;;
+esac
+REASON="ASP git-guardrails：偵測到毀滅性操作（${MATCHED}），${_HARM}。破壞性操作前須人類確認（鐵則 CLAUDE-IR-1）。確認要執行 → 在 Claude Code 啟動環境設 ASP_GIT_OK=1 後重試（會留 GIT-GUARD 遙測）；否則請改用非破壞替代（${_ALT}）。"
 jq -cn --arg r "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
 exit 0

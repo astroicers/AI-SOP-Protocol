@@ -286,12 +286,31 @@ if git clone --quiet --depth=1 "$PROTOCOL_REPO" "$TMP_DIR" 2>&1; then
   cp -r "$TMP_DIR/.claude/skills/asp/." "$USER_SKILLS/"
 
   # ~/.claude/commands/asp/（自訂 slash 指令，namespaced → /asp:approve-adr、/asp:review-work）
-  # rm -rf 安全：目標是 ASP 專屬子目錄，非共用頂層 ~/.claude/commands/
+  #
+  # 【2026-09-09：改為條件式讓位，不再清空整個目錄】
+  # 這個路徑有**兩個**安裝器在寫：本安裝器（v4，AI-SOP-Protocol）與 asp-ng 的
+  # `asp install`，方向相反。原本兩側都先清空再覆蓋，於是任一側跑一次就把另一側洗掉
+  # ——實測家目錄、本 repo HEAD、asp-ng skills 三側 sha256 互不相同即為此。
+  #
+  # 不採「本側整個停掉」：那會讓**只裝本 repo**（未裝 asp-ng）的人回到本測試當初要
+  # 修的那個 bug——新電腦安裝後沒有 /asp:* 指令。
+  # 改為：asp-ng 產生的檔案第 2 行帶 `asp-ng-install:` 標記，見到標記就跳過不覆寫；
+  # 目標不存在時照裝。兩個安裝器因此可共存，且誰都不會無聲抹掉對方。
   if [ -d "$TMP_DIR/.claude/commands/asp" ]; then
     mkdir -p "$USER_CMDS"
-    rm -rf "${USER_CMDS:?}/"*
-    cp -r "$TMP_DIR/.claude/commands/asp/." "$USER_CMDS/"
-    success "~/.claude/commands/asp/（自訂 slash 指令）"
+    for _src in "$TMP_DIR/.claude/commands/asp/"*; do
+      [ -e "$_src" ] || continue
+      # 只處理一般檔：`cp -r <dir> <existing-dir>` 會巢狀成 sub/sub，且目錄無從帶標記
+      [ -d "$_src" ] && { warn "跳過 $(basename "$_src")（子目錄：本安裝器只處理檔案）"; continue; }
+      _dst="$USER_CMDS/$(basename "$_src")"
+      # 讀不到就當作別人的——不確定時保守讓位，否則 head 失敗與「沒有標記」會被混為一談
+      if [ -e "$_dst" ] && { [ ! -r "$_dst" ] || [ -d "$_dst" ] || head -5 "$_dst" 2>/dev/null | grep -q 'asp-ng-install:'; }; then
+        warn "跳過 $(basename "$_dst")（由 asp-ng 的 asp install 擁有或不可讀，不覆寫）"
+        continue
+      fi
+      cp "$_src" "$_dst"
+    done
+    success "~/.claude/commands/asp/（自訂 slash 指令；asp-ng 擁有者已讓位）"
   fi
 
   # ~/.claude/CLAUDE.md（user-level 鐵則）
@@ -361,19 +380,45 @@ USER_CMDS="${USER_CLAUDE}/commands/asp"
 DIFF=$(diff -rq "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
 DIFF2=$(diff -rq "$USER_ASP" "$ASP_REPO/.asp" 2>/dev/null || true)
 # commands/asp：來源在但目標未裝 → 視為需同步（目標缺時 diff 報錯會被吞成空字串）
+#
+# 【2026-09-09】asp-ng 的 `asp install` 也寫這個路徑。帶 `asp-ng-install:` 標記的檔案
+# 由它擁有，本同步器讓位不覆寫——那些檔案的差異因此**不算**「需同步」，否則每跑一次
+# 都報 Changes detected 卻什麼也不做。故 DIFF3 只看「本側真的會寫的那些檔」。
+cmds_owned_by_aspng() {   # $1=目標檔;回 0 表示由 asp-ng 擁有(= 本同步器讓位)
+  [ -e "$1" ] || return 1                 # 不存在 → 照裝
+  [ -d "$1" ] && return 0                 # 目錄:只處理檔案,一律不動
+  [ -r "$1" ] || return 0                 # 讀不到就當作別人的(保守讓位)
+  head -5 "$1" 2>/dev/null | grep -q 'asp-ng-install:'
+}
+DIFF3=""
 if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
-  [ -d "$USER_CMDS" ] && DIFF3=$(diff -rq "$USER_CMDS" "$ASP_REPO/.claude/commands/asp" 2>/dev/null || true) || DIFF3="missing"
-else DIFF3=""; fi
+  for _src in "$ASP_REPO/.claude/commands/asp/"*; do
+    [ -e "$_src" ] || continue
+    _dst="$USER_CMDS/$(basename "$_src")"
+    cmds_owned_by_aspng "$_dst" && continue
+    if [ ! -f "$_dst" ] || ! cmp -s "$_src" "$_dst"; then DIFF3="differs"; break; fi
+  done
+fi
 [ -z "$DIFF" ] && [ -z "$DIFF2" ] && [ -z "$DIFF3" ] && { echo "Already in sync"; exit 0; }
 echo "Changes detected. Syncing..."
 if command -v rsync &>/dev/null; then
   rsync -a --delete "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
-  [ -d "$ASP_REPO/.claude/commands/asp" ] && { mkdir -p "$USER_CMDS"; rsync -a --delete "$ASP_REPO/.claude/commands/asp/" "$USER_CMDS/"; }
 else
   rm -rf "$USER_ASP" && cp -r "$ASP_REPO/.asp" "$USER_ASP"
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
-  [ -d "$ASP_REPO/.claude/commands/asp" ] && { rm -rf "${USER_CMDS:?}"; mkdir -p "$(dirname "$USER_CMDS")"; cp -r "$ASP_REPO/.claude/commands/asp" "$USER_CMDS"; }
+fi
+# commands/asp 逐檔複製（不用 --delete，也不整個 rm）：見上方 DIFF3 的說明。
+# 兩個安裝器共用此路徑，任何「先清空再覆蓋」都會無聲抹掉對方。
+if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+  mkdir -p "$USER_CMDS"
+  for _src in "$ASP_REPO/.claude/commands/asp/"*; do
+    [ -e "$_src" ] || continue
+    [ -d "$_src" ] && { echo "  skip $(basename "$_src")（子目錄:只處理檔案）"; continue; }
+    _dst="$USER_CMDS/$(basename "$_src")"
+    cmds_owned_by_aspng "$_dst" && { echo "  skip $(basename "$_dst")（由 asp-ng 擁有或不可讀）"; continue; }
+    cp "$_src" "$_dst"
+  done
 fi
 chmod +x "$USER_ASP/hooks/"*.sh 2>/dev/null || true
 echo "Synced $(find "$USER_SKILLS" -type f | wc -l) skill files + profiles/hooks/templates"

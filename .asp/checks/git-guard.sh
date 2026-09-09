@@ -8,15 +8,28 @@
 #   受檢指令取位置參數,次取 env ASP_GATE_COMMAND;兩者皆缺 → exit 200(skip 契約:
 #   gate 在 commit 情境以 ASP_GATE_COMMAND 傳入;無指令可驗即自跳過)。
 #
-# 判定(正向表列,命中下列九類本地毀滅性 git 即 exit 1 並印命中謂詞):
-#   reset --hard|clean(force 且非 dry-run/interactive)|branch 強制刪除|
+# 判定(正向表列,命中下列十類毀滅性 git 即 exit 1 並印命中謂詞):
+#   〔本地〕reset --hard|clean(force 且非 dry-run/interactive)|branch 強制刪除|
 #   checkout 丟工作區(-f/--/<ref> <pathspec>/.)|restore 丟工作區|
 #   switch 強制(-C/-f/--discard-changes)|stash clear/drop|
 #   worktree remove --force|rm --force
+#   〔遠端〕push 強制(--force/-f/refspec 前綴 +)/刪除遠端分支(--delete/-d/:branch/
+#           --mirror/--prune)/直推預設分支(第十類,2026-09-05 新增;+/--mirror/--prune
+#           三形態 2026-09-08 補;見 _pred_push)
 #   通過 → exit 0。超長(>8192)→ exit 200(GG-SEC-01:純 bash tokenizer O(n²),
 #   上限防 DoS;v4 為靜默放行,本版同為 allow 決策、加印跳過訊息)。
 #   判定純由指令語法/argv 決定(無狀態);能力邊界見 SPEC-016 與 FC-013
-#   (前綴補全/命令替換/包裝前綴/checkout 檔路徑屬已知漏擋釘樁)。
+#   (前綴補全/命令替換/checkout 檔路徑屬已知漏擋釘樁)。
+#
+# GG-SEC-02(2026-09-05):**包裝前綴**自本版起剝離,不再是已知漏擋。
+#   原判定要求分段的第一個 token 是 `git`,故任何包裝都能整條穿過。當初評為可接受,
+#   前提是「沒有東西會例行地包裝指令」——而 rtk 的 PreToolUse hook 正是把每一條
+#   Bash 改寫成 `rtk <cmd>`,前提已不成立。實測(修補前):
+#     `git reset --hard HEAD~3`       → 擋
+#     `rtk git reset --hard HEAD~3`   → 放行   ← 洞
+#     `rtk proxy git reset --hard …`  → 放行   ← 洞(proxy 的定義就是不過濾)
+#   同日 `Bash(rtk proxy *)` 由 permissions.ask 移除(使用者裁定),那是這條路徑
+#   先前唯一的補償控制——故本剝離不是錦上添花,是接手那個被撤掉的位置。
 set -u
 
 # 呼叫端未加引號時只會傳進第一個 token(`git`)而靜默通過——視為誤用直接紅,
@@ -129,6 +142,60 @@ _positionals() {                     # 子命令後非 - 開頭 token → 全域
 _pred_reset()  { _arg_has "--hard" && { MATCHED="reset --hard"; return 0; }; return 1; }
 _pred_rm()     { { _arg_has "--force" || _bundle_has f; } && { MATCHED="rm --force"; return 0; }; return 1; }
 
+# _pred_push — 第十類(遠端)。**只擋三種不可逆形態,不擋一般推送**:護欄要能長住,
+# 擋掉每天要做幾十次的事只會逼人整條關掉。
+#
+#   1. 強制推送:覆寫遠端歷史,別人已取走的 commit 就此對不上。
+#      **`--force-with-lease` 刻意不擋**——它在遠端被人動過時會失敗,正是
+#      「別蓋掉別人」的安全變體;擋它只會逼人改用真正的 `--force`。
+#      機制上不必特判:`_arg_has` 是精確 token 比對(`--force` ≠ `--force-with-lease`),
+#      而 `_bundle_has` 跳過 `--` 開頭者。
+#      **refspec 的 `+` 前綴同屬本類**(2026-09-08 補):`git push origin +main` 與
+#      `git push --force origin main` 等效,且**無 lease**。它先前整條穿過——
+#      `+main` 不以 `-` 開頭,`_arg_has`/`_bundle_has` 都看不到;而 dst 取
+#      `${a##*:}` 後為 `+main`,與字面 `main` 不等。不對稱的反證:帶冒號的
+#      `+HEAD:main` 反而擋得住(dst 解析後＝`main`)。
+#   2. 刪除遠端分支(`--delete` / `-d` / 舊寫法 `origin :branch` / `--mirror` / `--prune`):
+#      租約還活著時刪掉 worker 的 ref,下一 tick 的 QA 前置就抓不到分支而誤貼
+#      needs-human(#400/#429 兩次實錄)。
+#      `--mirror` 把遠端多餘的 ref 一併刪除、`--prune` 刪掉遠端已無本地對應者——
+#      兩者都是**成批**刪 ref,損害面比單支 `--delete` 更大卻先前不受檢(2026-09-08 補)。
+#   3. 直推預設分支(`main`/`master`):ADR-000 §10「merge main 由人親手」。
+#      2026-08-26 實查 GitHub **free** 方案無分支保護/rulesets(私有 repo 拿不到),
+#      故這是該規則**唯一的**機械承接——在此之前它只有散文層。
+#
+# 已知上限(誠實記):本檢查無狀態、不讀 repo,故推不出「現在在哪個分支」。
+# 裸 `git push` / `git push origin`(依 push.default 推當前分支)若人正站在 main 上,
+# **擋不到**。要擋那個形態得執行 git 去問當前分支,那會讓本檢查從純文字分析變成
+# 有狀態、且多出「git 讀失敗時怎麼判」的新失效面——不划算。第 3 條買的是
+# 「明確寫出 main 當目的地」這個高訊號形態。
+_pred_push() {
+  local a dst
+  # `--dry-run`/`-n` 什麼都不做,擋它純屬過度攔截(對齊 `_pred_clean` 的既有處理)。
+  # 它也是人用來「先看看會推什麼」的手段——擋掉等於逼人直接來真的。
+  { _arg_has "--dry-run" || _bundle_has n; } && return 1
+  { _arg_has "--force" || _bundle_has f; } && { MATCHED="push --force(覆寫遠端歷史;安全變體請用 --force-with-lease)"; return 0; }
+  { _arg_has "--delete" || _bundle_has d; } && { MATCHED="push --delete(刪除遠端分支)"; return 0; }
+  _arg_has "--mirror" && { MATCHED="push --mirror(遠端多餘 ref 一併刪除)"; return 0; }
+  _arg_has "--prune"  && { MATCHED="push --prune(刪除遠端已無本地對應的分支)"; return 0; }
+  _positionals
+  for a in ${POS[@]+"${POS[@]}"}; do
+    case "$a" in
+      # refspec 的 `+` 前綴 = 強制更新該 ref(git 文法),與 `--force` 等效且無 lease。
+      # 放在 `:*` 之前:`+:branch` 這種同時帶兩者的寫法,force 是更強的訊號。
+      +*) MATCHED="push +<refspec>(前綴 + 即強制更新該 ref,等效 --force;安全變體請用 --force-with-lease)"; return 0 ;;
+      :*) MATCHED="push <remote> :<branch>(刪除遠端分支的舊寫法)"; return 0 ;;
+    esac
+    # refspec 為 `src:dst`,危險的是**目的地**;`main:feature` 不危險,`HEAD:main` 危險。
+    case "$a" in *:*) dst="${a##*:}" ;; *) dst="$a" ;; esac
+    case "$dst" in
+      main|master|refs/heads/main|refs/heads/master)
+        MATCHED="push 直推預設分支($a)——ADR-000 §10:main 由人親手"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
 _pred_clean() {
   local force=0 dry=0 inter=0
   { _arg_has "--force" || _bundle_has f; } && force=1
@@ -222,8 +289,24 @@ _analyze_segment() {
   _strip_redirects
   local n=${#ARGV[@]} i=0 t sub
   [ "$n" -gt 0 ] || return 1
-  while [ "$i" -lt "$n" ]; do                # M0.3:跳 VAR=val 前綴
-    case "${ARGV[$i]}" in [A-Za-z_]*=*) i=$((i+1)) ;; *) break ;; esac
+  # M0.3:跳 VAR=val 前綴,並剝離指令包裝器(GG-SEC-02;理由見檔頭)。
+  # 兩者同一個迴圈:`sudo FOO=1 git …`、`rtk proxy env X=1 git …` 這類交錯形態
+  # 若拆成兩段各跑一次,只會剝掉其中一種排列。
+  # **已知上限(誠實記)**:只認**無參數**的簡單前綴形。`sudo -u x git …`、
+  # `xargs git …`、`sh -c "git …"`、`eval …` 皆仍可繞——本剝離買的是
+  # 「防低努力/半無意」,不是防蓄意規避(同 test-mutex 的裁定記帳)。
+  # 剝不出 `git` 的照樣 return 1,故不擴大攔截面。
+  while [ "$i" -lt "$n" ]; do
+    case "${ARGV[$i]}" in
+      [A-Za-z_]*=*) i=$((i+1)) ;;
+      rtk)
+        i=$((i+1))
+        # rtk 的兩個「執行任意指令」子命令:proxy(明示不過濾)與 run
+        case "${ARGV[$i]:-}" in proxy|run) i=$((i+1)) ;; esac
+        ;;
+      sudo|doas|env|command|nice|nohup|stdbuf|time) i=$((i+1)) ;;
+      *) break ;;
+    esac
   done
   [ "$i" -lt "$n" ] && [ "${ARGV[$i]}" = "git" ] || return 1
   i=$((i+1))
@@ -250,6 +333,7 @@ _analyze_segment() {
     stash)    _pred_stash ;;
     worktree) _pred_worktree ;;
     rm)       _pred_rm ;;
+    push)     _pred_push ;;
     *) return 1 ;;
   esac
 }
@@ -261,7 +345,7 @@ MATCHED=""
 while IFS= read -r _seg; do
   [ -n "$_seg" ] || continue
   if _analyze_segment "$_seg"; then
-    printf '❌ git-guard: 本地毀滅性 git 操作: %s\n' "$MATCHED"
+    printf '❌ git-guard: 毀滅性 git 操作: %s\n' "$MATCHED"
     exit 1
   fi
 done < <(_split_segments "$CMD")

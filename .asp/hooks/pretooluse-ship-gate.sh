@@ -84,12 +84,48 @@ if [ ! -f "$GATE" ]; then
   echo "[ASP] pretooluse-ship-gate: gate 渲染物缺（$GATE），fail-open 放行" >&2
   exit 0
 fi
-if ASP_GATE_HOME="$ASP_HOME" ASP_GATE_PROJ="$PROJ" ASP_GATE_COMMAND="$COMMAND" bash "$GATE" >/dev/null 2>&1; then
+# 輸出必須捕捉、不得丟棄（2026-09-09，獨立複審 F2）：gate 自 1 支檢查長到 4 支
+# （test-fresh / gitleaks / vendor-verify / vendor-upstream）之後，原本寫死的
+# 「未見新鮮測試痕跡，請先跑 make test」對其餘三支一律是**錯誤診斷**——staged 密鑰
+# 命中時叫人去跑 make test，跑一百次也不會綠。診斷要指向真正擋下的那一支。
+_GATE_OUT=$(ASP_GATE_HOME="$ASP_HOME" ASP_GATE_PROJ="$PROJ" ASP_GATE_COMMAND="$COMMAND" bash "$GATE" 2>&1); _GATE_RC=$?
+if [ "$_GATE_RC" -eq 0 ]; then
   write_metric pass
   exit 0
 fi
 
-# ── 無/stale 測試痕跡 → deny ──
-write_metric block
-jq -cn '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:"ASP commit 閘：commit 前未見新鮮測試痕跡（.asp-test-result.json）。請先跑 /asp-ship 或 make test 再 commit；若確認要跳過，用 ASP_SHIP_OK=1 git commit ...（會留 bypass 遙測）。"}}'
+# 取 gate 印出的 `❌ BLOCKER <id>` 當命中謂詞；取不到才退回通用語。
+# 字元集含 `:` `_`：上游 asp-ng 的 gate 有 `lint:yaml` / `lint:markdown` 這類 id
+# （見其 .asp/gate.sh 的 ALL_CHECKS），`[a-z0-9-]*` 會在冒號處截斷成 `lint`。
+_FAILED=$(printf '%s\n' "$_GATE_OUT" | sed -n 's/^❌ BLOCKER \([a-z0-9:_-]*\).*/\1/p' | head -1)
+case "$_FAILED" in
+  test-fresh)     _WHY="commit 前未見新鮮測試痕跡（.asp-test-result.json）"; _FIX="先跑 make test 再 commit" ;;
+  gitleaks)       _WHY="staged 內容命中密鑰規則"; _FIX="把密鑰移出 staged 內容——**這一項不該用 ASP_SHIP_OK 繞過**" ;;
+  vendor-verify)  _WHY="vendored 檢查本體與 VENDOR.lock 不符（就地改動或 lock 未更新）"; _FIX="自上游重新 vendoring 並更新 lock，勿就地改檔" ;;
+  vendor-upstream|upstream-drift) _WHY="上游對帳失敗"; _FIX="依 gate 輸出重新 vendoring" ;;
+  # 未列名的 id 仍**保留抽到的名字**——原本無條件覆寫成 unknown，等於把
+  # 「gate 加了新檢查」與「完全認不出」混為一談，診斷價值一起丟掉。
+  ?*)             _WHY="gate 的 $_FAILED 檢查未通過"; _FIX="直接跑 bash .asp/gate.sh 看該檢查的完整輸出" ;;
+  *)              _FAILED="unknown"; _WHY="gate 未通過"; _FIX="直接跑 bash .asp/gate.sh 看完整輸出" ;;
+esac
+
+# 遙測帶上被擋的 check id——原本只記 SHIP-GATE，看不出是哪一支擋的（同 F2）。
+# 只寫一行：帶 check 欄的加強版；jq 失敗才退回原本的 write_metric。
+_line=$(jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg p "$(basename "$PROJ")" \
+  --arg c "$_FAILED" '{ts:$ts,project:$p,rule_id:"SHIP-GATE",action:"block",check:$c}' 2>/dev/null)
+if [ -n "$_line" ]; then
+  { mkdir -p "${METRICS_FILE%/*}" && printf '%s\n' "$_line" >>"$METRICS_FILE"; } 2>/dev/null || true
+else
+  write_metric block
+fi
+
+# gate 的診斷行原樣帶進 reason（截斷防爆量），人才看得到到底哪裡卡住。
+# **`❌` 行優先**：原本只 `tail -6`，若 warning 行排在 BLOCKER 之後就會把真正的
+# 診斷截掉、只剩雜訊。現行 gate 命中 blocker 即 exit，BLOCKER 恆為最後一行，
+# 故那是潛伏而非現行缺陷——但排序成本為零，先擋著。
+_DETAIL=$( { printf '%s\n' "$_GATE_OUT" | grep -E '^❌'
+             printf '%s\n' "$_GATE_OUT" | grep -E '^(⚠️|✅|⏭)'; } | head -6 | tr '\n' ' ')
+jq -cn --arg why "$_WHY" --arg fix "$_FIX" --arg c "$_FAILED" --arg d "${_DETAIL:0:600}" \
+  '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",
+    permissionDecisionReason:("ASP commit 閘（\($c)）：\($why)。→ \($fix)。若確認要跳過，用 ASP_SHIP_OK=1 git commit ...（會留 bypass 遙測，且會一併關掉密鑰掃描）。gate 輸出：\($d)")}}'
 exit 0

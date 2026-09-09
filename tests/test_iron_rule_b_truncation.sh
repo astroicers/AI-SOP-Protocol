@@ -46,7 +46,7 @@ write_log() {  # $1 = number of lines (each a distinct ndjson record, newline-te
 
 # Run audit; echo 1 if an Iron Rule B BLOCKER was emitted, else 0.
 ironb_blocker() {
-  CLAUDE_PROJECT_DIR="$TEST_DIR" bash "$AUDIT" >/dev/null 2>&1 || true
+  CLAUDE_PROJECT_DIR="$TEST_DIR" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" >/dev/null 2>&1 || true
   if [ -f "$TEST_DIR/.asp-session-briefing.json" ]; then
     jq '[.blockers[] | select(test("Iron Rule B"))] | length' \
       "$TEST_DIR/.asp-session-briefing.json" 2>/dev/null || echo 0

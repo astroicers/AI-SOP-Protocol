@@ -15,7 +15,13 @@ HOOK="$ASP_ROOT/.asp/hooks/pretooluse-ship-gate.sh"
 mk_test_dir
 command -v jq >/dev/null 2>&1 || { echo "SKIP: jq 不存在"; exit 0; }
 
-PROJ="$TEST_DIR/proj"; mkdir -p "$PROJ/.git"
+# fixture 須為**真的** git repo（2026-09-09）。原本是 `mkdir -p "$PROJ/.git"`——
+# 一個空殼目錄，`git -C "$PROJ" rev-parse` 認不得。gate 新增的 gitleaks 檢查會對
+# 「PROJ 不是 git repo」fail-closed（否則 gitleaks 對非 repo 回 rc=0，等於什麼都沒掃
+# 卻報綠），於是這個空殼 fixture 被正確地擋下、本測試 12→8 綠。
+# 擋得對，不真實的是 fixture：ship-gate hook 只在 `git commit` 上觸發，PROJ 定義上
+# 就是 git repo。改成真 repo，下方以 `.git/index` mtime 控制新鮮度的手法照常成立。
+PROJ="$TEST_DIR/proj"; mkdir -p "$PROJ" && git -C "$PROJ" init -q .
 METRICS="$TEST_DIR/rule-hits.jsonl"
 
 run_hook(){ # $1=command ; env ASP_SHIP_OK optional

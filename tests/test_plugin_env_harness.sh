@@ -22,7 +22,7 @@ mkdir -p "$PROJ/docs/adr" "$PROJ/.claude"   # 注意：專案內**無** .asp/（
 printf '{\n  "permissions": { "deny": ["Bash(rm -rf /)"] }\n}\n' > "$PROJ/.claude/settings.json"
 BEFORE=$(sha256sum "$PROJ/.claude/settings.json" | awk '{print $1}')
 
-run_audit()      { CLAUDE_PLUGIN_ROOT="$ASP_ROOT" CLAUDE_PROJECT_DIR="$PROJ" bash "$AUDIT" >/dev/null 2>&1; }
+run_audit()      { CLAUDE_PLUGIN_ROOT="$ASP_ROOT" CLAUDE_PROJECT_DIR="$PROJ" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" >/dev/null 2>&1; }
 local_deny_has() { jq -e --arg d "$1" '.permissions.deny | index($d)' "$PROJ/.claude/settings.local.json" >/dev/null 2>&1; }
 
 echo "── P1/B1: plugin-env + 專案無 .asp/ → Draft 擋 commit ──"

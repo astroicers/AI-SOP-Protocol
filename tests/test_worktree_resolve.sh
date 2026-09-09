@@ -43,13 +43,13 @@ resolve() { ( export CLAUDE_PROJECT_DIR="$1"; . "$LIB" 2>/dev/null || exit 9; as
 # audit 呼叫（stdin-piping harness）：$1=stdin.cwd、$2=CLAUDE_PROJECT_DIR
 run_audit_wt() {
   printf '{"cwd":"%s","hook_event_name":"SessionStart","source":"startup"}' "$1" \
-    | CLAUDE_PROJECT_DIR="$2" bash "$AUDIT" 2>/dev/null
+    | CLAUDE_PROJECT_DIR="$2" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" 2>/dev/null
 }
 
 # ship-gate 呼叫（black-box）：$1=cwd、$2=CLAUDE_PROJECT_DIR
 run_gate() {
   local payload; payload=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$1")
-  printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$2" bash "$GATE" 2>/dev/null
+  printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$2" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$GATE" 2>/dev/null
 }
 
 echo "── T1-T4：asp_resolve_worktree 單元 ──"

@@ -37,8 +37,8 @@
 
 | 鐵則 | 說明 |
 |------|------|
-| **破壞性操作防護** | `git push origin main / --force / rebase / rm -rf / docker push / gh pr merge` 必須人類確認；`git push origin feature/* 或 asp/*` 由 autopilot auto-PR 流程允許 |
-| **敏感資訊保護** | 禁止輸出 API Key、密碼、憑證（任何包裝方式）。`asp-ship` Step 9 掃描 |
+| **破壞性操作防護** | `git push`（**任何**遠端分支）/ `--force` / `rebase` / `rm -rf` / `docker push` / `gh pr merge` 必須人類確認。**機械承接＝`.asp/checks/git-guard.sh` 十類謂詞**（本地毀資料八類 + `rm --force` + 第十類遠端 push），經 PreToolUse hook 逐指令攔截；一般推送（`git push origin asp/foo`）**刻意放行**，故該子集為散文層義務（2026-09-08 更正：原寫「`asp/*` 由 autopilot auto-PR 流程允許」，與家目錄鐵則表及 asp-ng `skills/asp-merge` §四相反，已收斂至嚴格側） |
+| **敏感資訊保護** | 禁止輸出 API Key、密碼、憑證（任何包裝方式）。**機械承接＝`.asp/gate.sh` 的 `gitleaks` 檢查**（`asp-gate.yaml` id `gitleaks`，blocker，規則庫 `.asp/gitleaks.toml` 含各家模型金鑰 pattern）。2026-09-08 更正：原記「`asp-ship` Step 9 掃描」，而 2026-08-19 校準已把 `/asp-ship` 降為選用自檢，該路徑上掃描整條消失、鐵則只剩散文——已移進 gate，與 commit 同生命週期 |
 | **ADR 未定案禁止實作** | `Draft` ADR 禁止生產代碼；`FIRM` ADR 允許 commit（需 Verification Evidence，audit 輸出 🟡）；`session-audit.sh` 動態注入 deny |
 | **外部事實驗證防護** | 涉及第三方 API/版本/法規 → 必須查證並記錄至 `.asp-fact-check.md`（邏輯由 `global_core.md` Fact Verification Gate 執行） |
 
@@ -53,12 +53,19 @@
 
 **AI 必須**：Session 啟動時讀取 `.asp-session-briefing.json`，向使用者報告 BLOCKER。
 
-**必須調用 Skill 的時機（跳過須輸出 ⚠️ ASP BYPASS 警告，見 `asp-ship` Step 10）：**
+**必須調用 Skill 的時機（跳過須輸出 ⚠️ ASP BYPASS 警告）：**
 - 實作前 → `/asp-gate G1,G2` → 測試寫完 → `/asp-gate G3` → 實作完 → `/asp-gate G4`
-- 任何 git commit 前 → `/asp-ship` | 驗證階段 → `/asp-gate G5` + `/asp-reality-check`
+- **land 一律走 `/asp:merge`**；有實質邏輯的碼改動於 land 前跑 `/asp:review-work` 獨立複審；純文件 / config 改動直接乾淨 commit + `/asp:merge`（2026-08-19 校準，逐字釘樁見 `.claude/commands/asp/merge.md` 的 land 政策段）
+- 驗證階段 → `/asp-gate G5` + `/asp-reality-check`
+
+> **[2026-09-08 更正]** 本節原寫「任何 git commit 前 → `/asp-ship`」與「跳過須…見 `asp-ship` Step 10」。
+> 2026-08-19 校準已把 `/asp-ship` 降為**大型碼改動的選用自檢**，不再是「凡提交必跑」的前置。
+> 它原本扛的兩件事已各自安置：**Step 9 密鑰掃描 → `.asp/gate.sh` 的 `gitleaks` 檢查**（blocker，
+> 與 commit 同生命週期）；**Step 10 bypass 留痕 → PreToolUse hook 的 `ASP_GIT_OK` / `ASP_ADR_OK`
+> escape hatch**（bypass 寫 `~/.asp/bypass-log.ndjson`）。兩者都不再依賴人記得跑哪支 skill。
 
 **過程義務速查（compaction-safe，ADR-020 P1b — 壓縮後最先蒸發的散文義務一行版）：**
-- commit 前跑測試 / asp-ship（L1.5 hook 兜底）｜實作前 ADR 須 Accepted/FIRM
+- commit 前跑測試（`test-fresh` gate 兜底）｜密鑰掃描由 `gitleaks` gate 兜底｜實作前 ADR 須 Accepted/FIRM
 - bug 修復後**全專案 grep** 同類問題｜外部事實 → 查證並記錄 `.asp-fact-check.md`
 - 假設未明 → Assumption Checkpoint｜需求變更 → L1-L4 分級回溯
 - 輕量改動（單檔 prompt/doc/config）可跳 G1-G6 重 gate，但**獨立審查**（/asp gate G5 或 asp:review-work / reality-check）不可省

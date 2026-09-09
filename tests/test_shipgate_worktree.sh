@@ -31,9 +31,9 @@ git -C "$MAIN" worktree add -q "$WT" -b feat
 run_gate() {
   local payload; payload=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$1")
   if [ -n "${2:-}" ]; then
-    printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$2" bash "$GATE" 2>/dev/null
+    printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$2" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$GATE" 2>/dev/null
   else
-    printf '%s' "$payload" | env -u CLAUDE_PROJECT_DIR bash "$GATE" 2>/dev/null
+    printf '%s' "$payload" | env -u CLAUDE_PROJECT_DIR ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$GATE" 2>/dev/null
   fi
 }
 

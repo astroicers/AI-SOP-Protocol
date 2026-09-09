@@ -1,7 +1,41 @@
 # .asp/checks/VENDOR.lock — vendored 檢查本體來源記錄(asp-ng issue #43)
-# 格式:<檔名> <上游 repo> <上游路徑> <sha256>
-# 更新方式:自上游重新 vendoring 後,以 sha256sum 更新對應列;勿就地改檔。
-# 註:test-fresh.sh 為本 repo 自有(P0-5 自 ship-gate hook 抽出),非 vendored,不列入。
-git-guard.sh astroicers/asp-ng .asp/checks/git-guard.sh e6cab79fbd4be9890f8719502b7746ba55824113c6da1090c0251d795d58de29
-adr-draft.sh astroicers/asp-ng .asp/checks/adr-draft.sh f27c53c2360ca455290ee1434a7f60ce00bc1b30da3f2b03294a78f6e217f384
-vendor-verify.sh astroicers/asp-ng .asp/checks/vendor-verify.sh 4c4dc4333b6156684cc3a5f5a3538d3eea35d3b2083923e249eb2bb5df825c9f
+# upstream-checked: 2026-09-08
+# 格式:<檔名> <上游 repo> <上游路徑> <sha256> [<ref>]
+# 更新方式:自上游重新 vendoring 後,以 sha256sum 更新對應列並改 ref;勿就地改檔。
+#
+# 第五欄 <ref>(2026-09-08 補):vendoring 當下的上游版本座標(tag/commit)。四欄格式
+# 沒有任何版本資訊,消費端無從得知自己停在哪一版——那正是「本地竄改偵測全綠、上游
+# 早已修補」的結構成因(#43 AC-3)。vendor-verify.sh 自 ASP_VENDOR_REF_DEADLINE
+# (預設 2026-09-30)起對缺 ref 的列判紅。
+#
+# 上游 repo 更正(2026-09-08):原記 `astroicers/asp-ng`,實查為 `Aries-Crew/asp-ng`
+# 的 **fork**,且已落後上游(fork 末次推送 08-26 vs 上游 09-08)。來源標記指向過期
+# 副本時,上游對帳會拿舊內容比而給出假綠燈,故更正為真上游。
+#
+# 註:本目錄內**非 vendored 的本 repo 自有腳本**(不列入本檔,故不受 lock 的竄改偵測;
+#     它們的竄改由 Iron Rule A 承接——session-audit 以 `git ls-tree .asp/checks/` 動態枚舉):
+#       test-fresh.sh        P0-5 自 ship-gate hook 抽出
+#       gitleaks.sh          2026-09-09 新增,錨定 ASP_GATE_HOME/PROJ 的薄包裝
+#       upstream-drift.sh    2026-09-09 新增,vendor-upstream.sh 的節流＋逾時包裝
+#
+# ── vendoring 一份新檔的完整順序(2026-09-08 補;漏任一步都有具名後果)──
+#   1. 放檔到 .asp/checks/(或規則庫路徑),內容**逐位元**取自上游某個 tag。
+#   2. 在本檔補一列,**含第五欄 ref**。
+#      漏這步的後果:若該檔是對帳器自身(vendor-verify.sh / vendor-upstream.sh),
+#      vendor-verify **當場判紅**並指名——「竄改它即可全面停用對帳」(已實測)。
+#      若是一般檔,則不紅但完全失去竄改偵測,是靜默的。
+#   3. 到 `asp-gate.yaml` 加對應 check 條目,**再跑 `asp render gate`** 重出 .asp/gate.sh。
+#      漏這步的後果最陰:**檔案在、lock 綠、vendor-verify 綠,而那支檢查一次都沒跑**。
+#      ⚠️ 本 repo 的 CI(.github/workflows/asp-ci.yml)只跑 make test / audit-quick /
+#      gitleaks action,**不呼叫 .asp/gate.sh**,亦無 `asp render ci` 渲染物——
+#      故 `layer: ci` 的條目在本 repo 等於永不執行,新檢查一律放 `layer: gate`。
+#
+# 非腳本的 vendored 物(2026-09-08):gitleaks.toml 是**規則庫**不是檢查本體,但同樣
+# 適用「被就地改了沒人發現」這個風險——把一條 rule 刪掉,gitleaks 照樣 exit 0,
+# 密鑰掃描就無聲失效。檔名以相對路徑寫(lock 位於 .asp/checks/,規則庫在 .asp/),
+# 這是刻意:規則庫路徑須與上游一致(asp-gate.yaml 的 --config 引用 .asp/gitleaks.toml)。
+../gitleaks.toml Aries-Crew/asp-ng .asp/gitleaks.toml dab22e69cad09a8c5283d8185f84ac9ed861044dd18912c392a45cb4171d6f05 v0.42.0
+git-guard.sh Aries-Crew/asp-ng .asp/checks/git-guard.sh 75fa674ec61055ceaded99a1edf1e971421afda3155633d324ab518b593a2d51 v0.42.0
+adr-draft.sh Aries-Crew/asp-ng .asp/checks/adr-draft.sh f27c53c2360ca455290ee1434a7f60ce00bc1b30da3f2b03294a78f6e217f384 v0.42.0
+vendor-verify.sh Aries-Crew/asp-ng .asp/checks/vendor-verify.sh 43099717701b18f1b933a0b186af4cb5213d6e53ef81105d0f983b41f7065564 v0.42.0
+vendor-upstream.sh Aries-Crew/asp-ng .asp/checks/vendor-upstream.sh 4b7b38721152105f99f904df3d306d692da7623cfcfaf1004a9afdd2954d5771 v0.42.0

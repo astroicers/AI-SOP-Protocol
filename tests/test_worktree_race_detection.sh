@@ -21,13 +21,13 @@ git -C "$MAIN" config user.email t@t; git -C "$MAIN" config user.name t
 echo x > "$MAIN/f"; git -C "$MAIN" add f
 git -C "$MAIN" -c commit.gpgsign=false commit -qm init
 
-run_audit() { CLAUDE_PROJECT_DIR="$1" bash "$AUDIT" 2>/dev/null </dev/null; }
+run_audit() { CLAUDE_PROJECT_DIR="$1" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" 2>/dev/null </dev/null; }
 
 # SPEC-017 harness 鐵則：worktree 案例必餵 stdin JSON .cwd + CLAUDE_PROJECT_DIR=主樹
 # （真況＝anchor 恆主樹、worktree 訊號只在 stdin）；直接 CLAUDE_PROJECT_DIR=worktree 不模擬真 bug。
 run_audit_wt() {
   printf '{"cwd":"%s","hook_event_name":"SessionStart","source":"startup"}' "$1" \
-    | CLAUDE_PROJECT_DIR="$2" bash "$AUDIT" 2>/dev/null
+    | CLAUDE_PROJECT_DIR="$2" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$AUDIT" 2>/dev/null
 }
 
 echo "── 單一 worktree（無並行）→ 不警告 ──"

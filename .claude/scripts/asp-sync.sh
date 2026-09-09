@@ -102,11 +102,32 @@ DIFF_SKILLS=$(diff -rq \
   "$USER_SKILLS" "$ASP_REPO/.claude/skills/asp" 2>/dev/null || true)
 # commands/asp：來源不存在（舊 repo）→ 無差異；來源在但目標未裝 → 視為需同步
 # （升級情境：已裝舊版 ASP 但無 commands/asp。目標缺時 diff 報錯會被 2>/dev/null||true 吞成空字串，故需顯式判斷）
+#
+# 【2026-09-09】此路徑有**兩個**安裝器在寫：本同步器與 asp-ng 的 `asp install`。
+# asp-ng 產生的檔案第 2 行帶 `asp-ng-install:` 標記，本同步器讓位不覆寫——那些檔案的
+# 差異因此不算「需同步」，否則每跑一次都報 Changes detected 卻什麼也不做。
+cmds_owned_by_aspng() {   # $1=目標檔;回 0 表示由 asp-ng 擁有(= 本同步器讓位)
+  [ -e "$1" ] || return 1                 # 不存在 → 不是別人的,照裝
+  [ -d "$1" ] && return 0                 # 目錄:本同步器只處理檔案,一律不動(見下方複製迴圈)
+  [ -r "$1" ] || return 0                 # **讀不到就當作別人的**——不確定時保守讓位,
+                                          # 否則 head 失敗與「沒有標記」會被混為一談而覆寫他人檔案
+  head -5 "$1" 2>/dev/null | grep -q 'asp-ng-install:'
+}
+DIFF_CMDS=""
 if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
-  if [ -d "$USER_CMDS" ]; then
-    DIFF_CMDS=$(diff -rq "$USER_CMDS" "$ASP_REPO/.claude/commands/asp" 2>/dev/null || true)
-  else
+  if [ ! -d "$USER_CMDS" ]; then
     DIFF_CMDS="(commands/asp 尚未安裝)"
+  else
+    for _src in "$ASP_REPO/.claude/commands/asp/"*; do
+      [ -e "$_src" ] || continue
+      _dst="$USER_CMDS/$(basename "$_src")"
+      cmds_owned_by_aspng "$_dst" && continue
+      if [ ! -f "$_dst" ] || ! cmp -s "$_src" "$_dst"; then
+        DIFF_CMDS="$DIFF_CMDS
+  $(basename "$_src")"
+      fi
+    done
+    DIFF_CMDS="${DIFF_CMDS# }"
   fi
 else
   DIFF_CMDS=""
@@ -182,11 +203,6 @@ if command -v rsync &>/dev/null; then
     "$ASP_REPO/.asp/" "$USER_ASP/"
   rsync -a --delete \
     "$ASP_REPO/.claude/skills/asp/" "$USER_SKILLS/"
-  # commands/asp（選用）：mirror 至專屬子目錄；--delete 安全，不碰共用頂層 ~/.claude/commands/
-  if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
-    mkdir -p "$USER_CMDS"
-    rsync -a --delete "$ASP_REPO/.claude/commands/asp/" "$USER_CMDS/"
-  fi
 else
   # rsync 不可用時 fallback（保護 runtime 生成的 metrics/，勿隨 rm -rf 抹除遙測）
   if [ -d "$USER_ASP/metrics" ]; then
@@ -200,10 +216,22 @@ else
     cp -r "$METRICS_BAK/metrics" "$USER_ASP/" && rm -rf "$METRICS_BAK"
   fi
   rm -rf "$USER_SKILLS" && cp -r "$ASP_REPO/.claude/skills/asp" "$USER_SKILLS"
-  if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
-    rm -rf "${USER_CMDS:?}"; mkdir -p "$(dirname "$USER_CMDS")"
-    cp -r "$ASP_REPO/.claude/commands/asp" "$USER_CMDS"
-  fi
+fi
+
+# commands/asp（選用）：逐檔複製，**不用 --delete、也不整個 rm**。
+# 兩個安裝器共用此路徑（見上方 DIFF_CMDS 的說明），任何「先清空再覆蓋」都會無聲抹掉對方；
+# 帶 asp-ng-install: 標記者跳過。目標不存在時照裝，故「新電腦缺 /asp:* 指令」那個 bug 仍被擋著。
+if [ -d "$ASP_REPO/.claude/commands/asp" ]; then
+  mkdir -p "$USER_CMDS"
+  for _src in "$ASP_REPO/.claude/commands/asp/"*; do
+    [ -e "$_src" ] || continue
+    _dst="$USER_CMDS/$(basename "$_src")"
+    # 只處理一般檔:`cp -r <dir> <existing-dir>` 會巢狀成 sub/sub,而目錄也無從帶標記。
+    # 目前來源只有三個 .md;此分支是防未來新增子目錄時無聲出錯。
+    [ -d "$_src" ] && { echo "  skip $(basename "$_src")（子目錄:本同步器只處理檔案）"; continue; }
+    cmds_owned_by_aspng "$_dst" && { echo "  skip $(basename "$_dst")（由 asp-ng 的 asp install 擁有）"; continue; }
+    cp "$_src" "$_dst"
+  done
 fi
 
 # ─── Showcase 補同步（v5 ADR-017：--delete 後依 marker 裝回）────────
