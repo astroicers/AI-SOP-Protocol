@@ -96,6 +96,56 @@ else
   fail "(7) gate 未在 gitleaks 這一格擋下 — 輸出：$(tr '\n' ' ' <<<"$OUT" | head -c 300)"
 fi
 
+# ── (8) deny 訊息不得把密鑰本身帶出去 ──
+# hook 會把 gate 的診斷行併進 permissionDecisionReason（複審 F2 的修法），而 gitleaks
+# 命中時的原始輸出**含密鑰明文**。目前靠「只取 ❌/⚠️/✅/⏭ 開頭的行」把它濾掉——
+# 這條過濾是承載安全性質的，不能只靠人工驗過一次。
+HOOK="$ASP_ROOT/.asp/hooks/pretooluse-ship-gate.sh"
+if [ -f "$HOOK" ] && command -v jq >/dev/null 2>&1; then
+  REASON=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$PROJ" \
+    | ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$HOOK" 2>/dev/null \
+    | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null)
+  if grep -q "gitleaks" <<<"$REASON"; then
+    pass "(8a) deny 訊息指向 gitleaks（不再是寫死的「請先跑 make test」）"
+  else
+    fail "(8a) deny 訊息未指出是 gitleaks 擋的 — 「${REASON:0:200}」"
+  fi
+  # (8b) 密鑰不得出現在 deny 訊息。
+  # ⚠️ 誠實記：這條**目前是縱深防禦而非唯一屏障**——實測 `gitleaks protect` 預設輸出
+  # 只印計數（`leaks found: 1`），**不印 finding 明細**，所以現階段根本沒有密鑰可外洩。
+  # 變異測試證實：把 hook 的診斷行過濾整個拿掉，本條仍綠。
+  # 保留它是因為那個前提會變：一旦有人給 gitleaks 加上 -v／--report-format，
+  # finding（含 `Secret:`）就會進 gate 輸出。屆時本條會是唯一擋住它的斷言。
+  if grep -qF "${TOKEN: -16}" <<<"$REASON"; then
+    fail "(8b) **密鑰明文外洩到 deny 訊息**"
+  else
+    pass "(8b) 密鑰未出現在 deny 訊息（縱深防禦；目前 gitleaks 預設輸出本就不含明細）"
+  fi
+
+  # (8c) 真正釘住那條過濾：用 stub gate 吐一行**非標記開頭**的內容，
+  # 斷言它不會被帶進 reason。(8b) 驗不到這件事，這條才驗得到。
+  STUB="$TEST_DIR/stub"; mkdir -p "$STUB/.asp/hooks"
+  cp "$HOOK" "$STUB/.asp/hooks/"
+  cat > "$STUB/.asp/gate.sh" <<'STUBEOF'
+#!/usr/bin/env bash
+echo "SENTINEL-MUST-NOT-REACH-REASON"
+echo "❌ BLOCKER gitleaks"
+exit 1
+STUBEOF
+  R2=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$PROJ" \
+    | ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$STUB/.asp/hooks/pretooluse-ship-gate.sh" 2>/dev/null \
+    | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null)
+  if grep -q "SENTINEL-MUST-NOT-REACH-REASON" <<<"$R2"; then
+    fail "(8c) 非標記行被帶進 deny 訊息——診斷行過濾失效（任意 gate 輸出都會外流）"
+  elif grep -q "BLOCKER gitleaks\|gitleaks" <<<"$R2"; then
+    pass "(8c) 只有標記行進 reason，非標記行被濾掉（過濾機制有效）"
+  else
+    fail "(8c) stub gate 未產生預期的 deny — 「${R2:0:200}」"
+  fi
+else
+  echo "  ⏭  (8) 略過：hook 或 jq 不可用"
+fi
+
 echo ""
 echo "════════════════════════════════"
 echo "Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
