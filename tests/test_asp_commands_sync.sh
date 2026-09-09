@@ -83,6 +83,35 @@ else
   fail "讓位邏輯破壞了共用頂層安全契約"
 fi
 
+# ── (5) 讓位判斷的兩個新分支（2026-09-09，第三輪複審：原本零覆蓋）──
+# 兩者都是「不確定時保守讓位」：讀不到的檔可能是別人的，覆寫它就是資料遺失；
+# 目錄無從帶標記，`cp -r <dir> <existing-dir>` 還會巢狀成 sub/sub。
+UNREADABLE="$HOME_DIR/.claude/commands/asp/review-work.md"
+printf '%s\n' 'UNREADABLE-SENTINEL' > "$UNREADABLE" && chmod 000 "$UNREADABLE"
+SUBDIR="$HOME_DIR/.claude/commands/asp/approve-adr.md"
+rm -f "$SUBDIR" && mkdir -p "$SUBDIR" && : > "$SUBDIR/inside.txt"
+
+SYNC_OUT=$(HOME="$HOME_DIR" ASP_REPO="$ASP_ROOT" bash "$SYNC" --yes 2>&1)
+
+chmod 644 "$UNREADABLE" 2>/dev/null
+# ⚠️ 斷言不能只看「哨兵還在」——那是恆真的：`cp` 對 mode 000 的目標本來就會 EACCES 失敗，
+# 保護它的是檔案權限而非本守衛（第三輪複審變異實測：拿掉守衛，哨兵照樣活著）。
+# 也不能驗「印了 skip」：此時三個目標都被判為已讓位 → DIFF_CMDS 為空 → 走
+# 「Already in sync」提前結束，複製迴圈根本不會跑。
+# 真正有鑑別力的觀察是 **cp 有沒有炸出錯誤**：有守衛 → 一個字都不會冒；
+# 沒守衛 → `cp: … Permission denied`（變異實測 =1）。那是個沒人收的錯誤輸出。
+if grep -q "UNREADABLE-SENTINEL" "$UNREADABLE" 2>/dev/null \
+   && ! grep -qi "Permission denied" <<<"$SYNC_OUT"; then
+  pass "(5a) 不可讀的目標檔由守衛讓位（無 cp 錯誤外洩），內容未被動"
+else
+  fail "(5a) 不可讀目標的處置不符 — cp 錯誤=$(grep -ci 'Permission denied' <<<"$SYNC_OUT")；哨兵在=$(grep -c 'UNREADABLE-SENTINEL' "$UNREADABLE" 2>/dev/null || echo 0)"
+fi
+if [ -d "$SUBDIR" ] && [ ! -e "$SUBDIR/approve-adr.md" ]; then
+  pass "(5b) 目標是目錄時跳過，未 cp -r 進去造成巢狀"
+else
+  fail "(5b) 目錄處置不符（巢狀或被取代）"
+fi
+
 # ── 三腳本 parity 守護（防未來回退）──────────────────────────────
 grep -q "commands/asp" "$ASP_ROOT/.asp/scripts/install.sh"      && pass "install.sh 含 commands/asp 複製邏輯"      || fail "install.sh 缺 commands/asp 邏輯"
 grep -q "commands.asp" "$ASP_ROOT/.asp/scripts/install.ps1"     && pass "install.ps1 含 commands\\asp 複製邏輯"    || fail "install.ps1 缺 commands\\asp 邏輯"

@@ -63,9 +63,23 @@ rc=$(run_check "$PROJ")
                 || fail "(4) 乾淨內容被誤擋（rc=$rc）"
 
 # ── (5) 規則庫缺席 → fail-closed（不靜默降級成內建規則）──
-rc=$( ASP_GATE_HOME="$TEST_DIR/nowhere" ASP_GATE_PROJ="$PROJ" bash "$CHECK" >/dev/null 2>&1; echo $? )
-[ "$rc" = "1" ] && pass "(5) 規則庫缺席 → rc=1 fail-closed（不降級成 gitleaks 內建規則）" \
-                || fail "(5) 規則庫缺席卻放行（rc=$rc）——密鑰掃描無聲降級"
+# 只看 rc 會恆真：gitleaks 自己對缺 config 也回 1，斷言分辨不出是哪個機制擋的。
+# 故一併驗本腳本專屬的診斷句。
+OUT5=$( ASP_GATE_HOME="$TEST_DIR/nowhere" ASP_GATE_PROJ="$PROJ" bash "$CHECK" 2>&1 ); rc=$?
+if [ "$rc" = "1" ] && grep -q "規則庫缺席" <<<"$OUT5"; then
+  pass "(5) 規則庫缺席 → rc=1 且由本腳本的守衛擋下（不降級成 gitleaks 內建規則）"
+else
+  fail "(5) 規則庫缺席的處置不符（rc=$rc）— 「$(head -c 160 <<<"$OUT5")」"
+fi
+
+# ── (5b) PROJ 不是 git repo → fail-closed（第三輪複審：初版此處 rc=0 假綠）──
+mkdir -p "$TEST_DIR/notarepo"
+OUT5B=$( ASP_GATE_HOME="$ASP_ROOT" ASP_GATE_PROJ="$TEST_DIR/notarepo" bash "$CHECK" 2>&1 ); rc=$?
+if [ "$rc" = "1" ] && grep -q "不是 git repo" <<<"$OUT5B"; then
+  pass "(5b) PROJ 非 git repo → rc=1 fail-closed（不把「什麼都沒掃」當成「無命中」）"
+else
+  fail "(5b) PROJ 非 git repo 卻放行（rc=$rc）——假綠 — 「$(head -c 160 <<<"$OUT5B")」"
+fi
 
 # ── (6) 工具缺席 → skip 200（fail-open，刻意；STRICT 轉 fail-closed）──
 # PATH 只留系統路徑：bash/coreutils 仍在，但 gitleaks（裝在 ~/.local/bin 之類）不在。
@@ -103,12 +117,15 @@ fi
 HOOK="$ASP_ROOT/.asp/hooks/pretooluse-ship-gate.sh"
 if [ -f "$HOOK" ] && command -v jq >/dev/null 2>&1; then
   REASON=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$PROJ" \
-    | ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$HOOK" 2>/dev/null \
+    | CLAUDE_PROJECT_DIR="$PROJ" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$HOOK" 2>/dev/null \
     | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null)
-  if grep -q "gitleaks" <<<"$REASON"; then
-    pass "(8a) deny 訊息指向 gitleaks（不再是寫死的「請先跑 make test」）"
+  # ⚠️ 斷言必須綁 case dispatch 產生的**前綴**，不能只 grep "gitleaks"——
+  # `_DETAIL` 必然把 `❌ BLOCKER gitleaks` 原樣帶進 reason，拿那個詞當斷言會恆真
+  # （第三輪複審變異實測：把 sed+case 整組廢掉，舊斷言照樣綠）。
+  if grep -q "ASP commit 閘（gitleaks）" <<<"$REASON"; then
+    pass "(8a) deny 訊息的謂詞由 dispatch 產生並指向 gitleaks"
   else
-    fail "(8a) deny 訊息未指出是 gitleaks 擋的 — 「${REASON:0:200}」"
+    fail "(8a) deny 訊息未由 dispatch 指向 gitleaks — 「${REASON:0:200}」"
   fi
   # (8b) 密鑰不得出現在 deny 訊息。
   # ⚠️ 誠實記：這條**目前是縱深防禦而非唯一屏障**——實測 `gitleaks protect` 預設輸出
@@ -133,7 +150,7 @@ echo "❌ BLOCKER gitleaks"
 exit 1
 STUBEOF
   R2=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$PROJ" \
-    | ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$STUB/.asp/hooks/pretooluse-ship-gate.sh" 2>/dev/null \
+    | CLAUDE_PROJECT_DIR="$PROJ" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$STUB/.asp/hooks/pretooluse-ship-gate.sh" 2>/dev/null \
     | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null)
   if grep -q "SENTINEL-MUST-NOT-REACH-REASON" <<<"$R2"; then
     fail "(8c) 非標記行被帶進 deny 訊息——診斷行過濾失效（任意 gate 輸出都會外流）"
@@ -142,12 +159,50 @@ STUBEOF
   else
     fail "(8c) stub gate 未產生預期的 deny — 「${R2:0:200}」"
   fi
+
+  # (8d) 反向釘樁：stub 印**別的** check id，reason 必須跟著改。
+  # 沒有這條的話，「永遠說 gitleaks」也會讓 (8a) 綠——dispatch 是否真的在分派驗不到。
+  cat > "$STUB/.asp/gate.sh" <<'STUBEOF2'
+#!/usr/bin/env bash
+echo "❌ BLOCKER vendor-verify"
+exit 1
+STUBEOF2
+  R3=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$PROJ" \
+    | CLAUDE_PROJECT_DIR="$PROJ" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$STUB/.asp/hooks/pretooluse-ship-gate.sh" 2>/dev/null \
+    | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null)
+  if grep -q "ASP commit 閘（vendor-verify）" <<<"$R3" && ! grep -q "ASP commit 閘（gitleaks）" <<<"$R3"; then
+    pass "(8d) 換一個 check id，reason 的謂詞跟著換（dispatch 真的在分派）"
+  else
+    fail "(8d) dispatch 未跟著換 — 「${R3:0:200}」"
+  fi
+
+  # (8e) 未列名的 id 須保留原名，不得一律改寫成 unknown
+  cat > "$STUB/.asp/gate.sh" <<'STUBEOF3'
+#!/usr/bin/env bash
+echo "❌ BLOCKER lint:yaml"
+exit 1
+STUBEOF3
+  R4=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"},"cwd":"%s"}' "$PROJ" \
+    | CLAUDE_PROJECT_DIR="$PROJ" ASP_METRICS_FILE="$TEST_DIR/m.jsonl" bash "$STUB/.asp/hooks/pretooluse-ship-gate.sh" 2>/dev/null \
+    | jq -r '.hookSpecificOutput.permissionDecisionReason // ""' 2>/dev/null)
+  if grep -q "lint:yaml" <<<"$R4"; then
+    pass "(8e) 含冒號的未列名 id 保留原名（不被截斷、不被改寫成 unknown）"
+  else
+    fail "(8e) 未列名 id 的處置不符 — 「${R4:0:200}」"
+  fi
 else
   echo "  ⏭  (8) 略過：hook 或 jq 不可用"
 fi
 
+# ── 總數守衛：(6)(6b) 與 (8*) 都有條件式跳過分支，跳過時 TOTAL 會跟著縮，
+# 於是「10/10 passed」看起來完全正常而其實少驗了兩條。分母自己也要被釘住。
+EXPECTED_TOTAL=15
+if [ "$TOTAL" -ne "$EXPECTED_TOTAL" ]; then
+  echo "  ⚠️  本次只跑了 $TOTAL / $EXPECTED_TOTAL 條（有分支被跳過；上方 ⏭ 說明原因）"
+fi
+
 echo ""
 echo "════════════════════════════════"
-echo "Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
+echo "Results: ${PASS}/${TOTAL} passed, ${FAIL} failed（預期 ${EXPECTED_TOTAL} 條）"
 echo "════════════════════════════════"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

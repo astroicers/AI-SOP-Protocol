@@ -275,7 +275,15 @@ try {
             $ownedByAspNg = $false
             if (Test-Path $dst) {
                 $head = Get-Content $dst -TotalCount 5 -ErrorAction SilentlyContinue
-                if ($head -match 'asp-ng-install:') { $ownedByAspNg = $true }
+                # $head 為 $null ＝ 讀不到（權限／目錄／IO 錯，被 SilentlyContinue 吞掉）。
+                # 此時 `$null -match ...` 為 false，會走到 Copy-Item -Force **覆寫**——
+                # 而 install.sh 對同一情境是保守讓位（`[ -r ] || return 0`）。
+                # 同一份契約不該在兩個平台上給相反答案，故此處對齊 sh 側。
+                if ($null -eq $head) {
+                    $ownedByAspNg = $true
+                } elseif ($head -match 'asp-ng-install:') {
+                    $ownedByAspNg = $true
+                }
             }
             if ($ownedByAspNg) {
                 Write-Host "  ⚠  跳過 $($_.Name)（由 asp-ng 的 asp install 擁有，不覆寫）"

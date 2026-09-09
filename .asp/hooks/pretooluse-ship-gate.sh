@@ -95,12 +95,17 @@ if [ "$_GATE_RC" -eq 0 ]; then
 fi
 
 # 取 gate 印出的 `❌ BLOCKER <id>` 當命中謂詞；取不到才退回通用語。
-_FAILED=$(printf '%s\n' "$_GATE_OUT" | sed -n 's/^❌ BLOCKER \([a-z0-9-]*\).*/\1/p' | head -1)
+# 字元集含 `:` `_`：上游 asp-ng 的 gate 有 `lint:yaml` / `lint:markdown` 這類 id
+# （見其 .asp/gate.sh 的 ALL_CHECKS），`[a-z0-9-]*` 會在冒號處截斷成 `lint`。
+_FAILED=$(printf '%s\n' "$_GATE_OUT" | sed -n 's/^❌ BLOCKER \([a-z0-9:_-]*\).*/\1/p' | head -1)
 case "$_FAILED" in
   test-fresh)     _WHY="commit 前未見新鮮測試痕跡（.asp-test-result.json）"; _FIX="先跑 make test 再 commit" ;;
   gitleaks)       _WHY="staged 內容命中密鑰規則"; _FIX="把密鑰移出 staged 內容——**這一項不該用 ASP_SHIP_OK 繞過**" ;;
   vendor-verify)  _WHY="vendored 檢查本體與 VENDOR.lock 不符（就地改動或 lock 未更新）"; _FIX="自上游重新 vendoring 並更新 lock，勿就地改檔" ;;
   vendor-upstream) _WHY="上游對帳失敗"; _FIX="依 gate 輸出重新 vendoring" ;;
+  # 未列名的 id 仍**保留抽到的名字**——原本無條件覆寫成 unknown，等於把
+  # 「gate 加了新檢查」與「完全認不出」混為一談，診斷價值一起丟掉。
+  ?*)             _WHY="gate 的 $_FAILED 檢查未通過"; _FIX="直接跑 bash .asp/gate.sh 看該檢查的完整輸出" ;;
   *)              _FAILED="unknown"; _WHY="gate 未通過"; _FIX="直接跑 bash .asp/gate.sh 看完整輸出" ;;
 esac
 
@@ -115,7 +120,11 @@ else
 fi
 
 # gate 的診斷行原樣帶進 reason（截斷防爆量），人才看得到到底哪裡卡住。
-_DETAIL=$(printf '%s\n' "$_GATE_OUT" | grep -E '^(❌|⚠️|✅|⏭)' | tail -6 | tr '\n' ' ')
+# **`❌` 行優先**：原本只 `tail -6`，若 warning 行排在 BLOCKER 之後就會把真正的
+# 診斷截掉、只剩雜訊。現行 gate 命中 blocker 即 exit，BLOCKER 恆為最後一行，
+# 故那是潛伏而非現行缺陷——但排序成本為零，先擋著。
+_DETAIL=$( { printf '%s\n' "$_GATE_OUT" | grep -E '^❌'
+             printf '%s\n' "$_GATE_OUT" | grep -E '^(⚠️|✅|⏭)'; } | head -6 | tr '\n' ' ')
 jq -cn --arg why "$_WHY" --arg fix "$_FIX" --arg c "$_FAILED" --arg d "${_DETAIL:0:600}" \
   '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",
     permissionDecisionReason:("ASP commit 閘（\($c)）：\($why)。→ \($fix)。若確認要跳過，用 ASP_SHIP_OK=1 git commit ...（會留 bypass 遙測，且會一併關掉密鑰掃描）。gate 輸出：\($d)")}}'

@@ -43,7 +43,25 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 
+# PROJ 必須真的是 git repo（2026-09-09，第三輪複審）。
+# 初版直接把 $PROJ 餵給 `--source` 就掃，而 **gitleaks 對非 git 目錄回 rc=0**
+# （只在 stderr 留 `ERR error="stderr is not empty"`），於是「PROJ 解析失敗」＝靜默綠燈。
+# 這是本檔上一版修掉的那個假綠換了個形狀：從「掃到 CWD 的 repo」變成「什麼都沒掃」。
+# 檔頭寫著「掃錯 repo 而報綠比假紅危險得多」——那句話對這個形狀一樣適用，故補守衛。
+if ! git -C "$PROJ" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "❌ gitleaks: ASP_GATE_PROJ 不是 git repo（$PROJ）——無從掃描 staged 內容"
+  echo "   → 這是呼叫端傳錯路徑，不是「沒有密鑰」;fail-closed 而非靜默放行"
+  exit 1
+fi
+
 OUT=$(gitleaks protect --staged --source "$PROJ" --config "$CONFIG" 2>&1); RC=$?
+
+# rc=0 但 gitleaks 自己報了 ERR → 它其實沒掃成功，不能當「無命中」。
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'ERR '; then
+  printf '%s\n' "$OUT"
+  echo "❌ gitleaks: rc=0 但輸出含 ERR——掃描未真正完成，不採信這個綠燈"
+  exit 1
+fi
 if [ "$RC" -eq 0 ]; then
   exit 0
 fi
